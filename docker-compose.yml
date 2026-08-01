@@ -1,0 +1,40 @@
+services:
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: server-intelligence-victoriametrics
+    restart: unless-stopped
+
+    ports:
+      - "8428:8428"
+
+    volumes:
+      - victoria-metrics-data:/victoria-metrics-data
+
+    command:
+      - "--storageDataPath=/victoria-metrics-data"
+      - "--retentionPeriod=90d"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: server-intelligence-grafana
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+    depends_on:
+      - victoriametrics
+
+
+volumes:
+
+  victoria-metrics-data:
+    external: true
+    name: victoriametrics_victoria-metrics-data
+
+  grafana-data:
+    external: true
+    name: server-intelligence-grafana-data
