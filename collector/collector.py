@@ -10,10 +10,9 @@ COLLECTION_INTERVAL_SECONDS = 30
 
 def seconds_until_next_interval(interval):
     """
-    Return the number of seconds until the next
-    wall-clock-aligned collection boundary.
+    Return seconds until the next wall-clock-aligned boundary.
 
-    With a 30-second interval:
+    For 30-second collection:
 
         HH:MM:00
         HH:MM:30
@@ -25,10 +24,7 @@ def seconds_until_next_interval(interval):
         (int(now) // interval) + 1
     ) * interval
 
-    return max(
-        0,
-        next_boundary - now
-    )
+    return max(0.0, next_boundary - now)
 
 
 def main():
@@ -37,26 +33,25 @@ def main():
 
     print(
         "Server Intelligence collector started "
-        f"(interval={COLLECTION_INTERVAL_SECONDS}s)"
+        f"(interval={COLLECTION_INTERVAL_SECONDS}s)",
+        flush=True,
     )
 
     print(
-        "VictoriaMetrics publisher enabled"
-    )
-
-    print(
-        "Waiting for next collection boundary..."
+        "VictoriaMetrics publisher enabled",
+        flush=True,
     )
 
     try:
-        time.sleep(
-            seconds_until_next_interval(
+        while True:
+
+            # Independently synchronize every collection cycle
+            # to the next wall-clock boundary.
+            sleep_duration = seconds_until_next_interval(
                 COLLECTION_INTERVAL_SECONDS
             )
-        )
 
-        while True:
-            cycle_start = time.monotonic()
+            time.sleep(sleep_duration)
 
             try:
                 sample = metrics.collect()
@@ -64,39 +59,25 @@ def main():
                 publisher.publish(sample)
 
                 print(
-                    json.dumps(
-                        sample,
-                        indent=2
-                    ),
-                    flush=True
+                    json.dumps(sample),
+                    flush=True,
                 )
 
                 print(
                     "Published to VictoriaMetrics",
-                    flush=True
+                    flush=True,
                 )
 
             except Exception as exc:
                 print(
                     f"Collection/publish error: {exc}",
-                    flush=True
+                    flush=True,
                 )
-
-            collection_duration = (
-                time.monotonic() - cycle_start
-            )
-
-            sleep_duration = (
-                COLLECTION_INTERVAL_SECONDS
-                - collection_duration
-            )
-
-            if sleep_duration > 0:
-                time.sleep(sleep_duration)
 
     except KeyboardInterrupt:
         print(
-            "\nCollector stopped."
+            "\nCollector stopped.",
+            flush=True,
         )
 
 
