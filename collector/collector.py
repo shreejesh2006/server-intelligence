@@ -2,6 +2,7 @@ import json
 import time
 
 from metrics import SystemMetrics
+from publisher import VictoriaMetricsPublisher
 
 
 COLLECTION_INTERVAL_SECONDS = 30
@@ -9,32 +10,43 @@ COLLECTION_INTERVAL_SECONDS = 30
 
 def seconds_until_next_interval(interval):
     """
-    Calculate the number of seconds until the next aligned
-    collection boundary.
+    Return the number of seconds until the next
+    wall-clock-aligned collection boundary.
 
-    For a 30-second interval, samples occur approximately at:
+    With a 30-second interval:
 
         HH:MM:00
         HH:MM:30
     """
 
     now = time.time()
+
     next_boundary = (
         (int(now) // interval) + 1
     ) * interval
 
-    return max(0, next_boundary - now)
+    return max(
+        0,
+        next_boundary - now
+    )
 
 
 def main():
     metrics = SystemMetrics()
+    publisher = VictoriaMetricsPublisher()
 
     print(
         "Server Intelligence collector started "
         f"(interval={COLLECTION_INTERVAL_SECONDS}s)"
     )
 
-    print("Waiting for next collection boundary...")
+    print(
+        "VictoriaMetrics publisher enabled"
+    )
+
+    print(
+        "Waiting for next collection boundary..."
+    )
 
     try:
         time.sleep(
@@ -46,15 +58,29 @@ def main():
         while True:
             cycle_start = time.monotonic()
 
-            sample = metrics.collect()
+            try:
+                sample = metrics.collect()
 
-            print(
-                json.dumps(
-                    sample,
-                    indent=2
-                ),
-                flush=True
-            )
+                publisher.publish(sample)
+
+                print(
+                    json.dumps(
+                        sample,
+                        indent=2
+                    ),
+                    flush=True
+                )
+
+                print(
+                    "Published to VictoriaMetrics",
+                    flush=True
+                )
+
+            except Exception as exc:
+                print(
+                    f"Collection/publish error: {exc}",
+                    flush=True
+                )
 
             collection_duration = (
                 time.monotonic() - cycle_start
@@ -69,7 +95,9 @@ def main():
                 time.sleep(sleep_duration)
 
     except KeyboardInterrupt:
-        print("\nCollector stopped.")
+        print(
+            "\nCollector stopped."
+        )
 
 
 if __name__ == "__main__":
