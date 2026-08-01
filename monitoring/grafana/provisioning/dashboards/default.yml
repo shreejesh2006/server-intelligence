@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: Server Intelligence
+    orgId: 1
+    folder: Server Intelligence
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+
+    options:
+      path: /var/lib/grafana/dashboards

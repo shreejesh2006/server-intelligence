@@ -25,12 +25,15 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
 
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
     depends_on:
       - victoriametrics
 
 
 volumes:
-
   victoria-metrics-data:
     external: true
     name: victoriametrics_victoria-metrics-data
