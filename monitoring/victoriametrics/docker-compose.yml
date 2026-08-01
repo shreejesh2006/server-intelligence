@@ -1,0 +1,19 @@
+services:
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: server-intelligence-victoriametrics
+
+    restart: unless-stopped
+
+    ports:
+      - "8428:8428"
+
+    volumes:
+      - victoria-metrics-data:/victoria-metrics-data
+
+    command:
+      - "--storageDataPath=/victoria-metrics-data"
+      - "--retentionPeriod=90d"
+
+volumes:
+  victoria-metrics-data:
