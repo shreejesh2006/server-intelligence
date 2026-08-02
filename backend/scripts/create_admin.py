@@ -1,5 +1,18 @@
 import getpass
 import sys
+from pathlib import Path
+
+
+# Add the backend directory to Python's import path so this script
+# can be executed directly with:
+#
+#     python scripts/create_admin.py
+#
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 
 from sqlalchemy import select
 
