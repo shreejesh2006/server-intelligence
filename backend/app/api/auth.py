@@ -15,7 +15,11 @@ from app.schemas.auth import (
     LoginRequest,
     TokenResponse,
 )
-
+from app.auth.permissions import (
+    require_admin,
+    require_operator,
+    require_viewer,
+)
 
 router = APIRouter(
     prefix="/auth",
@@ -74,6 +78,40 @@ def login(
     "/me",
     response_model=AuthenticatedUser,
 )
+@router.get("/test/viewer")
+def test_viewer_access(
+    current_user: User = Depends(require_viewer),
+):
+    return {
+        "access": "granted",
+        "required_role": "VIEWER",
+        "username": current_user.username,
+        "role": current_user.role,
+    }
+
+
+@router.get("/test/operator")
+def test_operator_access(
+    current_user: User = Depends(require_operator),
+):
+    return {
+        "access": "granted",
+        "required_role": "OPERATOR",
+        "username": current_user.username,
+        "role": current_user.role,
+    }
+
+
+@router.get("/test/admin")
+def test_admin_access(
+    current_user: User = Depends(require_admin),
+):
+    return {
+        "access": "granted",
+        "required_role": "ADMIN",
+        "username": current_user.username,
+        "role": current_user.role,
+    }
 def get_me(
     current_user: User = Depends(get_current_user),
 ):
