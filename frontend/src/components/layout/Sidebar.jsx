@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router';
 import { 
   LayoutDashboard, 
@@ -8,7 +8,9 @@ import {
   Bell, 
   BarChart2, 
   Users, 
-  Sliders 
+  Sliders,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -23,36 +25,66 @@ const NAV_ITEMS = [
 ];
 
 export function Sidebar() {
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('server_intel_sidebar_collapsed') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('server_intel_sidebar_collapsed', isCollapsed);
+  }, [isCollapsed]);
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => !prev);
+  };
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
+      {/* Sidebar Header with Collapse Toggle */}
       <div className="sidebar-section-header">
-        <span className="editorial-tag">NAVIGATION / INDEX</span>
+        {!isCollapsed && <span className="editorial-tag font-mono">NAVIGATION / INDEX</span>}
+        <button
+          type="button"
+          onClick={toggleCollapse}
+          className="collapse-toggle-btn"
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
       </div>
 
-      <nav className="nav-list">
+      {/* Navigation List */}
+      <nav className="nav-list font-mono">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
               key={item.id}
               to={item.path}
+              title={isCollapsed ? `${item.id} / ${item.name}` : undefined}
               className={({ isActive }) =>
                 `nav-item ${isActive ? 'nav-item-active' : ''}`
               }
             >
               <span className="nav-num">{item.id}</span>
-              <span className="nav-label">{item.name}</span>
+              {!isCollapsed && <span className="nav-label">{item.name}</span>}
               <Icon size={14} className="nav-icon" />
             </NavLink>
           );
         })}
       </nav>
 
-      <div className="sidebar-footer">
-        <div className="system-meta-block">
-          <div className="meta-label">ENGINE STATE</div>
-          <div className="meta-value">VICTORIAMETRICS CONNECTED</div>
-        </div>
+      {/* Sidebar Footer */}
+      <div className="sidebar-footer font-mono">
+        {isCollapsed ? (
+          <div className="system-meta-compact" title="VICTORIAMETRICS CONNECTED">
+            <span className="live-dot-small" />
+          </div>
+        ) : (
+          <div className="system-meta-block">
+            <div className="meta-label">ENGINE STATE</div>
+            <div className="meta-value">VICTORIAMETRICS CONNECTED</div>
+          </div>
+        )}
       </div>
 
       <style>{`
@@ -62,34 +94,78 @@ export function Sidebar() {
           border-right: 1px solid var(--border-strong);
           display: flex;
           flex-direction: column;
-          padding: 24px 0;
+          padding: 16px 0;
           flex-shrink: 0;
+          transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-collapsed {
+          width: 64px;
         }
 
         .sidebar-section-header {
-          padding: 0 20px 16px 20px;
+          padding: 0 16px 12px 16px;
           border-bottom: 1px solid var(--border-subtle);
           margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          height: 36px;
+        }
+
+        .sidebar-collapsed .sidebar-section-header {
+          justify-content: center;
+          padding: 0 0 12px 0;
+        }
+
+        .collapse-toggle-btn {
+          background: transparent;
+          border: 1px solid var(--border-subtle);
+          color: var(--text-secondary);
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          border-radius: 2px;
+        }
+
+        .collapse-toggle-btn:hover {
+          background: var(--bg-surface-hover);
+          color: var(--accent);
+          border-color: var(--accent);
         }
 
         .nav-list {
           display: flex;
           flex-direction: column;
           flex: 1;
+          gap: 2px;
+          width: 100%;
         }
 
         .nav-item {
           display: flex;
           align-items: center;
-          padding: 10px 20px;
+          height: 42px;
+          width: 100%;
+          padding: 0 20px;
           color: var(--text-secondary);
           text-decoration: none;
           font-family: var(--font-mono);
           font-size: 11px;
           letter-spacing: 0.05em;
-          border-left: 2px solid transparent;
+          border-left: 3px solid transparent;
           transition: all 0.15s ease;
-          gap: 12px;
+          box-sizing: border-border-box;
+          white-space: nowrap;
+        }
+
+        .sidebar-collapsed .nav-item {
+          justify-content: space-between;
+          padding: 0 14px;
         }
 
         .nav-item:hover {
@@ -105,16 +181,26 @@ export function Sidebar() {
         }
 
         .nav-num {
+          font-family: var(--font-mono);
           opacity: 0.6;
           font-size: 10px;
+          width: 24px;
+          flex-shrink: 0;
+          text-align: left;
         }
 
         .nav-label {
           flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          text-align: left;
+          padding-left: 4px;
         }
 
         .nav-icon {
-          opacity: 0.4;
+          flex-shrink: 0;
+          opacity: 0.6;
+          width: 16px;
           transition: opacity 0.15s ease;
         }
 
@@ -124,14 +210,41 @@ export function Sidebar() {
         }
 
         .sidebar-footer {
-          padding: 20px;
+          padding: 16px;
           border-top: 1px solid var(--border-subtle);
+          margin-top: 12px;
+          width: 100%;
+        }
+
+        .sidebar-collapsed .sidebar-footer {
+          padding: 12px 0;
+          display: flex;
+          justify-content: center;
         }
 
         .system-meta-block {
           background: var(--bg-main);
           border: 1px solid var(--border-subtle);
           padding: 10px 12px;
+          width: 100%;
+        }
+
+        .system-meta-compact {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          background: var(--bg-main);
+          border: 1px solid var(--border-subtle);
+        }
+
+        .live-dot-small {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background-color: var(--status-healthy);
+          box-shadow: 0 0 6px var(--status-healthy);
         }
 
         .meta-label {
@@ -148,19 +261,6 @@ export function Sidebar() {
           font-size: 10px;
           color: var(--text-primary);
           font-weight: 500;
-        }
-
-        @media (max-width: 768px) {
-          .sidebar {
-            width: 60px;
-          }
-          .sidebar-section-header, .sidebar-footer, .nav-label, .nav-num {
-            display: none;
-          }
-          .nav-item {
-            justify-content: center;
-            padding: 14px 0;
-          }
         }
       `}</style>
     </aside>
