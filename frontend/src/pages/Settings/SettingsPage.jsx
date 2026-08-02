@@ -1,6 +1,6 @@
 import React from 'react';
 import PageHeader from '../../components/common/PageHeader';
-import { Sliders, Shield, Database, Bell, Lock, Sun, Moon, Clock } from 'lucide-react';
+import { Database, Bell, Lock, Sun, Moon, Clock, Sliders } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useTimezone } from '../../context/TimezoneContext';
 

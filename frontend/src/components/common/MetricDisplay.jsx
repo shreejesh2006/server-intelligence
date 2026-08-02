@@ -5,7 +5,6 @@ export function MetricDisplay({
   value,
   unit = '%',
   sublabel,
-  accentColor,
   status = 'normal', // normal, warning, critical
   secondaryText,
 }) {
@@ -17,6 +16,7 @@ export function MetricDisplay({
         <span className="editorial-tag">{label}</span>
         {status === 'critical' && <span className="editorial-pill pill-critical">CRITICAL</span>}
         {status === 'warning' && <span className="editorial-pill pill-warning">ELEVATED</span>}
+        {status === 'normal' && <span className="editorial-pill pill-neutral">NOMINAL</span>}
       </div>
 
       <div className="metric-value-row">
@@ -45,6 +45,10 @@ export function MetricDisplay({
           transition: border-color 0.15s ease;
         }
 
+        .metric-display-block.status-normal {
+          border-left-color: var(--status-healthy);
+        }
+
         .metric-display-block.status-warning {
           border-left-color: var(--status-warning);
         }
@@ -66,16 +70,16 @@ export function MetricDisplay({
         }
 
         .metric-number {
-          font-size: 38px;
-          font-weight: 600;
+          font-size: 36px;
+          font-weight: 700;
           line-height: 1;
           color: var(--text-primary);
-          letter-spacing: -0.03em;
+          letter-spacing: -0.02em;
         }
 
         .metric-unit {
-          font-size: 16px;
-          color: var(--text-secondary);
+          font-size: 14px;
+          color: var(--text-tertiary);
           font-weight: 400;
         }
 
@@ -91,6 +95,10 @@ export function MetricDisplay({
 
         .metric-sublabel {
           color: var(--text-secondary);
+        }
+
+        .metric-secondary {
+          color: var(--text-tertiary);
         }
       `}</style>
     </div>

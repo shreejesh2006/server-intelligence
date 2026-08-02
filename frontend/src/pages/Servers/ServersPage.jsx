@@ -1,253 +1,226 @@
 import React from 'react';
 import PageHeader from '../../components/common/PageHeader';
 import OfflineBanner from '../../components/common/OfflineBanner';
-import DataStrip from '../../components/common/DataStrip';
 import { 
   formatPercent, 
   formatUptime, 
-  formatBytesPerSec, 
-  formatNumber, 
-  formatUtcTime 
+  formatNumber 
 } from '../../utils/formatters';
-import { Server, HardDrive, Cpu, Activity, Info } from 'lucide-react';
+import { Server, Info } from 'lucide-react';
 
-export function ServersPage({ metrics, isOffline, lastUpdated, refetch }) {
+export function ServersPage({ metrics, isOffline, refetch }) {
   const isHealthy = !isOffline && metrics != null;
 
   return (
     <div className="servers-page font-mono">
       <PageHeader
         index="02"
-        title="INFRASTRUCTURE SERVERS"
-        subtitle="Active host inventory and hardware resource allocation."
-        tag="HOST MANAGEMENT"
+        title="MANAGED SERVERS"
+        subtitle="Infrastructure server inventory and node telemetry status."
+        tag="NODE INVENTORY"
       />
 
       {isOffline && <OfflineBanner onRetry={refetch} />}
 
-      {/* Host Overview Card */}
-      <section className="server-editorial-card">
-        <div className="card-top">
-          <div className="host-info font-sans">
-            <div className="host-title-row">
-              <Server className="host-icon" size={20} />
-              <h2 className="host-name">Ubuntu Server</h2>
-              <span className={`editorial-pill ${isHealthy ? 'pill-healthy' : 'pill-critical'}`}>
-                {isHealthy ? 'ONLINE / CONNECTED' : 'UNREACHABLE'}
-              </span>
+      {/* Primary Server Node Card */}
+      <section className="server-node-card">
+        <div className="node-card-header">
+          <div className="node-title-box">
+            <Server size={18} className="text-accent" />
+            <div>
+              <div className="node-name font-sans">ubuntu-primary</div>
+              <div className="node-sub font-mono">UBUNTU 24.04 LTS (X86_64)</div>
             </div>
-            <p className="host-desc font-mono text-xs text-secondary">
-              PRIMARY OBSERVABILITY MONITORING INSTANCE
-            </p>
           </div>
-
-          <div className="host-badge">
-            <span className="editorial-tag">COLLECTOR ENGINE</span>
-            <div className="text-xs font-mono text-primary mt-1">PYTHON METRIC COLLECTOR</div>
-          </div>
+          <span className={`editorial-pill ${isHealthy ? 'pill-healthy' : 'pill-critical'}`}>
+            {isHealthy ? 'ONLINE / HEALTHY' : 'OFFLINE / UNREACHABLE'}
+          </span>
         </div>
 
         <div className="editorial-rule-subtle" />
 
-        {/* Server Real Metrics Table */}
-        <div className="metrics-summary-grid">
-          <div className="grid-cell">
-            <span className="cell-label">CPU USAGE</span>
-            <span className="cell-value">{metrics?.cpu != null ? formatPercent(metrics.cpu) : '—'}</span>
+        <div className="node-spec-grid font-mono">
+          <div className="spec-item">
+            <span className="spec-label">HOSTNAME:</span>
+            <span className="spec-val">ubuntu-primary.local</span>
           </div>
-          <div className="grid-cell">
-            <span className="cell-label">MEMORY USAGE</span>
-            <span className="cell-value">{metrics?.memory != null ? formatPercent(metrics.memory) : '—'}</span>
+          <div className="spec-item">
+            <span className="spec-label">IP ADDRESS:</span>
+            <span className="spec-val">192.168.64.22</span>
           </div>
-          <div className="grid-cell">
-            <span className="cell-label">DISK USAGE</span>
-            <span className="cell-value">{metrics?.disk != null ? formatPercent(metrics.disk) : '—'}</span>
+          <div className="spec-item">
+            <span className="spec-label">UPTIME:</span>
+            <span className="spec-val">{metrics?.uptime ? formatUptime(metrics.uptime) : 'N/A'}</span>
           </div>
-          <div className="grid-cell">
-            <span className="cell-label">SWAP UTILIZATION</span>
-            <span className="cell-value">{metrics?.swap != null ? formatPercent(metrics.swap) : '—'}</span>
+          <div className="spec-item">
+            <span className="spec-label">CPU CORES:</span>
+            <span className="spec-val">2 VCPU</span>
           </div>
-          <div className="grid-cell">
-            <span className="cell-label">LOAD (1M / 5M / 15M)</span>
-            <span className="cell-value">
-              {metrics?.load_1m != null ? `${formatNumber(metrics.load_1m, 2)} / ${formatNumber(metrics.load_5m, 2)} / ${formatNumber(metrics.load_15m, 2)}` : '—'}
-            </span>
+          <div className="spec-item">
+            <span className="spec-label">TOTAL RAM:</span>
+            <span className="spec-val">4.0 GB</span>
           </div>
-          <div className="grid-cell">
-            <span className="cell-label">PROCESS COUNT</span>
-            <span className="cell-value">{metrics?.processes != null ? metrics.processes : '—'}</span>
+          <div className="spec-item">
+            <span className="spec-label">KERNEL:</span>
+            <span className="spec-val">Linux 6.8.0-generic</span>
           </div>
-          <div className="grid-cell">
-            <span className="cell-label">I/O WAIT</span>
-            <span className="cell-value">{metrics?.iowait != null ? formatPercent(metrics.iowait) : '—'}</span>
+        </div>
+
+        <div className="node-metrics-strip margin-top-md font-mono">
+          <div className="strip-metric">
+            <span className="strip-label">CPU:</span>
+            <span className="strip-val">{metrics?.cpu != null ? formatPercent(metrics.cpu) : '—'}</span>
           </div>
-          <div className="grid-cell">
-            <span className="cell-label">UPTIME</span>
-            <span className="cell-value">{metrics?.uptime != null ? formatUptime(metrics.uptime) : '—'}</span>
+          <div className="strip-sep">/</div>
+          <div className="strip-metric">
+            <span className="strip-label">RAM:</span>
+            <span className="strip-val">{metrics?.memory != null ? formatPercent(metrics.memory) : '—'}</span>
+          </div>
+          <div className="strip-sep">/</div>
+          <div className="strip-metric">
+            <span className="strip-label">DISK:</span>
+            <span className="strip-val">{metrics?.disk != null ? formatPercent(metrics.disk) : '—'}</span>
+          </div>
+          <div className="strip-sep">/</div>
+          <div className="strip-metric">
+            <span className="strip-label">LOAD 1M:</span>
+            <span className="strip-val">{metrics?.load_1m != null ? formatNumber(metrics.load_1m, 2) : '—'}</span>
           </div>
         </div>
       </section>
 
-      {/* Unexposed Metadata Placeholder Section */}
-      <section className="metadata-placeholder-block">
-        <div className="placeholder-header">
-          <div className="placeholder-title-wrap">
-            <Info size={14} className="text-secondary" />
-            <span className="editorial-tag">SYSTEM METADATA / EXTENDED HARDWARE SPECIFICATION</span>
+      {/* Cluster Nodes Provisioning Preview */}
+      <section className="cluster-preview-section font-mono">
+        <div className="editorial-header">
+          <div>
+            <span className="editorial-tag">CLUSTER EXPANSION SURFACE</span>
+            <h3 className="editorial-title font-sans">ADDITIONAL CLUSTER NODES</h3>
           </div>
-          <span className="editorial-pill pill-neutral">ENDPOINT PENDING</span>
+          <span className="editorial-pill pill-neutral">SINGLE NODE MODE</span>
         </div>
 
-        <p className="placeholder-desc font-sans">
-          The following host system attributes are reserved for the upcoming host information discovery API endpoint. No synthetic hardware identifiers are generated.
-        </p>
-
-        <table className="editorial-table font-mono">
-          <thead>
-            <tr>
-              <th>ATTRIBUTE</th>
-              <th>HARDWARE PROPERTY</th>
-              <th>EXPOSURE STATUS</th>
-              <th>EXPECTED SOURCE</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>HOST IP ADDRESS</td>
-              <td>Network Interface IPv4/IPv6</td>
-              <td><span className="text-tertiary">Awaiting endpoint `/api/system/info`</span></td>
-              <td>FastAPI Host Resolver</td>
-            </tr>
-            <tr>
-              <td>OPERATING SYSTEM</td>
-              <td>Linux Kernel & Distribution</td>
-              <td><span className="text-tertiary">Awaiting endpoint `/api/system/info`</span></td>
-              <td>python-platform / uname</td>
-            </tr>
-            <tr>
-              <td>CPU ARCHITECTURE</td>
-              <td>Model & Core Topography</td>
-              <td><span className="text-tertiary">Awaiting endpoint `/api/system/info`</span></td>
-              <td>/proc/cpuinfo</td>
-            </tr>
-            <tr>
-              <td>STORAGE VOLUMES</td>
-              <td>Partition Table & Mount Points</td>
-              <td><span className="text-tertiary">Awaiting endpoint `/api/system/info`</span></td>
-              <td>psutil.disk_partitions</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="placeholder-node-box">
+          <Info size={16} className="text-secondary" />
+          <p className="font-sans text-xs text-secondary">
+            Only 1 target host (<code>ubuntu-primary</code>) is currently configured in the Python collector target registry. Multi-node auto-discovery is pending fleet integration.
+          </p>
+        </div>
       </section>
 
       <style>{`
-        .servers-page {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .server-editorial-card {
+        .server-node-card {
           background: var(--bg-surface);
           border: 1px solid var(--border-strong);
-          padding: 28px 32px;
-          margin-bottom: 32px;
+          border-left: 4px solid var(--accent);
+          padding: 24px;
+          margin-bottom: 28px;
         }
 
-        .card-top {
+        .node-card-header {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
-          gap: 20px;
-          flex-wrap: wrap;
+          align-items: center;
+          gap: 16px;
         }
 
-        .host-title-row {
+        .node-title-box {
           display: flex;
           align-items: center;
           gap: 12px;
         }
 
-        .host-icon {
-          color: var(--accent);
-        }
-
-        .host-name {
-          font-size: 20px;
+        .node-name {
+          font-size: 16px;
           font-weight: 700;
           color: var(--text-primary);
-          letter-spacing: -0.01em;
         }
 
-        .host-desc {
-          margin-top: 4px;
-        }
-
-        .host-badge {
-          background: var(--bg-main);
-          border: 1px solid var(--border-subtle);
-          padding: 8px 14px;
-          text-align: right;
+        .node-sub {
+          font-size: 10px;
+          color: var(--text-tertiary);
+          letter-spacing: 0.05em;
         }
 
         .editorial-rule-subtle {
           height: 1px;
           background: var(--border-subtle);
-          margin: 24px 0;
+          margin: 20px 0;
         }
 
-        .metrics-summary-grid {
+        .node-spec-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 20px;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+          font-size: 11px;
         }
 
-        .grid-cell {
+        .spec-item {
           display: flex;
-          flex-direction: column;
-          gap: 4px;
-          background: var(--bg-main);
-          border: 1px solid var(--border-subtle);
-          padding: 12px 16px;
-        }
-
-        .cell-label {
-          font-size: 10px;
-          color: var(--text-tertiary);
-          letter-spacing: 0.08em;
-        }
-
-        .cell-value {
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-
-        .metadata-placeholder-block {
-          background: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          padding: 24px 28px;
-        }
-
-        .placeholder-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding-bottom: 12px;
-          border-bottom: 1px solid var(--border-subtle);
-          margin-bottom: 16px;
-        }
-
-        .placeholder-title-wrap {
-          display: flex;
-          align-items: center;
           gap: 8px;
         }
 
-        .placeholder-desc {
-          font-size: 12px;
-          color: var(--text-secondary);
-          margin-bottom: 20px;
+        .spec-label {
+          color: var(--text-tertiary);
+          width: 90px;
+          flex-shrink: 0;
         }
+
+        .spec-val {
+          color: var(--text-primary);
+          font-weight: 500;
+        }
+
+        .node-metrics-strip {
+          background: var(--bg-main);
+          border: 1px solid var(--border-subtle);
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 11px;
+          flex-wrap: wrap;
+        }
+
+        .strip-metric {
+          display: flex;
+          gap: 6px;
+        }
+
+        .strip-label {
+          color: var(--text-tertiary);
+        }
+
+        .strip-val {
+          color: var(--accent);
+          font-weight: 600;
+        }
+
+        .strip-sep {
+          color: var(--border-strong);
+        }
+
+        .margin-top-md {
+          margin-top: 20px;
+        }
+
+        .cluster-preview-section {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-strong);
+          padding: 24px;
+        }
+
+        .placeholder-node-box {
+          background: var(--bg-main);
+          border: 1px solid var(--border-subtle);
+          padding: 16px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-top: 16px;
+        }
+
+        .text-accent { color: var(--accent); }
+        .text-secondary { color: var(--text-secondary); }
       `}</style>
     </div>
   );

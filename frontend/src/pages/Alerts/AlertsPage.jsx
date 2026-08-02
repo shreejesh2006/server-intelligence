@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PageHeader from '../../components/common/PageHeader';
 import EmptyState from '../../components/common/EmptyState';
-import { Bell, ShieldAlert, CheckCircle2, Info } from 'lucide-react';
+import { Bell } from 'lucide-react';
 
 export function AlertsPage() {
   const [activeTab, setActiveTab] = useState('ALL');

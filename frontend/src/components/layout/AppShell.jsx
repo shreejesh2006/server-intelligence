@@ -2,7 +2,7 @@ import React from 'react';
 import TopBar from './TopBar';
 import Sidebar from './Sidebar';
 
-export function AppShell({ children, isOffline, lastUpdated, onRefresh, loading }) {
+export function AppShell({ children, isOffline, lastUpdated, onRefresh, loading, freshnessState, freshnessLabel }) {
   return (
     <div className="app-grid">
       <TopBar
@@ -10,6 +10,8 @@ export function AppShell({ children, isOffline, lastUpdated, onRefresh, loading 
         lastUpdated={lastUpdated}
         onRefresh={onRefresh}
         loading={loading}
+        freshnessState={freshnessState}
+        freshnessLabel={freshnessLabel}
       />
       <div className="app-body">
         <Sidebar />
@@ -32,6 +34,8 @@ export function AppShell({ children, isOffline, lastUpdated, onRefresh, loading 
 
       <style>{`
         .editorial-footer {
+          position: sticky;
+          bottom: 0;
           height: var(--footer-height);
           background-color: var(--bg-surface);
           border-top: 1px solid var(--border-strong);
@@ -43,7 +47,7 @@ export function AppShell({ children, isOffline, lastUpdated, onRefresh, loading 
           font-size: 10px;
           color: var(--text-tertiary);
           letter-spacing: 0.05em;
-          z-index: 5;
+          z-index: 10;
         }
 
         .footer-left, .footer-right {

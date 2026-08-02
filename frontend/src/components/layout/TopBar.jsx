@@ -4,7 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTimezone } from '../../context/TimezoneContext';
 
-export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
+export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessState = 'FRESH', freshnessLabel = 'TELEMETRY FRESH' }) {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const { formatTimestamp } = useTimezone();
@@ -12,6 +12,14 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
   const formattedTime = lastUpdated
     ? formatTimestamp(Math.floor(lastUpdated.getTime() / 1000), true)
     : 'INITIALIZING...';
+
+  // Determine freshness pill style
+  let pillClass = 'pill-healthy';
+  if (freshnessState === 'OFFLINE' || isOffline) {
+    pillClass = 'pill-critical';
+  } else if (freshnessState === 'STALE') {
+    pillClass = 'pill-warning';
+  }
 
   return (
     <header className="topbar">
@@ -32,15 +40,16 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
 
         <div className="topbar-divider" />
 
-        {/* Live / Offline Status */}
+        {/* Live / Stale / Offline Freshness Status */}
         <div className="topbar-item">
-          {isOffline ? (
+          {isOffline || freshnessState === 'OFFLINE' ? (
             <span className="editorial-pill pill-critical">
-              <WifiOff size={11} /> API DISCONNECTED
+              <WifiOff size={11} /> API OFFLINE
             </span>
           ) : (
-            <span className="editorial-pill pill-healthy">
-              <span className="live-dot" /> LIVE TELEMETRY
+            <span className={`editorial-pill ${pillClass}`}>
+              <span className={`live-dot ${freshnessState === 'STALE' ? 'dot-stale' : ''}`} />
+              {freshnessLabel}
             </span>
           )}
         </div>
@@ -53,6 +62,7 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
           <button
             type="button"
             onClick={onRefresh}
+            aria-label="Refresh telemetry metrics"
             className={`icon-btn ${loading ? 'spinning' : ''}`}
             title="Refresh metrics"
           >
@@ -67,6 +77,7 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
           <button
             type="button"
             onClick={toggleTheme}
+            aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} visual mode`}
             className="editorial-btn text-xs font-mono theme-toggle-btn"
             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
           >
@@ -89,6 +100,7 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
           <button
             type="button"
             onClick={logout}
+            aria-label="Sign Out and terminate session"
             className="icon-btn logout-btn"
             title="Sign Out / Terminate Session"
           >
@@ -100,6 +112,8 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
       <style>{`
         .topbar {
           height: var(--topbar-height);
+          position: sticky;
+          top: 0;
           background-color: var(--bg-surface);
           border-bottom: 1px solid var(--border-strong);
           display: flex;
@@ -180,6 +194,17 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
           background-color: var(--status-healthy);
           display: inline-block;
           box-shadow: 0 0 6px var(--status-healthy);
+        }
+
+        .dot-stale {
+          background-color: var(--status-warning);
+          box-shadow: 0 0 6px var(--status-warning);
+        }
+
+        .pill-warning {
+          background: rgba(245, 158, 11, 0.1);
+          color: var(--status-warning);
+          border-color: rgba(245, 158, 11, 0.3);
         }
 
         .icon-btn {

@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router';
+import { Navigate, useNavigate, useLocation } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { Activity, Lock, AlertOctagon, RefreshCw } from 'lucide-react';
+import { Activity, Lock, AlertOctagon, RefreshCw, Eye, EyeOff, Info } from 'lucide-react';
 
 export function LoginPage() {
   const { isAuthenticated, login, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // If already authenticated, redirect to /overview
+  // Target page memory: default to /overview if no target page passed
+  const targetPath = location.state?.from?.pathname || '/overview';
+
+  // If already authenticated, redirect to target path
   if (isAuthenticated && !isAuthLoading) {
-    return <Navigate to="/overview" replace />;
+    return <Navigate to={targetPath} replace />;
   }
 
   const handleSubmit = async (e) => {
@@ -26,12 +31,11 @@ export function LoginPage() {
 
     try {
       await login(username.trim(), password);
-      navigate('/overview', { replace: true });
+      navigate(targetPath, { replace: true });
     } catch (err) {
       const status = err.response ? err.response.status : null;
       const detail = err.response?.data?.detail;
 
-      // Safe non-sensitive diagnostic log for development (NO CREDENTIALS, NO TOKENS)
       if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
         console.debug('[LoginPage Auth Error Diagnostic]', {
           status,
@@ -83,6 +87,14 @@ export function LoginPage() {
           </div>
         </div>
 
+        {/* Redirect Notice */}
+        {location.state?.from && (
+          <div className="login-info-banner font-mono">
+            <Info size={15} className="text-accent shrink-0" />
+            <span>Session authorization required to access {location.state.from.pathname}.</span>
+          </div>
+        )}
+
         {/* Error Notification */}
         {errorMessage && (
           <div className="login-error-banner font-mono">
@@ -114,17 +126,28 @@ export function LoginPage() {
             <label htmlFor="password-input" className="form-label">
               PASSWORD:
             </label>
-            <input
-              id="password-input"
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              disabled={isSubmitting}
-              className="editorial-input login-input"
-            />
+            <div className="password-input-wrapper">
+              <input
+                id="password-input"
+                type={showPassword ? 'text' : 'password'}
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                disabled={isSubmitting}
+                className="editorial-input login-input password-input"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="password-toggle-btn icon-btn"
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
           </div>
 
           <div className="form-action">
@@ -215,6 +238,19 @@ export function LoginPage() {
           line-height: 1.5;
         }
 
+        .login-info-banner {
+          background-color: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+          border-left: 3px solid var(--accent);
+          padding: 10px 14px;
+          font-size: 11px;
+          color: var(--text-primary);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 20px;
+        }
+
         .login-error-banner {
           background-color: rgba(239, 68, 68, 0.1);
           border: 1px solid rgba(239, 68, 68, 0.3);
@@ -248,11 +284,31 @@ export function LoginPage() {
           letter-spacing: 0.08em;
         }
 
+        .password-input-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
         .login-input {
           width: 100%;
           text-align: left;
           padding: 10px 14px;
           font-size: 12px;
+        }
+
+        .password-input {
+          padding-right: 38px;
+        }
+
+        .password-toggle-btn {
+          position: absolute;
+          right: 10px;
+          color: var(--text-tertiary);
+        }
+
+        .password-toggle-btn:hover {
+          color: var(--accent);
         }
 
         .login-input:focus {

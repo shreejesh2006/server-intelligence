@@ -1,24 +1,53 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { TimezoneProvider } from './context/TimezoneContext';
 import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import useMetrics from './hooks/useMetrics';
+import { RefreshCw } from 'lucide-react';
 
-import LoginPage from './pages/Login/LoginPage';
-import OverviewPage from './pages/Overview/OverviewPage';
-import ServersPage from './pages/Servers/ServersPage';
-import ForecastsPage from './pages/Forecasts/ForecastsPage';
-import AnomaliesPage from './pages/Anomalies/AnomaliesPage';
-import AlertsPage from './pages/Alerts/AlertsPage';
-import AnalyticsPage from './pages/Analytics/AnalyticsPage';
-import UsersPage from './pages/Users/UsersPage';
-import SettingsPage from './pages/Settings/SettingsPage';
+// Code-split page components with React.lazy
+const LoginPage = lazy(() => import('./pages/Login/LoginPage'));
+const OverviewPage = lazy(() => import('./pages/Overview/OverviewPage'));
+const ServersPage = lazy(() => import('./pages/Servers/ServersPage'));
+const ForecastsPage = lazy(() => import('./pages/Forecasts/ForecastsPage'));
+const AnomaliesPage = lazy(() => import('./pages/Anomalies/AnomaliesPage'));
+const AlertsPage = lazy(() => import('./pages/Alerts/AlertsPage'));
+const AnalyticsPage = lazy(() => import('./pages/Analytics/AnalyticsPage'));
+const UsersPage = lazy(() => import('./pages/Users/UsersPage'));
+const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFound/NotFoundPage'));
+
+// Page loading fallback indicator
+function PageFallback() {
+  return (
+    <div className="page-suspense-fallback font-mono">
+      <RefreshCw size={16} className="spinning text-accent" />
+      <span>LOADING SURFACE MODULE...</span>
+      <style>{`
+        .page-suspense-fallback {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 60px 0;
+          color: var(--text-tertiary);
+          font-size: 11px;
+          letter-spacing: 0.08em;
+        }
+        .text-accent { color: var(--accent); }
+        .spinning { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+      `}</style>
+    </div>
+  );
+}
 
 function AuthenticatedAppShell() {
-  const { metrics, loading, isOffline, lastUpdated, refetch } = useMetrics(30000);
+  const { metrics, loading, isOffline, lastUpdated, freshnessState, freshnessLabel, refetch } = useMetrics(30000);
 
   return (
     <AppShell
@@ -26,107 +55,122 @@ function AuthenticatedAppShell() {
       lastUpdated={lastUpdated}
       onRefresh={refetch}
       loading={loading}
+      freshnessState={freshnessState}
+      freshnessLabel={freshnessLabel}
     >
-      <Routes>
-        <Route
-          path="/"
-          element={<Navigate to="/overview" replace />}
-        />
-        <Route
-          path="/overview"
-          element={
-            <ProtectedRoute>
-              <OverviewPage
-                metrics={metrics}
-                isOffline={isOffline}
-                lastUpdated={lastUpdated}
-                refetch={refetch}
-                loading={loading}
-              />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/servers"
-          element={
-            <ProtectedRoute>
-              <ServersPage
-                metrics={metrics}
-                isOffline={isOffline}
-                lastUpdated={lastUpdated}
-                refetch={refetch}
-              />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/forecasts"
-          element={
-            <ProtectedRoute>
-              <ForecastsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/anomalies"
-          element={
-            <ProtectedRoute>
-              <AnomaliesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/alerts"
-          element={
-            <ProtectedRoute>
-              <AlertsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/analytics"
-          element={
-            <ProtectedRoute>
-              <AnalyticsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/users"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <UsersPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <SettingsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/overview" replace />} />
-      </Routes>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route
+            path="/"
+            element={<Navigate to="/overview" replace />}
+          />
+          <Route
+            path="/overview"
+            element={
+              <ProtectedRoute>
+                <OverviewPage
+                  metrics={metrics}
+                  isOffline={isOffline}
+                  lastUpdated={lastUpdated}
+                  refetch={refetch}
+                  loading={loading}
+                />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/servers"
+            element={
+              <ProtectedRoute>
+                <ServersPage
+                  metrics={metrics}
+                  isOffline={isOffline}
+                  lastUpdated={lastUpdated}
+                  refetch={refetch}
+                />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/forecasts"
+            element={
+              <ProtectedRoute>
+                <ForecastsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/anomalies"
+            element={
+              <ProtectedRoute>
+                <AnomaliesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/alerts"
+            element={
+              <ProtectedRoute>
+                <AlertsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <AnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <UsersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="*"
+            element={
+              <ProtectedRoute>
+                <NotFoundPage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Suspense>
     </AppShell>
   );
 }
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <TimezoneProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/*" element={<AuthenticatedAppShell />} />
-            </Routes>
-          </BrowserRouter>
-        </TimezoneProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <TimezoneProvider>
+            <BrowserRouter>
+              <Suspense fallback={<PageFallback />}>
+                <Routes>
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/*" element={<AuthenticatedAppShell />} />
+                </Routes>
+              </Suspense>
+            </BrowserRouter>
+          </TimezoneProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

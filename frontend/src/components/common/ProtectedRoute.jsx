@@ -1,11 +1,12 @@
 import React from 'react';
-import { Navigate } from 'react-router';
+import { Navigate, useLocation } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import AccessDenied from './AccessDenied';
 import { RefreshCw } from 'lucide-react';
 
 export function ProtectedRoute({ children, allowedRoles }) {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
 
   // Startup validation phase: render clean editorial loading screen
   if (isLoading) {
@@ -59,9 +60,9 @@ export function ProtectedRoute({ children, allowedRoles }) {
     );
   }
 
-  // Anonymous user: redirect to /login
+  // Anonymous user: redirect to /login with target location memory
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Allowed roles check

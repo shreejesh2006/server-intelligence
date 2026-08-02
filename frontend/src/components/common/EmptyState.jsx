@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, Terminal, ShieldAlert, Sparkles } from 'lucide-react';
+import { Cpu } from 'lucide-react';
 
 export function EmptyState({
   title = 'CAPABILITY MODULE PENDING',

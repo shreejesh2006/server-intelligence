@@ -16,19 +16,23 @@ import {
 } from '../../utils/formatters';
 
 const TIME_WINDOWS = [
-  { id: '5m', label: '5 MIN', start: '-5m', step: '5s', subtitle: 'OVER 5m (5s STEP)' },
-  { id: '15m', label: '15 MIN', start: '-15m', step: '15s', subtitle: 'OVER 15m (15s STEP)' },
-  { id: '30m', label: '30 MIN', start: '-30m', step: '30s', subtitle: 'OVER 30m (30s STEP)' },
-  { id: '1h', label: '1 HOUR', start: '-1h', step: '30s', subtitle: 'OVER 60m (30s STEP)' },
-  { id: '3h', label: '3 HOURS', start: '-3h', step: '1m', subtitle: 'OVER 3h (1m STEP)' },
-  { id: '6h', label: '6 HOURS', start: '-6h', step: '2m', subtitle: 'OVER 6h (2m STEP)' },
-  { id: '12h', label: '12 HOURS', start: '-12h', step: '5m', subtitle: 'OVER 12h (5m STEP)' },
+  { id: '5m', label: '5M', start: '-5m', step: '5s', subtitle: 'OVER 5 MINUTES (5s STEP)' },
+  { id: '15m', label: '15M', start: '-15m', step: '15s', subtitle: 'OVER 15 MINUTES (15s STEP)' },
+  { id: '30m', label: '30M', start: '-30m', step: '30s', subtitle: 'OVER 30 MINUTES (30s STEP)' },
+  { id: '1h', label: '1H', start: '-1h', step: '30s', subtitle: 'OVER 1 HOUR (30s STEP)' },
+  { id: '3h', label: '3H', start: '-3h', step: '1m', subtitle: 'OVER 3 HOURS (1m STEP)' },
+  { id: '6h', label: '6H', start: '-6h', step: '2m', subtitle: 'OVER 6 HOURS (2m STEP)' },
+  { id: '12h', label: '12H', start: '-12h', step: '5m', subtitle: 'OVER 12 HOURS (5m STEP)' },
+  { id: '24h', label: '24H', start: '-24h', step: '10m', subtitle: 'OVER 24 HOURS (10m STEP)' },
 ];
 
-export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading }) {
+export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
   // Selected time window state
   const [selectedWindowId, setSelectedWindowId] = useState('1h');
   const activeWindow = TIME_WINDOWS.find((w) => w.id === selectedWindowId) || TIME_WINDOWS[3];
+
+  // History loading state
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   // History state for charts
   const [cpuHistory, setCpuHistory] = useState([]);
@@ -46,6 +50,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
     let isCancelled = false;
 
     async function loadHistoryData() {
+      setHistoryLoading(true);
       try {
         const { start, step } = activeWindow;
         const [cpuRes, memRes, swapRes, loadRes, netRes, diskRes] = await Promise.all([
@@ -93,7 +98,13 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
         // Disk IO
         setDiskIoHistory(diskRes.timeline || []);
       } catch (err) {
-        console.warn('Error loading telemetry history:', err);
+        if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
+          console.warn('Error loading telemetry history:', err);
+        }
+      } finally {
+        if (!isCancelled) {
+          setHistoryLoading(false);
+        }
       }
     }
 
@@ -102,7 +113,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
     return () => {
       isCancelled = true;
     };
-  }, [lastUpdated, selectedWindowId]);
+  }, [lastUpdated, selectedWindowId, activeWindow]);
 
   const cpuCurrent = metrics?.cpu != null ? formatNumber(metrics.cpu, 1) : null;
   const memCurrent = metrics?.memory != null ? formatNumber(metrics.memory, 1) : null;
@@ -119,11 +130,11 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
 
       {isOffline && <OfflineBanner onRetry={refetch} />}
 
-      {/* System Health Hero */}
+      {/* 1. SERVER STATUS HERO */}
       <section className="health-hero font-mono">
         <div className="hero-status-row">
           <div className="hero-status-left">
-            <span className="editorial-tag">OPERATIONAL STATE</span>
+            <span className="editorial-tag">01 / OPERATIONAL STATE</span>
             <div className="hero-status-title">
               {isOffline ? (
                 <span className="text-critical">SYSTEM OFFLINE — TELEMETRY UNREACHABLE</span>
@@ -142,7 +153,11 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
         </div>
       </section>
 
-      {/* Primary Telemetry Grid */}
+      {/* 2. CURRENT TELEMETRY GRID */}
+      <div className="section-label-strip font-mono">
+        <span className="editorial-tag">02 / CURRENT TELEMETRY SNAPSHOT</span>
+      </div>
+
       <section className="primary-telemetry-grid">
         <MetricDisplay
           label="CPU UTILIZATION"
@@ -170,34 +185,32 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
         />
       </section>
 
-      {/* Operational Strip */}
+      {/* Operational Data Strip */}
       <DataStrip metrics={metrics} isOffline={isOffline} lastUpdated={lastUpdated} />
 
-      {/* Telemetry Figures Header & Window Selector */}
+      {/* 3. HISTORICAL TELEMETRY FIGURES */}
       <div className="editorial-header margin-top-lg">
         <div>
-          <h2 className="editorial-title">HISTORICAL TELEMETRY FIGURES</h2>
-          <p className="editorial-subtitle">
-            Analytical telemetry time series ({activeWindow.subtitle})
-          </p>
+          <span className="editorial-tag">03 / HISTORICAL TELEMETRY FIGURES</span>
+          <h2 className="editorial-title font-sans">ANALYTICAL TIME SERIES</h2>
         </div>
-        <span className="editorial-tag">SOURCE: VICTORIAMETRICS</span>
-      </div>
 
-      {/* Time Window Selector Strip */}
-      <div className="time-window-strip font-mono">
-        <span className="time-window-label">TIME WINDOW:</span>
-        <div className="time-window-buttons">
-          {TIME_WINDOWS.map((win) => (
-            <button
-              key={win.id}
-              type="button"
-              className={`editorial-btn ${selectedWindowId === win.id ? 'editorial-btn-active' : ''}`}
-              onClick={() => setSelectedWindowId(win.id)}
-            >
-              {win.label}
-            </button>
-          ))}
+        {/* Infrastructure Console Segmented Range Selector */}
+        <div className="time-range-segmented-group font-mono">
+          <span className="range-group-label">TIME RANGE:</span>
+          <div className="range-buttons-wrap">
+            {TIME_WINDOWS.map((win) => (
+              <button
+                key={win.id}
+                type="button"
+                aria-label={`Set time range to ${win.label}`}
+                className={`range-segment-btn ${selectedWindowId === win.id ? 'active' : ''}`}
+                onClick={() => setSelectedWindowId(win.id)}
+              >
+                {win.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -217,6 +230,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
             unitFormatter={(v) => `${Number(v).toFixed(1)}%`}
             yDomain={[0, 100]}
             chartType="area"
+            loading={historyLoading}
           />
         </ChartFrame>
 
@@ -238,6 +252,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
             unitFormatter={(v) => `${Number(v).toFixed(1)}%`}
             yDomain={[0, 100]}
             chartType="area"
+            loading={historyLoading}
           />
         </ChartFrame>
 
@@ -259,6 +274,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
             unitFormatter={(v) => Number(v).toFixed(2)}
             yDomain={[0, 'auto']}
             chartType="line"
+            loading={historyLoading}
           />
         </ChartFrame>
 
@@ -279,6 +295,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
             unitFormatter={formatBytesPerSec}
             yDomain={[0, 'auto']}
             chartType="area"
+            loading={historyLoading}
           />
         </ChartFrame>
 
@@ -299,6 +316,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
             unitFormatter={formatBytesPerSec}
             yDomain={[0, 'auto']}
             chartType="area"
+            loading={historyLoading}
           />
         </ChartFrame>
       </div>
@@ -308,7 +326,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
           background-color: var(--bg-surface);
           border: 1px solid var(--border-strong);
           padding: 20px 24px;
-          margin-bottom: 24px;
+          margin-bottom: 20px;
         }
 
         .hero-status-row {
@@ -343,6 +361,10 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
           color: var(--text-secondary);
         }
 
+        .section-label-strip {
+          margin-bottom: 12px;
+        }
+
         .primary-telemetry-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -354,27 +376,53 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
           margin-top: 36px;
         }
 
-        .time-window-strip {
+        .time-range-segmented-group {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 12px;
           background: var(--bg-surface);
           border: 1px solid var(--border-strong);
-          padding: 12px 20px;
-          margin-bottom: 24px;
+          padding: 4px 12px;
           flex-wrap: wrap;
         }
 
-        .time-window-label {
+        .range-group-label {
           font-size: 10px;
           color: var(--text-tertiary);
           letter-spacing: 0.08em;
         }
 
-        .time-window-buttons {
+        .range-buttons-wrap {
           display: flex;
-          gap: 8px;
+          gap: 2px;
+          background: var(--bg-main);
+          border: 1px solid var(--border-subtle);
+          padding: 2px;
           flex-wrap: wrap;
+        }
+
+        .range-segment-btn {
+          background: transparent;
+          border: none;
+          color: var(--text-tertiary);
+          padding: 4px 10px;
+          font-family: var(--font-mono);
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .range-segment-btn:hover {
+          color: var(--text-primary);
+          background: var(--bg-surface-hover);
+        }
+
+        .range-segment-btn.active {
+          background: var(--bg-surface);
+          color: var(--accent);
+          border: 1px solid var(--accent-border);
         }
 
         .charts-grid {
@@ -386,6 +434,11 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch, loading
         @media (max-width: 768px) {
           .charts-grid {
             grid-template-columns: 1fr;
+          }
+          .editorial-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
           }
         }
 

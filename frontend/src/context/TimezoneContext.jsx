@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 const TimezoneContext = createContext();
 
@@ -22,38 +22,44 @@ export function TimezoneProvider({ children }) {
   };
 
   /**
-   * Format timestamp seconds into string formatted per selected timezone
+   * Format timestamp seconds into string formatted per selected timezone.
+   * includeTimezoneLabel controls whether the suffix (e.g., IST, UTC) is appended.
    */
-  const formatTimestamp = (timestampSeconds, includeSeconds = true) => {
+  const formatTimestamp = (timestampSeconds, includeSeconds = true, includeTimezoneLabel = true) => {
     if (!timestampSeconds) return 'N/A';
     const date = new Date(timestampSeconds * 1000);
 
+    let hours, minutes, seconds, tzLabel;
+
     if (timezone === 'LOCAL') {
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      return includeSeconds ? `${hours}:${minutes}:${seconds} LOCAL` : `${hours}:${minutes} LOCAL`;
+      hours = String(date.getHours()).padStart(2, '0');
+      minutes = String(date.getMinutes()).padStart(2, '0');
+      seconds = String(date.getSeconds()).padStart(2, '0');
+      tzLabel = 'LOCAL';
+    } else {
+      const option = TIMEZONE_OPTIONS.find((t) => t.id === timezone) || TIMEZONE_OPTIONS[0];
+      const offsetMs = (option.offsetMinutes || 0) * 60 * 1000;
+      const adjustedDate = new Date(date.getTime() + offsetMs);
+
+      hours = String(adjustedDate.getUTCHours()).padStart(2, '0');
+      minutes = String(adjustedDate.getUTCMinutes()).padStart(2, '0');
+      seconds = String(adjustedDate.getUTCSeconds()).padStart(2, '0');
+      tzLabel = option.id;
     }
 
-    const option = TIMEZONE_OPTIONS.find((t) => t.id === timezone) || TIMEZONE_OPTIONS[0];
-    const offsetMs = (option.offsetMinutes || 0) * 60 * 1000;
-    const adjustedDate = new Date(date.getTime() + offsetMs);
+    const timeStr = includeSeconds
+      ? `${hours}:${minutes}:${seconds}`
+      : `${hours}:${minutes}`;
 
-    const hours = String(adjustedDate.getUTCHours()).padStart(2, '0');
-    const minutes = String(adjustedDate.getUTCMinutes()).padStart(2, '0');
-    const seconds = String(adjustedDate.getUTCSeconds()).padStart(2, '0');
-
-    return includeSeconds
-      ? `${hours}:${minutes}:${seconds} ${option.id}`
-      : `${hours}:${minutes} ${option.id}`;
+    return includeTimezoneLabel ? `${timeStr} ${tzLabel}` : timeStr;
   };
 
   /**
-   * Format timestamp for chart X-axis
+   * Format timestamp for chart X-axis (clean HH:MM without timezone label suffix)
    */
   const formatChartTime = (timestampSeconds) => {
     if (!timestampSeconds) return '';
-    return formatTimestamp(timestampSeconds, false);
+    return formatTimestamp(timestampSeconds, false, false);
   };
 
   return (

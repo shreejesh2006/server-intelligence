@@ -1,7 +1,7 @@
 import React from 'react';
 import PageHeader from '../../components/common/PageHeader';
 import EmptyState from '../../components/common/EmptyState';
-import { AlertTriangle, ShieldCheck, Activity } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 export function AnomaliesPage() {
   return (

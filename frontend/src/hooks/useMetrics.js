@@ -6,6 +6,7 @@ export function useMetrics(pollIntervalMs = 30000) {
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [latestMetricTimestamp, setLatestMetricTimestamp] = useState(null);
   const [error, setError] = useState(null);
 
   const isMounted = useRef(true);
@@ -24,19 +25,32 @@ export function useMetrics(pollIntervalMs = 30000) {
       if (!isMounted.current) return;
 
       if (metricsRes && metricsRes.status === 'success') {
-        setMetrics(metricsRes.metrics || {});
+        const fetchedMetrics = metricsRes.metrics || {};
+        setMetrics(fetchedMetrics);
         setIsOffline(false);
         setError(null);
         setLastUpdated(new Date());
+
+        // Find the latest metric timestamp to evaluate telemetry freshness
+        let maxTs = 0;
+        Object.values(fetchedMetrics).forEach((m) => {
+          if (m && typeof m.timestamp === 'number' && m.timestamp > maxTs) {
+            maxTs = m.timestamp;
+          }
+        });
+        if (maxTs > 0) {
+          setLatestMetricTimestamp(maxTs);
+        }
       } else {
         throw new Error('Invalid telemetry response');
       }
     } catch (err) {
       if (!isMounted.current) return;
-      console.warn('Telemetry fetch error:', err.message);
+      if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
+        console.warn('[useMetrics] Telemetry fetch error:', err.message);
+      }
       setIsOffline(true);
       setError(err.message || 'API unreachable');
-      // Do not clear existing metrics on transient error to keep UI stable
     } finally {
       if (isMounted.current) {
         setLoading(false);
@@ -58,11 +72,35 @@ export function useMetrics(pollIntervalMs = 30000) {
     };
   }, [fetchTelemetry, pollIntervalMs]);
 
+  // Determine actual data freshness state
+  let freshnessState = 'FRESH';
+  let freshnessLabel = 'TELEMETRY FRESH';
+
+  if (isOffline) {
+    freshnessState = 'OFFLINE';
+    freshnessLabel = 'API OFFLINE';
+  } else if (latestMetricTimestamp) {
+    const ageSeconds = Math.floor(Date.now() / 1000) - latestMetricTimestamp;
+    if (ageSeconds > 60) {
+      freshnessState = 'STALE';
+      freshnessLabel = 'TELEMETRY STALE';
+    }
+  } else if (lastUpdated) {
+    const ageSeconds = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+    if (ageSeconds > 60) {
+      freshnessState = 'STALE';
+      freshnessLabel = 'TELEMETRY STALE';
+    }
+  }
+
   return {
     metrics,
     loading,
     isOffline,
     lastUpdated,
+    latestMetricTimestamp,
+    freshnessState,
+    freshnessLabel,
     error,
     refetch: () => fetchTelemetry(false),
   };

@@ -8,16 +8,14 @@ import {
   updateUserStatusApi 
 } from '../../services/users';
 import { 
-  Users, 
   UserPlus, 
   RefreshCw, 
   CheckCircle2, 
   AlertCircle, 
-  Shield, 
+  ShieldAlert,
   UserCheck, 
   UserX 
 } from 'lucide-react';
-import { formatUtcTime } from '../../utils/formatters';
 
 export function UsersPage() {
   const { user: currentUser } = useAuth();
@@ -34,6 +32,20 @@ export function UsersPage() {
   const [newRole, setNewRole] = useState('VIEWER');
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
+
+  // Confirmation Modal State for Disabling Users
+  const [confirmDisableTarget, setConfirmDisableTarget] = useState(null);
+
+  // Track pending user actions by user ID
+  const [pendingUserId, setPendingUserId] = useState(null);
+
+  // Auto-dismiss notice after 4 seconds
+  useEffect(() => {
+    if (notice) {
+      const timer = setTimeout(() => setNotice(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notice]);
 
   // Fetch users from /api/users
   const fetchUsers = useCallback(async () => {
@@ -96,22 +108,30 @@ export function UsersPage() {
       setNotice('Cannot change your own administrative role.');
       return;
     }
+    if (pendingUserId) return;
 
+    setPendingUserId(targetUserId);
     try {
       await updateUserRoleApi(targetUserId, newRoleValue);
       setNotice(`Updated role for '${targetUsername}' to ${newRoleValue}.`);
       fetchUsers();
     } catch (err) {
       setError(err?.response?.data?.detail || 'Failed to update role.');
+    } finally {
+      setPendingUserId(null);
     }
   };
 
-  // Handle status toggle (Enable/Disable)
-  const handleStatusToggle = async (targetUserId, targetUsername, currentStatus) => {
+  // Handle status toggle execution after confirmation
+  const executeStatusToggle = async (targetUserId, targetUsername, currentStatus) => {
     if (targetUserId === currentUser?.id) {
       setNotice('Cannot disable your own administrative account.');
       return;
     }
+    if (pendingUserId) return;
+
+    setPendingUserId(targetUserId);
+    setConfirmDisableTarget(null);
 
     const nextStatus = !currentStatus;
     try {
@@ -120,6 +140,24 @@ export function UsersPage() {
       fetchUsers();
     } catch (err) {
       setError(err?.response?.data?.detail || 'Failed to update status.');
+    } finally {
+      setPendingUserId(null);
+    }
+  };
+
+  // Trigger confirmation or execute toggle directly if enabling
+  const onRequestStatusToggle = (targetUser) => {
+    if (targetUser.id === currentUser?.id) {
+      setNotice('Cannot disable your own administrative account.');
+      return;
+    }
+
+    if (targetUser.is_active) {
+      // Show confirmation dialog before disabling an active user
+      setConfirmDisableTarget(targetUser);
+    } else {
+      // Re-enabling can be executed directly
+      executeStatusToggle(targetUser.id, targetUser.username, false);
     }
   };
 
@@ -134,6 +172,7 @@ export function UsersPage() {
         <button
           type="button"
           onClick={() => setShowCreateForm((prev) => !prev)}
+          aria-label={showCreateForm ? 'Close user creation form' : 'Open create user form'}
           className="editorial-btn"
         >
           <UserPlus size={13} />
@@ -146,7 +185,7 @@ export function UsersPage() {
         <div className="editorial-notice-banner notice-success">
           <CheckCircle2 size={15} />
           <span>{notice}</span>
-          <button type="button" onClick={() => setNotice(null)} className="notice-close">✕</button>
+          <button type="button" onClick={() => setNotice(null)} aria-label="Close notification" className="notice-close">✕</button>
         </div>
       )}
 
@@ -154,7 +193,38 @@ export function UsersPage() {
         <div className="editorial-notice-banner notice-error">
           <AlertCircle size={15} />
           <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} className="notice-close">✕</button>
+          <button type="button" onClick={() => setError(null)} aria-label="Close error message" className="notice-close">✕</button>
+        </div>
+      )}
+
+      {/* Disabling Confirmation Modal */}
+      {confirmDisableTarget && (
+        <div className="confirm-modal-overlay">
+          <div className="confirm-modal-card">
+            <div className="modal-header">
+              <ShieldAlert size={20} className="text-critical" />
+              <h3 className="modal-title font-sans">CONFIRM USER DEACTIVATION</h3>
+            </div>
+            <p className="modal-body font-sans text-xs">
+              Are you sure you want to disable account <strong>'{confirmDisableTarget.username}'</strong>? Disabling will immediately revoke authentication access.
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                onClick={() => setConfirmDisableTarget(null)}
+                className="editorial-btn"
+              >
+                CANCEL
+              </button>
+              <button
+                type="button"
+                onClick={() => executeStatusToggle(confirmDisableTarget.id, confirmDisableTarget.username, true)}
+                className="editorial-btn btn-danger-confirm"
+              >
+                DISABLE ACCOUNT
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -176,34 +246,40 @@ export function UsersPage() {
           <form onSubmit={handleCreateUser} className="create-user-form">
             <div className="form-grid">
               <div className="form-field">
-                <label className="field-label">USERNAME (MIN 3 CHARS):</label>
+                <label htmlFor="new-username-input" className="field-label">USERNAME (MIN 3 CHARS):</label>
                 <input
+                  id="new-username-input"
                   type="text"
                   required
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="e.g. operator_john"
+                  disabled={isCreating}
                   className="editorial-input field-input"
                 />
               </div>
 
               <div className="form-field">
-                <label className="field-label">PASSWORD (MIN 8 CHARS):</label>
+                <label htmlFor="new-password-input" className="field-label">PASSWORD (MIN 8 CHARS):</label>
                 <input
+                  id="new-password-input"
                   type="password"
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
+                  disabled={isCreating}
                   className="editorial-input field-input"
                 />
               </div>
 
               <div className="form-field">
-                <label className="field-label">ASSIGNED ROLE:</label>
+                <label htmlFor="new-role-select" className="field-label">ASSIGNED ROLE:</label>
                 <select
+                  id="new-role-select"
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value)}
+                  disabled={isCreating}
                   className="editorial-select field-select"
                 >
                   <option value="VIEWER">VIEWER (Read-Only)</option>
@@ -242,7 +318,7 @@ export function UsersPage() {
           <div>
             <span className="editorial-tag font-bold">AUTHENTICATED USER REGISTRY</span>
             <p className="editorial-subtitle font-sans text-xs text-secondary mt-1">
-              Active user accounts provisioned in SQLite / FastAPI authentication database.
+              Active user accounts provisioned in authentication database.
             </p>
           </div>
           <div className="section-actions">
@@ -252,6 +328,7 @@ export function UsersPage() {
             <button
               type="button"
               onClick={fetchUsers}
+              aria-label="Refresh user accounts list"
               className={`icon-btn ${loading ? 'spinning' : ''}`}
               title="Refresh users list"
             >
@@ -266,82 +343,93 @@ export function UsersPage() {
             <span>FETCHING USER REGISTRY FROM BACKEND...</span>
           </div>
         ) : (
-          <table className="editorial-table font-mono">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>USERNAME</th>
-                <th>ROLE ASSIGNMENT</th>
-                <th>ACCOUNT STATUS</th>
-                <th>CREATED AT</th>
-                <th>ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => {
-                const isSelf = u.id === currentUser?.id;
-                const formattedDate = u.created_at
-                  ? new Date(u.created_at).toISOString().replace('T', ' ').substring(0, 16) + ' UTC'
-                  : 'N/A';
+          <div className="table-responsive">
+            <table className="editorial-table font-mono">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>USERNAME</th>
+                  <th>ROLE ASSIGNMENT</th>
+                  <th>ACCOUNT STATUS</th>
+                  <th>CREATED AT</th>
+                  <th>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => {
+                  const isSelf = u.id === currentUser?.id;
+                  const isPending = pendingUserId === u.id;
+                  const formattedDate = u.created_at
+                    ? new Date(u.created_at).toISOString().replace('T', ' ').substring(0, 16) + ' UTC'
+                    : 'N/A';
 
-                return (
-                  <tr key={u.id} className={isSelf ? 'row-self' : ''}>
-                    <td className="font-mono text-tertiary">#{u.id}</td>
-                    <td>
-                      <div className="username-cell">
-                        <span className="username-text">{u.username}</span>
-                        {isSelf && <span className="editorial-pill pill-healthy self-tag">YOU (ACTIVE SESSION)</span>}
-                      </div>
-                    </td>
-                    <td>
-                      <select
-                        value={u.role}
-                        disabled={isSelf}
-                        onChange={(e) => handleRoleChange(u.id, u.username, e.target.value)}
-                        className="editorial-select role-select"
-                        title={isSelf ? 'Cannot change your own role' : 'Change user role'}
-                      >
-                        <option value="ADMIN">ADMIN</option>
-                        <option value="OPERATOR">OPERATOR</option>
-                        <option value="VIEWER">VIEWER</option>
-                      </select>
-                    </td>
-                    <td>
-                      {u.is_active ? (
-                        <span className="editorial-pill pill-healthy">
-                          <UserCheck size={11} /> ACTIVE
-                        </span>
-                      ) : (
-                        <span className="editorial-pill pill-critical">
-                          <UserX size={11} /> DISABLED
-                        </span>
-                      )}
-                    </td>
-                    <td className="text-secondary text-xs">{formattedDate}</td>
-                    <td>
-                      <button
-                        type="button"
-                        disabled={isSelf}
-                        onClick={() => handleStatusToggle(u.id, u.username, u.is_active)}
-                        className={`editorial-btn text-xs ${u.is_active ? 'btn-disable' : 'btn-enable'}`}
-                        title={isSelf ? 'Cannot disable your own account' : u.is_active ? 'Disable account' : 'Enable account'}
-                      >
-                        {u.is_active ? 'DISABLE' : 'ENABLE'}
-                      </button>
+                  return (
+                    <tr key={u.id} className={isSelf ? 'row-self' : ''}>
+                      <td className="font-mono text-tertiary">#{u.id}</td>
+                      <td>
+                        <div className="username-cell">
+                          <span className="username-text">{u.username}</span>
+                          {isSelf && <span className="editorial-pill pill-healthy self-tag">YOU (ACTIVE SESSION)</span>}
+                        </div>
+                      </td>
+                      <td>
+                        <select
+                          value={u.role}
+                          disabled={isSelf || isPending}
+                          onChange={(e) => handleRoleChange(u.id, u.username, e.target.value)}
+                          className="editorial-select role-select"
+                          title={isSelf ? 'Cannot change your own role' : 'Change user role'}
+                          aria-label={`Role for user ${u.username}`}
+                        >
+                          <option value="ADMIN">ADMIN</option>
+                          <option value="OPERATOR">OPERATOR</option>
+                          <option value="VIEWER">VIEWER</option>
+                        </select>
+                      </td>
+                      <td>
+                        {u.is_active ? (
+                          <span className="editorial-pill pill-healthy">
+                            <UserCheck size={11} /> ACTIVE
+                          </span>
+                        ) : (
+                          <span className="editorial-pill pill-critical">
+                            <UserX size={11} /> DISABLED
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-secondary text-xs">{formattedDate}</td>
+                      <td>
+                        <button
+                          type="button"
+                          disabled={isSelf || isPending}
+                          onClick={() => onRequestStatusToggle(u)}
+                          aria-label={`${u.is_active ? 'Disable' : 'Enable'} user ${u.username}`}
+                          className={`editorial-btn text-xs ${u.is_active ? 'btn-disable' : 'btn-enable'}`}
+                          title={isSelf ? 'Cannot disable your own account' : u.is_active ? 'Disable account' : 'Enable account'}
+                        >
+                          {isPending ? (
+                            <RefreshCw size={11} className="spinning" />
+                          ) : u.is_active ? (
+                            'DISABLE'
+                          ) : (
+                            'ENABLE'
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="text-center py-6 text-tertiary">
+                      NO USER ACCOUNTS RETURNED FROM BACKEND
                     </td>
                   </tr>
-                );
-              })}
-
-              {users.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="text-center py-6 text-tertiary">
-                    NO USER ACCOUNTS RETURNED FROM BACKEND
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -380,6 +468,65 @@ export function UsersPage() {
           border: none;
           color: inherit;
           cursor: pointer;
+        }
+
+        .confirm-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 100;
+          padding: 20px;
+        }
+
+        .confirm-modal-card {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-strong);
+          border-left: 4px solid var(--status-critical);
+          padding: 24px 28px;
+          max-width: 440px;
+          width: 100%;
+        }
+
+        .modal-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        .modal-title {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--status-critical);
+          letter-spacing: 0.05em;
+        }
+
+        .modal-body {
+          color: var(--text-secondary);
+          line-height: 1.5;
+          margin-bottom: 20px;
+        }
+
+        .modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+        }
+
+        .btn-danger-confirm {
+          border-color: var(--status-critical);
+          color: var(--status-critical);
+        }
+
+        .btn-danger-confirm:hover {
+          background: var(--status-critical);
+          color: #fff;
         }
 
         .create-user-section {

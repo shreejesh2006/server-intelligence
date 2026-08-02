@@ -96,6 +96,11 @@ export function Sidebar() {
       <style>{`
         .sidebar {
           width: var(--sidebar-width);
+          height: calc(100vh - var(--topbar-height) - var(--footer-height));
+          position: sticky;
+          top: var(--topbar-height);
+          align-self: flex-start;
+          overflow-y: auto;
           background-color: var(--bg-surface);
           border-right: 1px solid var(--border-strong);
           display: flex;
@@ -103,6 +108,7 @@ export function Sidebar() {
           padding: 16px 0;
           flex-shrink: 0;
           transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 8;
         }
 
         .sidebar-collapsed {
