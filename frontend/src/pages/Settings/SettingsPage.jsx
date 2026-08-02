@@ -46,19 +46,19 @@ export function SettingsPage() {
 
           <div className="setting-row">
             <div className="setting-info">
-              <div className="setting-name">VICTORIAMETRICS ENDPOINT</div>
+              <div className="setting-name">FASTAPI BACKEND TARGET URL</div>
               <div className="setting-desc font-sans text-xs text-secondary">
-                Time-series database connection target URL.
+                Base URL endpoint for authentication and telemetry metrics API.
               </div>
             </div>
             <div className="setting-control">
               <input
                 type="text"
                 readOnly
-                value="http://192.168.64.22:8428"
+                value="same-origin /api -> http://192.168.64.22:8000"
                 className="editorial-input"
               />
-              <span className="control-note">SYSTEM DEFINE</span>
+              <span className="control-note">VITE PROXY GATEWAY</span>
             </div>
           </div>
         </section>

@@ -28,14 +28,35 @@ export function LoginPage() {
       await login(username.trim(), password);
       navigate('/overview', { replace: true });
     } catch (err) {
-      if (!err.response) {
-        setErrorMessage('Unable to reach Server Intelligence API server. Check backend connection.');
-      } else if (err.response.status === 401) {
-        setErrorMessage('Invalid username or password.');
-      } else if (err.response.status === 403) {
-        setErrorMessage('User account is disabled by Administrator.');
+      const status = err.response ? err.response.status : null;
+      const detail = err.response?.data?.detail;
+
+      // Safe non-sensitive diagnostic log for development (NO CREDENTIALS, NO TOKENS)
+      if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
+        console.debug('[LoginPage Auth Error Diagnostic]', {
+          status,
+          code: err.code,
+          message: err.message,
+          hasResponse: !!err.response,
+          hasRequest: !!err.request,
+          detail,
+        });
+      }
+
+      if (status === 401) {
+        setErrorMessage(detail || 'Invalid username or password.');
+      } else if (status === 403) {
+        setErrorMessage(detail || 'User account is disabled by Administrator.');
+      } else if (status === 422) {
+        setErrorMessage('Validation error (HTTP 422): Invalid payload parameters.');
+      } else if (status >= 500) {
+        setErrorMessage(`Server error (HTTP ${status}): ${detail || 'Internal server error'}`);
+      } else if (err.code === 'ECONNABORTED') {
+        setErrorMessage('Authentication request timed out. Check server responsiveness.');
+      } else if (err.code === 'ERR_NETWORK') {
+        setErrorMessage('Network / CORS connection failed. Verify request in Browser DevTools Network tab.');
       } else {
-        setErrorMessage(err.response.data?.detail || 'Authentication failed.');
+        setErrorMessage(detail || err.message || 'Authentication failed.');
       }
     } finally {
       setIsSubmitting(false);
@@ -198,7 +219,7 @@ export function LoginPage() {
           background-color: rgba(239, 68, 68, 0.1);
           border: 1px solid rgba(239, 68, 68, 0.3);
           border-left: 3px solid var(--status-critical);
-          padding: 10px 14px;
+          padding: 12px 14px;
           font-size: 11px;
           color: var(--status-critical);
           display: flex;

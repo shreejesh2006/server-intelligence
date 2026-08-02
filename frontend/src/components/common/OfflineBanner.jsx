@@ -10,7 +10,7 @@ export function OfflineBanner({ onRetry, error }) {
           <div className="banner-title">TELEMETRY OFFLINE</div>
           <div className="banner-desc">
             Unable to establish connection with Server Intelligence API at{' '}
-            <code>{import.meta.env.VITE_API_BASE_URL || 'http://192.168.64.22:8000'}</code>
+            <code>{import.meta.env.VITE_API_BASE_URL || '/api'}</code>
             {error ? ` (${error})` : ''}.
           </div>
         </div>

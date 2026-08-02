@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.64.22:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -31,16 +31,11 @@ apiClient.interceptors.response.use(
 
     // Handle 401 Unauthorized
     if (status === 401) {
-      // Do not clear session if the error is from the login request itself
       if (!url.includes('/api/auth/login')) {
         sessionStorage.removeItem('server_intel_token');
-        // Dispatch event for AuthContext to clear session without infinite loops
         window.dispatchEvent(new Event('server_intel_auth_unauthorized'));
       }
     }
-
-    // 403 Forbidden should NOT log out the user automatically.
-    // It passes through so components can show access denied alerts.
 
     return Promise.reject(error);
   }
