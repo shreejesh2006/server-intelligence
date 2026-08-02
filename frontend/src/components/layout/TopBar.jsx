@@ -1,15 +1,16 @@
 import React from 'react';
 import { Activity, Server, RefreshCw, User, WifiOff, Sun, Moon, LogOut } from 'lucide-react';
-import { formatUtcTime } from '../../utils/formatters';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTimezone } from '../../context/TimezoneContext';
 
 export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const { formatTimestamp } = useTimezone();
 
   const formattedTime = lastUpdated
-    ? formatUtcTime(Math.floor(lastUpdated.getTime() / 1000))
+    ? formatTimestamp(Math.floor(lastUpdated.getTime() / 1000), true)
     : 'INITIALIZING...';
 
   return (

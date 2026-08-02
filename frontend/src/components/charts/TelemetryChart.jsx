@@ -10,11 +10,11 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts';
-import { formatChartTime, formatUtcTime } from '../../utils/formatters';
+import { useTimezone } from '../../context/TimezoneContext';
 
-const CustomTooltip = ({ active, payload, label, unitFormatter, seriesConfig }) => {
+const CustomTooltip = ({ active, payload, label, unitFormatter, seriesConfig, formatTimestamp }) => {
   if (active && payload && payload.length) {
-    const timestampStr = formatUtcTime(label);
+    const timestampStr = formatTimestamp ? formatTimestamp(label, true) : `${label}`;
     return (
       <div className="editorial-tooltip font-mono">
         <div className="tooltip-time">{timestampStr}</div>
@@ -92,6 +92,8 @@ export function TelemetryChart({
   yDomain = [0, 'auto'],
   chartType = 'area', // 'area' or 'line'
 }) {
+  const { formatChartTime, formatTimestamp } = useTimezone();
+
   if (!data || data.length === 0) {
     return (
       <div className="chart-empty font-mono">
@@ -144,7 +146,7 @@ export function TelemetryChart({
             tickFormatter={(val) => (unitFormatter ? unitFormatter(val) : val)}
           />
           <Tooltip
-            content={<CustomTooltip unitFormatter={unitFormatter} seriesConfig={seriesMap} />}
+            content={<CustomTooltip unitFormatter={unitFormatter} seriesConfig={seriesMap} formatTimestamp={formatTimestamp} />}
           />
           {series.map((s) => (
             <Area
@@ -177,7 +179,7 @@ export function TelemetryChart({
             tickFormatter={(val) => (unitFormatter ? unitFormatter(val) : val)}
           />
           <Tooltip
-            content={<CustomTooltip unitFormatter={unitFormatter} seriesConfig={seriesMap} />}
+            content={<CustomTooltip unitFormatter={unitFormatter} seriesConfig={seriesMap} formatTimestamp={formatTimestamp} />}
           />
           {series.map((s) => (
             <Line

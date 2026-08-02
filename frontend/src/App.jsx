@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
+import { TimezoneProvider } from './context/TimezoneContext';
 import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import useMetrics from './hooks/useMetrics';
@@ -116,12 +117,14 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/*" element={<AuthenticatedAppShell />} />
-          </Routes>
-        </BrowserRouter>
+        <TimezoneProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/*" element={<AuthenticatedAppShell />} />
+            </Routes>
+          </BrowserRouter>
+        </TimezoneProvider>
       </AuthProvider>
     </ThemeProvider>
   );

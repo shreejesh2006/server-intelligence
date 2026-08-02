@@ -1,10 +1,15 @@
 import React from 'react';
 import PageHeader from '../../components/common/PageHeader';
-import { Sliders, Shield, Database, Bell, Lock, Sun, Moon } from 'lucide-react';
+import { Sliders, Shield, Database, Bell, Lock, Sun, Moon, Clock } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useTimezone } from '../../context/TimezoneContext';
 
 export function SettingsPage() {
   const { theme, toggleTheme } = useTheme();
+  const { timezone, setTimezone, formatTimestamp, TIMEZONE_OPTIONS } = useTimezone();
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const livePreviewTime = formatTimestamp(nowSeconds, true);
 
   return (
     <div className="settings-page font-mono">
@@ -63,14 +68,37 @@ export function SettingsPage() {
           </div>
         </section>
 
-        {/* Visual Theme Settings */}
+        {/* Visual Theme & Timezone Settings */}
         <section className="settings-card">
           <div className="settings-card-header">
             <div className="title-with-icon">
-              {theme === 'dark' ? <Moon size={16} className="text-accent" /> : <Sun size={16} className="text-accent" />}
-              <h3 className="section-title">02 / VISUAL THEME & DISPLAY</h3>
+              <Clock size={16} className="text-accent" />
+              <h3 className="section-title">02 / VISUAL THEME & TIMEZONE PREFERENCE</h3>
             </div>
-            <span className="editorial-pill pill-healthy">SYSTEM PREFERENCE PERSISTED</span>
+            <span className="editorial-pill pill-healthy">USER PREFERENCE PERSISTED</span>
+          </div>
+
+          <div className="setting-row">
+            <div className="setting-info">
+              <div className="setting-name">DISPLAY TIMEZONE</div>
+              <div className="setting-desc font-sans text-xs text-secondary">
+                Timezone formatting for live telemetry updates, chart axes, and logs.
+              </div>
+            </div>
+            <div className="setting-control">
+              <select
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+                className="editorial-select timezone-select"
+              >
+                {TIMEZONE_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.name}
+                  </option>
+                ))}
+              </select>
+              <span className="control-note">PREVIEW: {livePreviewTime}</span>
+            </div>
           </div>
 
           <div className="setting-row">
@@ -251,6 +279,11 @@ export function SettingsPage() {
           font-family: var(--font-mono);
           font-size: 11px;
           text-align: right;
+        }
+
+        .timezone-select {
+          cursor: pointer;
+          min-width: 220px;
         }
 
         .editorial-select:disabled {
