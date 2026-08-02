@@ -1,10 +1,12 @@
 import React from 'react';
-import { Activity, Server, RefreshCw, User, WifiOff, Sun, Moon } from 'lucide-react';
+import { Activity, Server, RefreshCw, User, WifiOff, Sun, Moon, LogOut } from 'lucide-react';
 import { formatUtcTime } from '../../utils/formatters';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 
 export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
   const { theme, toggleTheme } = useTheme();
+  const { user, logout } = useAuth();
 
   const formattedTime = lastUpdated
     ? formatUtcTime(Math.floor(lastUpdated.getTime() / 1000))
@@ -24,7 +26,7 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
         {/* Host Badge */}
         <div className="topbar-item">
           <Server size={13} className="text-secondary" />
-          <span className="font-mono text-xs">HOST: Ubuntu Server</span>
+          <span className="font-mono text-xs">HOST: ubuntu-primary</span>
         </div>
 
         <div className="topbar-divider" />
@@ -74,10 +76,23 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
 
         <div className="topbar-divider" />
 
-        {/* User Identity */}
+        {/* Real User Identity & Logout */}
         <div className="topbar-item font-mono text-xs">
           <User size={13} className="text-secondary" />
-          <span>OPERATOR</span>
+          <span className="user-name-text">{user?.username || 'GUEST'}</span>
+          {user?.role && (
+            <span className={`editorial-pill ${user.role === 'ADMIN' ? 'pill-healthy' : 'pill-neutral'}`}>
+              {user.role}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={logout}
+            className="icon-btn logout-btn"
+            title="Sign Out / Terminate Session"
+          >
+            <LogOut size={13} />
+          </button>
         </div>
       </div>
 
@@ -141,6 +156,20 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading }) {
         .theme-toggle-btn {
           padding: 4px 10px;
           font-size: 10px;
+        }
+
+        .user-name-text {
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .logout-btn {
+          margin-left: 4px;
+          color: var(--text-tertiary);
+        }
+
+        .logout-btn:hover {
+          color: var(--status-critical);
         }
 
         .live-dot {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router';
+import { useAuth } from '../../context/AuthContext';
 import { 
   LayoutDashboard, 
   Server, 
@@ -14,17 +15,22 @@ import {
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { id: '01', name: 'OVERVIEW', path: '/overview', icon: LayoutDashboard },
-  { id: '02', name: 'SERVERS', path: '/servers', icon: Server },
-  { id: '03', name: 'FORECASTS', path: '/forecasts', icon: TrendingUp },
-  { id: '04', name: 'ANOMALIES', path: '/anomalies', icon: AlertTriangle },
-  { id: '05', name: 'ALERTS', path: '/alerts', icon: Bell },
-  { id: '06', name: 'ANALYTICS', path: '/analytics', icon: BarChart2 },
-  { id: '07', name: 'USERS', path: '/users', icon: Users },
-  { id: '08', name: 'SETTINGS', path: '/settings', icon: Sliders },
+  { id: '01', name: 'OVERVIEW', path: '/overview', icon: LayoutDashboard, adminOnly: false },
+  { id: '02', name: 'SERVERS', path: '/servers', icon: Server, adminOnly: false },
+  { id: '03', name: 'FORECASTS', path: '/forecasts', icon: TrendingUp, adminOnly: false },
+  { id: '04', name: 'ANOMALIES', path: '/anomalies', icon: AlertTriangle, adminOnly: false },
+  { id: '05', name: 'ALERTS', path: '/alerts', icon: Bell, adminOnly: false },
+  { id: '06', name: 'ANALYTICS', path: '/analytics', icon: BarChart2, adminOnly: false },
+  { id: '07', name: 'USERS', path: '/users', icon: Users, adminOnly: true },
+  { id: '08', name: 'SETTINGS', path: '/settings', icon: Sliders, adminOnly: true },
 ];
 
 export function Sidebar() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
+
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('server_intel_sidebar_collapsed') === 'true';
   });
@@ -54,7 +60,7 @@ export function Sidebar() {
 
       {/* Navigation List */}
       <nav className="nav-list font-mono">
-        {NAV_ITEMS.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
@@ -159,7 +165,7 @@ export function Sidebar() {
           letter-spacing: 0.05em;
           border-left: 3px solid transparent;
           transition: all 0.15s ease;
-          box-sizing: border-border-box;
+          box-sizing: border-box;
           white-space: nowrap;
         }
 

@@ -1,9 +1,12 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider } from './context/AuthContext';
 import AppShell from './components/layout/AppShell';
+import ProtectedRoute from './components/common/ProtectedRoute';
 import useMetrics from './hooks/useMetrics';
 
+import LoginPage from './pages/Login/LoginPage';
 import OverviewPage from './pages/Overview/OverviewPage';
 import ServersPage from './pages/Servers/ServersPage';
 import ForecastsPage from './pages/Forecasts/ForecastsPage';
@@ -13,7 +16,7 @@ import AnalyticsPage from './pages/Analytics/AnalyticsPage';
 import UsersPage from './pages/Users/UsersPage';
 import SettingsPage from './pages/Settings/SettingsPage';
 
-function AppContent() {
+function AuthenticatedAppShell() {
   const { metrics, loading, isOffline, lastUpdated, refetch } = useMetrics(30000);
 
   return (
@@ -31,32 +34,78 @@ function AppContent() {
         <Route
           path="/overview"
           element={
-            <OverviewPage
-              metrics={metrics}
-              isOffline={isOffline}
-              lastUpdated={lastUpdated}
-              refetch={refetch}
-              loading={loading}
-            />
+            <ProtectedRoute>
+              <OverviewPage
+                metrics={metrics}
+                isOffline={isOffline}
+                lastUpdated={lastUpdated}
+                refetch={refetch}
+                loading={loading}
+              />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/servers"
           element={
-            <ServersPage
-              metrics={metrics}
-              isOffline={isOffline}
-              lastUpdated={lastUpdated}
-              refetch={refetch}
-            />
+            <ProtectedRoute>
+              <ServersPage
+                metrics={metrics}
+                isOffline={isOffline}
+                lastUpdated={lastUpdated}
+                refetch={refetch}
+              />
+            </ProtectedRoute>
           }
         />
-        <Route path="/forecasts" element={<ForecastsPage />} />
-        <Route path="/anomalies" element={<AnomaliesPage />} />
-        <Route path="/alerts" element={<AlertsPage />} />
-        <Route path="/analytics" element={<AnalyticsPage />} />
-        <Route path="/users" element={<UsersPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route
+          path="/forecasts"
+          element={
+            <ProtectedRoute>
+              <ForecastsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/anomalies"
+          element={
+            <ProtectedRoute>
+              <AnomaliesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/alerts"
+          element={
+            <ProtectedRoute>
+              <AlertsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <AnalyticsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <UsersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/overview" replace />} />
       </Routes>
     </AppShell>
@@ -66,9 +115,14 @@ function AppContent() {
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/*" element={<AuthenticatedAppShell />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
