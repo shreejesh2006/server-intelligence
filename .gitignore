@@ -1,1 +1,5 @@
 .venv/
+# Runtime databases
+*.db
+*.db-shm
+*.db-wal

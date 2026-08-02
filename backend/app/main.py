@@ -1,7 +1,17 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.metrics import router as metrics_router
+from app.database.init_db import init_database
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_database()
+
+    yield
 
 
 app = FastAPI(
@@ -9,7 +19,8 @@ app = FastAPI(
     description=(
         "Backend API for the Server Intelligence Platform"
     ),
-    version="0.1.0",
+    version="0.2.0",
+    lifespan=lifespan,
 )
 
 
@@ -34,7 +45,7 @@ app.include_router(
 async def root():
     return {
         "name": "Server Intelligence API",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "status": "running",
     }
 
