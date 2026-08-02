@@ -9,6 +9,7 @@ class UserCreate(BaseModel):
     username: str = Field(
         min_length=3,
         max_length=50,
+        pattern=r"^[A-Za-z0-9_.-]+$",
     )
 
     password: str = Field(
@@ -17,6 +18,14 @@ class UserCreate(BaseModel):
     )
 
     role: UserRole = UserRole.VIEWER
+
+
+class UserRoleUpdate(BaseModel):
+    role: UserRole
+
+
+class UserStatusUpdate(BaseModel):
+    is_active: bool
 
 
 class UserResponse(BaseModel):
