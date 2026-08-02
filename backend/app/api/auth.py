@@ -7,6 +7,11 @@ from app.auth.jwt import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
 )
+from app.auth.permissions import (
+    require_admin,
+    require_operator,
+    require_viewer,
+)
 from app.auth.security import verify_password
 from app.database.database import get_db
 from app.database.models import User
@@ -15,11 +20,7 @@ from app.schemas.auth import (
     LoginRequest,
     TokenResponse,
 )
-from app.auth.permissions import (
-    require_admin,
-    require_operator,
-    require_viewer,
-)
+
 
 router = APIRouter(
     prefix="/auth",
@@ -78,6 +79,17 @@ def login(
     "/me",
     response_model=AuthenticatedUser,
 )
+def get_me(
+    current_user: User = Depends(get_current_user),
+):
+    return AuthenticatedUser(
+        id=current_user.id,
+        username=current_user.username,
+        role=current_user.role,
+        is_active=current_user.is_active,
+    )
+
+
 @router.get("/test/viewer")
 def test_viewer_access(
     current_user: User = Depends(require_viewer),
@@ -112,12 +124,3 @@ def test_admin_access(
         "username": current_user.username,
         "role": current_user.role,
     }
-def get_me(
-    current_user: User = Depends(get_current_user),
-):
-    return AuthenticatedUser(
-        id=current_user.id,
-        username=current_user.username,
-        role=current_user.role,
-        is_active=current_user.is_active,
-    )
