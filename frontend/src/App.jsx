@@ -97,7 +97,11 @@ function AuthenticatedAppShell() {
             path="/forecasts"
             element={
               <ProtectedRoute>
-                <ForecastsPage />
+                <ForecastsPage
+                  isOffline={isOffline}
+                  lastUpdated={lastUpdated}
+                  refetch={refetch}
+                />
               </ProtectedRoute>
             }
           />
@@ -105,10 +109,15 @@ function AuthenticatedAppShell() {
             path="/anomalies"
             element={
               <ProtectedRoute>
-                <AnomaliesPage />
+                <AnomaliesPage
+                  isOffline={isOffline}
+                  lastUpdated={lastUpdated}
+                  refetch={refetch}
+                />
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/alerts"
             element={

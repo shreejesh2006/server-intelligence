@@ -5,7 +5,9 @@ import DataStrip from '../../components/common/DataStrip';
 import OfflineBanner from '../../components/common/OfflineBanner';
 import ChartFrame from '../../components/charts/ChartFrame';
 import TelemetryChart from '../../components/charts/TelemetryChart';
+import IntelligenceSection from '../../components/intelligence/IntelligenceSection';
 import { 
+
   getMetricHistory, 
   getMultiMetricHistory 
 } from '../../services/metrics';
@@ -188,12 +190,16 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
       {/* Operational Data Strip */}
       <DataStrip metrics={metrics} isOffline={isOffline} lastUpdated={lastUpdated} />
 
-      {/* 3. HISTORICAL TELEMETRY FIGURES */}
+      {/* INTELLIGENCE ENGINE (ML & PERSISTENCE) */}
+      <IntelligenceSection lastUpdated={lastUpdated} />
+
+      {/* 4. HISTORICAL TELEMETRY FIGURES */}
       <div className="editorial-header margin-top-lg">
         <div>
-          <span className="editorial-tag">03 / HISTORICAL TELEMETRY FIGURES</span>
+          <span className="editorial-tag">04 / HISTORICAL TELEMETRY FIGURES</span>
           <h2 className="editorial-title font-sans">ANALYTICAL TIME SERIES</h2>
         </div>
+
 
         {/* Infrastructure Console Segmented Range Selector */}
         <div className="time-range-segmented-group font-mono">
