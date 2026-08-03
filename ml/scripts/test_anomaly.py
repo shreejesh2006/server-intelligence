@@ -6,8 +6,10 @@ import pandas as pd
 # Add project root to python path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from ml.scripts.train_anomaly import train_anomaly_pipeline, ANOMALY_FEATURES
+from ml.preprocessing import TelemetryPreprocessor, ANOMALY_FEATURES
+from ml.scripts.train_anomaly import train_anomaly_pipeline
 from ml.anomaly import AnomalyDetector
+
 
 # Synthetic Offline Test Scenarios
 SYNTHETIC_SCENARIOS = [

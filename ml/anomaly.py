@@ -4,8 +4,9 @@ import numpy as np
 import pandas as pd
 import joblib
 
-# Import TelemetryPreprocessor for unpickling joblib pipeline if needed
-from ml.scripts.train_anomaly import TelemetryPreprocessor, ANOMALY_FEATURES, SKEWED_FEATURES
+# Import TelemetryPreprocessor for unpickling joblib pipeline
+from ml.preprocessing import TelemetryPreprocessor, ANOMALY_FEATURES, SKEWED_FEATURES
+
 
 DEFAULT_MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'anomaly', 'isolation_forest.joblib')
 DEFAULT_META_PATH = os.path.join(os.path.dirname(__file__), 'models', 'anomaly', 'anomaly_metadata.json')
