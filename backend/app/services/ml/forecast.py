@@ -4,7 +4,6 @@ import pandas as pd
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 
-from app.api.metrics import SUPPORTED_METRICS
 from app.services.ml.loader import ml_loader, TARGET_COLUMNS, HORIZONS
 from app.services.victoriametrics import VictoriaMetricsService
 
@@ -23,7 +22,6 @@ class ForecastService:
         self._cache_timestamp = 0.0
 
     async def get_forecasts(self) -> dict:
-
         now = time.time()
         # Return cached forecast if within 30-second TTL
         if self._cache is not None and (now - self._cache_timestamp) < CACHE_TTL_SECONDS:
@@ -35,18 +33,9 @@ class ForecastService:
                 detail="Forecast models not available",
             )
 
-        # Fetch current live telemetry metrics
+        # Fetch current live telemetry metrics using VictoriaMetricsService
         try:
-            live_metrics = {}
-            for name, query in SUPPORTED_METRICS.items():
-                try:
-                    data = await self.victoria.query(query)
-                    if data and len(data) > 0 and "value" in data[0]:
-                        live_metrics[name] = float(data[0]["value"][1])
-                    else:
-                        live_metrics[name] = 0.0
-                except Exception:
-                    live_metrics[name] = 0.0
+            live_metrics = await self.victoria.get_current_metrics()
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
