@@ -9,3 +9,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 .DS_Store
+
+# ML generated artifacts
+ml/data/
+ml/models/
+ml/**/__pycache__/
