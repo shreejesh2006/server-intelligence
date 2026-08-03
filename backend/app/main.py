@@ -9,10 +9,14 @@ from app.api.auth import router as auth_router
 from app.api.users import router as users_router
 from app.api.ai_settings import router as ai_settings_router
 from app.api.assistant import router as assistant_router
+from app.api.intelligence import router as intelligence_router
+from app.services.ml.loader import ml_loader
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_database()
-
+    ml_loader.load_all()
     yield
 
 
@@ -62,6 +66,12 @@ app.include_router(
     prefix="/api",
 )
 
+app.include_router(
+    intelligence_router,
+    prefix="/api",
+)
+
+
 @app.get("/")
 async def root():
     return {
@@ -76,4 +86,3 @@ async def health():
     return {
         "status": "healthy",
     }
-
