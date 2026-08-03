@@ -10,6 +10,7 @@ import {
   BarChart2, 
   Users, 
   Sliders,
+  Bot,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -22,8 +23,11 @@ const NAV_ITEMS = [
   { id: '05', name: 'ALERTS', path: '/alerts', icon: Bell, adminOnly: false },
   { id: '06', name: 'ANALYTICS', path: '/analytics', icon: BarChart2, adminOnly: false },
   { id: '07', name: 'USERS', path: '/users', icon: Users, adminOnly: true },
-  { id: '08', name: 'SETTINGS', path: '/settings', icon: Sliders, adminOnly: true },
+  { id: '08', name: 'ASSISTANT', path: '/assistant', icon: Bot, adminOnly: false },
+  { id: '09', name: 'SETTINGS', path: '/settings', icon: Sliders, adminOnly: true },
 ];
+
+
 
 export function Sidebar() {
   const { user } = useAuth();

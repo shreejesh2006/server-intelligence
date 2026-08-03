@@ -1,24 +1,198 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import PageHeader from '../../components/common/PageHeader';
-import { Database, Bell, Lock, Sun, Moon, Clock, Sliders } from 'lucide-react';
+import { 
+  Database, 
+  Bell, 
+  Lock, 
+  Sun, 
+  Moon, 
+  Clock, 
+  Sliders, 
+  Bot, 
+  RefreshCw, 
+
+  CheckCircle2, 
+  AlertCircle,
+  Trash2,
+  Save
+} from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useTimezone } from '../../context/TimezoneContext';
+import { useAuth } from '../../context/AuthContext';
+import { 
+  getAiSettingsApi, 
+  updateAiSettingsApi, 
+  deleteAiKeyApi 
+} from '../../services/ai';
 
 export function SettingsPage() {
   const { theme, toggleTheme } = useTheme();
   const { timezone, setTimezone, formatTimestamp, TIMEZONE_OPTIONS } = useTimezone();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
 
   const nowSeconds = Math.floor(Date.now() / 1000);
   const livePreviewTime = formatTimestamp(nowSeconds, true);
 
+  // AI Configuration State
+  const [provider, setProvider] = useState('gemini');
+  const [model, setModel] = useState('gemini-2.5-flash');
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [enabled, setEnabled] = useState(true);
+  const [isConfigured, setIsConfigured] = useState(false);
+  const [keyPreview, setKeyPreview] = useState(null);
+  const [updatedBy, setUpdatedBy] = useState(null);
+
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [savingAi, setSavingAi] = useState(false);
+  const [deletingKey, setDeletingKey] = useState(false);
+
+  const [notice, setNotice] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Auto-dismiss notice
+  useEffect(() => {
+    if (notice) {
+      const timer = setTimeout(() => setNotice(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notice]);
+
+  // Handle smooth scroll anchor for #ai-assistant
+  useEffect(() => {
+    if (window.location.hash === '#ai-assistant') {
+      const el = document.getElementById('ai-assistant');
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 100);
+      }
+    }
+  }, []);
+
+  // Fetch current AI Settings for Admin
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    let isCancelled = false;
+    async function loadAiSettings() {
+      setLoadingAi(true);
+      try {
+        const data = await getAiSettingsApi();
+        if (!isCancelled && data) {
+          setProvider(data.provider || 'gemini');
+          setModel(data.model || 'gemini-2.5-flash');
+          setEnabled(data.enabled ?? true);
+          setIsConfigured(data.configured ?? false);
+          setKeyPreview(data.key_preview || null);
+          setUpdatedBy(data.updated_by || null);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn('Could not fetch AI settings:', err);
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoadingAi(false);
+        }
+      }
+    }
+
+    loadAiSettings();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isAdmin]);
+
+  // Save AI Settings
+  const handleSaveAiSettings = async (e) => {
+    e.preventDefault();
+    if (savingAi) return;
+
+    setSavingAi(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const payload = {
+        provider,
+        model,
+        enabled,
+        api_key: apiKeyInput.trim() ? apiKeyInput.trim() : null,
+      };
+
+      const updated = await updateAiSettingsApi(payload);
+
+      setProvider(updated.provider);
+      setModel(updated.model);
+      setEnabled(updated.enabled);
+      setIsConfigured(updated.configured);
+      setKeyPreview(updated.key_preview || null);
+      setUpdatedBy(updated.updated_by || null);
+
+      // Immediately clear raw API key state from React memory
+      setApiKeyInput('');
+
+      setNotice('AI Assistant configuration saved successfully.');
+    } catch (err) {
+      setError(
+        err?.response?.data?.detail || err.message || 'Failed to save AI configuration.'
+      );
+    } finally {
+      setSavingAi(false);
+    }
+  };
+
+  // Remove API Key
+  const handleRemoveApiKey = async () => {
+    if (deletingKey) return;
+
+    setDeletingKey(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const updated = await deleteAiKeyApi();
+      setIsConfigured(false);
+      setKeyPreview(null);
+      setApiKeyInput('');
+      setUpdatedBy(updated.updated_by || null);
+
+      setNotice('AI Provider API key removed.');
+    } catch (err) {
+      setError(
+        err?.response?.data?.detail || 'Failed to remove API key.'
+      );
+    } finally {
+      setDeletingKey(false);
+    }
+  };
+
   return (
     <div className="settings-page font-mono">
       <PageHeader
-        index="08"
+        index="09"
         title="SYSTEM SETTINGS"
+
         subtitle="Global platform configuration, metric collection parameters, and security policies."
         tag="PLATFORM CONFIGURATION"
       />
+
+      {/* Feedback Notices */}
+      {notice && (
+        <div className="editorial-notice-banner notice-success mb-4">
+          <CheckCircle2 size={15} />
+          <span>{notice}</span>
+          <button type="button" onClick={() => setNotice(null)} className="notice-close">✕</button>
+        </div>
+      )}
+
+      {error && (
+        <div className="editorial-notice-banner notice-error mb-4">
+          <AlertCircle size={15} />
+          <span>{error}</span>
+          <button type="button" onClick={() => setError(null)} className="notice-close">✕</button>
+        </div>
+      )}
 
       <div className="settings-sections">
         {/* Monitoring Settings */}
@@ -203,6 +377,168 @@ export function SettingsPage() {
             </div>
           </div>
         </section>
+
+        {/* 06 / AI ASSISTANT CONFIGURATION (ADMIN ONLY) */}
+        {isAdmin && (
+          <section id="ai-assistant" className="settings-card">
+            <div className="settings-card-header">
+              <div className="title-with-icon">
+                <Bot size={16} className="text-accent" />
+                <h3 className="section-title">06 / AI ASSISTANT CONFIGURATION (BYOK)</h3>
+              </div>
+              {loadingAi ? (
+                <span className="editorial-pill pill-neutral">
+                  <RefreshCw size={10} className="spinning" /> LOADING
+                </span>
+              ) : isConfigured && enabled ? (
+                <span className="editorial-pill pill-healthy">CONFIGURED & ACTIVE</span>
+              ) : isConfigured && !enabled ? (
+                <span className="editorial-pill pill-warning">DISABLED</span>
+              ) : (
+                <span className="editorial-pill pill-critical">NOT CONFIGURED</span>
+              )}
+            </div>
+
+            <form onSubmit={handleSaveAiSettings}>
+              {/* Provider Selection */}
+              <div className="setting-row">
+                <div className="setting-info">
+                  <div className="setting-name">AI PROVIDER</div>
+                  <div className="setting-desc font-sans text-xs text-secondary">
+                    LLM engine integration. Active provider required for AI Assistant.
+                  </div>
+                </div>
+                <div className="setting-control">
+                  <select
+                    value={provider}
+                    onChange={(e) => setProvider(e.target.value)}
+                    disabled={savingAi}
+                    className="editorial-select"
+                  >
+                    <option value="gemini">Gemini (Google AI) [ACTIVE]</option>
+                    <option value="openai" disabled>OpenAI (Coming Soon)</option>
+                    <option value="anthropic" disabled>Anthropic (Coming Soon)</option>
+                    <option value="openrouter" disabled>OpenRouter (Coming Soon)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Model Selection */}
+              <div className="setting-row">
+                <div className="setting-info">
+                  <div className="setting-name">PROVIDER MODEL IDENTIFIER</div>
+                  <div className="setting-desc font-sans text-xs text-secondary">
+                    Target model variant used for assistant text generation.
+                  </div>
+                </div>
+                <div className="setting-control">
+                  <select
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    disabled={savingAi}
+                    className="editorial-select"
+                  >
+                    <option value="gemini-2.5-flash">gemini-2.5-flash (Recommended)</option>
+                    <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+                    <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* API Key Input */}
+              <div className="setting-row">
+                <div className="setting-info">
+                  <div className="setting-name">PROVIDER API KEY (FERNET ENCRYPTED)</div>
+                  <div className="setting-desc font-sans text-xs text-secondary">
+                    Submit your API key. Key is encrypted server-side with Fernet in SQLite and never exposed.
+                  </div>
+                </div>
+                <div className="setting-control">
+                  <div className="api-key-input-wrapper">
+                    <input
+                      type="password"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder={
+                        isConfigured
+                          ? `Configured ${keyPreview || '••••••••A1B2'}`
+                          : 'Enter API Key (e.g. AIzaSy...)'
+                      }
+                      disabled={savingAi}
+                      className="editorial-input api-key-field"
+                    />
+                    {isConfigured && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveApiKey}
+                        disabled={deletingKey || savingAi}
+                        className="editorial-btn btn-remove-key"
+                        title="Remove stored API key credential"
+                      >
+                        {deletingKey ? <RefreshCw size={11} className="spinning" /> : <Trash2 size={11} />}
+                        <span>CLEAR KEY</span>
+                      </button>
+                    )}
+                  </div>
+                  <span className="control-note">
+                    {isConfigured
+                      ? `CREDENTIAL PERSISTED (${keyPreview || 'ACTIVE'}) — Leave blank to keep existing key.`
+                      : 'NO API KEY CONFIGURED'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Enable Switch */}
+              <div className="setting-row">
+                <div className="setting-info">
+                  <div className="setting-name">ASSISTANT ENGINE STATE</div>
+                  <div className="setting-desc font-sans text-xs text-secondary">
+                    Enable or disable AI Assistant access platform-wide.
+                  </div>
+                </div>
+                <div className="setting-control">
+                  <label className="toggle-switch-label">
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      onChange={(e) => setEnabled(e.target.checked)}
+                      disabled={savingAi}
+                      className="toggle-checkbox"
+                    />
+                    <span>{enabled ? 'ENABLED' : 'DISABLED'}</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Save Controls */}
+              <div className="ai-settings-actions">
+                {updatedBy && (
+                  <span className="last-updated-note font-mono text-xs text-tertiary">
+                    LAST UPDATED BY: {updatedBy.toUpperCase()}
+                  </span>
+                )}
+                <button
+                  type="submit"
+                  disabled={savingAi}
+                  className="editorial-btn btn-save-ai"
+                >
+                  {savingAi ? (
+                    <>
+                      <RefreshCw size={12} className="spinning" />
+                      <span>SAVING CONFIGURATION...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={12} />
+                      <span>SAVE AI CONFIGURATION</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
       </div>
 
       <style>{`
@@ -281,6 +617,55 @@ export function SettingsPage() {
           text-align: right;
         }
 
+        .api-key-input-wrapper {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .api-key-field {
+          min-width: 260px;
+          text-align: left;
+        }
+
+        .btn-remove-key {
+          padding: 6px 10px;
+          font-size: 10px;
+          color: var(--status-critical);
+          border-color: var(--status-critical);
+        }
+
+        .btn-remove-key:hover:not(:disabled) {
+          background: var(--status-critical);
+          color: #fff;
+        }
+
+        .toggle-switch-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          cursor: pointer;
+        }
+
+        .toggle-checkbox {
+          cursor: pointer;
+          accent-color: var(--accent);
+        }
+
+        .ai-settings-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 20px;
+          padding-top: 16px;
+          border-top: 1px solid var(--border-subtle);
+        }
+
+        .btn-save-ai {
+          padding: 10px 20px;
+        }
+
         .timezone-select {
           cursor: pointer;
           min-width: 220px;
@@ -294,6 +679,40 @@ export function SettingsPage() {
           font-size: 9px;
           color: var(--text-tertiary);
         }
+
+        .editorial-notice-banner {
+          padding: 10px 16px;
+          font-size: 11px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .notice-success {
+          background: rgba(34, 197, 94, 0.1);
+          border: 1px solid rgba(34, 197, 94, 0.3);
+          border-left: 3px solid var(--status-healthy);
+          color: var(--status-healthy);
+        }
+
+        .notice-error {
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-left: 3px solid var(--status-critical);
+          color: var(--status-critical);
+        }
+
+        .notice-close {
+          margin-left: auto;
+          background: transparent;
+          border: none;
+          color: inherit;
+          cursor: pointer;
+        }
+
+        .mb-4 { margin-bottom: 16px; }
+        .spinning { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
