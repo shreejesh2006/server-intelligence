@@ -4,8 +4,9 @@ import pandas as pd
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 
+from app.api.metrics import SUPPORTED_METRICS
 from app.services.ml.loader import ml_loader, TARGET_COLUMNS, HORIZONS
-from app.services.victoriametrics import VictoriaMetricsService, SUPPORTED_METRICS
+from app.services.victoriametrics import VictoriaMetricsService
 
 CACHE_TTL_SECONDS = 30.0
 
