@@ -22,13 +22,17 @@ def _get_or_create_ai_setting(db: Session) -> AISetting:
     if setting is None:
         setting = AISetting(
             provider="gemini",
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             encrypted_api_key=None,
             key_preview=None,
             is_enabled=True,
             updated_by=None,
         )
         db.add(setting)
+        db.commit()
+        db.refresh(setting)
+    elif setting.model in ("gemini-2.5-flash", "gemini-2.5-pro"):
+        setting.model = "gemini-3.6-flash"
         db.commit()
         db.refresh(setting)
     return setting
@@ -45,7 +49,7 @@ def get_ai_settings(
     if setting is None:
         return AISettingResponse(
             provider="gemini",
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             configured=False,
             enabled=True,
             key_preview=None,
@@ -53,16 +57,19 @@ def get_ai_settings(
             updated_at=None,
         )
 
+    model_name = "gemini-3.6-flash" if setting.model in ("gemini-2.5-flash", "gemini-2.5-pro") else setting.model
+
     is_configured = bool(setting.encrypted_api_key and setting.encrypted_api_key.strip())
     return AISettingResponse(
         provider=setting.provider,
-        model=setting.model,
+        model=model_name,
         configured=is_configured,
         enabled=setting.is_enabled,
         key_preview=setting.key_preview,
         updated_by=setting.updated_by,
         updated_at=setting.updated_at,
     )
+
 
 
 @router.put(

@@ -69,7 +69,9 @@ class AISetting(Base):
     model: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
-        default="gemini-2.5-flash",
+        default="gemini-3.6-flash",
+
+
     )
 
     encrypted_api_key: Mapped[str | None] = mapped_column(

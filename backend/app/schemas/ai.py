@@ -17,7 +17,9 @@ class AISettingResponse(BaseModel):
 
 class AISettingUpdate(BaseModel):
     provider: str = Field(default="gemini")
-    model: str = Field(default="gemini-2.5-flash")
+    model: str = Field(default="gemini-3.6-flash")
+
+
     api_key: str | None = Field(default=None)
     enabled: bool = Field(default=True)
 

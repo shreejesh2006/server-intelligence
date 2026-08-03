@@ -8,6 +8,7 @@ from app.database.models import AISetting, User
 from app.schemas.ai import ChatRequest, ChatResponse
 from app.services.ai.credentials import decrypt_api_key
 from app.services.ai.manager import AIManager
+from app.services.ai.context import build_server_system_prompt
 
 
 router = APIRouter(
@@ -80,12 +81,19 @@ async def chat_with_assistant(
         for m in payload.messages
     ]
 
+    # Ingest current live server state (telemetry, forecasts, anomalies) directly from backend services
+    try:
+        system_prompt = await build_server_system_prompt()
+    except Exception:
+        system_prompt = None
+
     # Generate response
     try:
         reply_text = await provider.generate_response(
             messages=messages_payload,
             model=setting.model,
             api_key=api_key,
+            system_prompt=system_prompt,
         )
     except ValueError as err:
         raise HTTPException(

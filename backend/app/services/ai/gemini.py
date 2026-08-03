@@ -3,32 +3,70 @@ from app.services.ai.provider import LLMProvider
 
 
 class GeminiProvider(LLMProvider):
-    async def generate_response(self, messages: list[dict], model: str, api_key: str) -> str:
-        # Default model fallback if model is empty or invalid
-        effective_model = model.strip() if model and model.strip() else "gemini-2.5-flash"
+    async def generate_response(
+        self,
+        messages: list[dict],
+        model: str,
+        api_key: str,
+        system_prompt: str | None = None
+    ) -> str:
+        raw_model = model.strip() if model and model.strip() else "gemini-3.6-flash"
+        
+        # Map non-existent model names (e.g. gemini-2.5-flash) to default gemini-3.6-flash
+        if raw_model in ("gemini-2.5-flash", "gemini-2.5-pro"):
+            effective_model = "gemini-3.6-flash"
+        else:
+            effective_model = raw_model
 
-        # Format messages for Gemini API
-        contents = []
-        for msg in messages:
+        # Format and sanitize conversation messages for Gemini REST API
+        formatted_contents = []
+        for idx, msg in enumerate(messages):
             role_name = "user" if msg.get("role") == "user" else "model"
-            content_text = msg.get("content", "")
-            if content_text:
-                contents.append({
+            content_text = msg.get("content", "").strip()
+            if not content_text:
+                continue
+
+            # Merge consecutive identical roles to enforce strict user/model alternation
+            if formatted_contents and formatted_contents[-1]["role"] == role_name:
+                formatted_contents[-1]["parts"][0]["text"] += f"\n\n{content_text}"
+            else:
+                formatted_contents.append({
                     "role": role_name,
                     "parts": [{"text": content_text}]
                 })
 
-        if not contents:
+        # Ensure conversation starts with 'user' role
+        while formatted_contents and formatted_contents[0]["role"] != "user":
+            formatted_contents.pop(0)
+
+        if not formatted_contents:
             raise ValueError("No valid message content provided for AI generation.")
+
+        # Attach live server telemetry, forecasts, and anomalies to the active user prompt turn
+        if system_prompt and system_prompt.strip() and formatted_contents[-1]["role"] == "user":
+            user_text = formatted_contents[-1]["parts"][0]["text"]
+            # Contextualize active user turn with live telemetry, predictions, and anomalies
+            formatted_contents[-1]["parts"][0]["text"] = (
+                f"[LIVE SERVER TELEMETRY, FORECASTS & ANOMALY STATE ATTACHED TO USER QUESTION]\n"
+                f"{system_prompt.strip()}\n\n"
+                f"==================================================\n"
+                f"USER QUESTION: {user_text}"
+            )
+
+        payload = {"contents": formatted_contents}
+        if system_prompt and system_prompt.strip():
+            payload["systemInstruction"] = {
+                "parts": [{"text": system_prompt.strip()}]
+            }
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{effective_model}:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=35.0) as client:
             try:
-                response = await client.post(url, json={"contents": contents}, headers=headers)
+                response = await client.post(url, json=payload, headers=headers)
             except httpx.TimeoutException:
-                raise ValueError("Gemini API request timed out after 30 seconds.")
+                raise ValueError("Gemini API request timed out after 35 seconds.")
             except httpx.RequestError:
                 raise ValueError("Failed to establish network connection to Gemini API service.")
 
@@ -40,10 +78,13 @@ class GeminiProvider(LLMProvider):
                         msg_text = res_json["error"]["message"]
                         # Strip any key if present in upstream error message
                         if "key" not in msg_text.lower():
-                            err_detail = f"Gemini API authentication error: {msg_text}"
+                            err_detail = f"Gemini API error: {msg_text}"
                 except Exception:
                     pass
                 raise ValueError(err_detail)
+
+            elif response.status_code == 404:
+                raise ValueError(f"Gemini API model '{effective_model}' not found (HTTP 404). Please select gemini-3.6-flash, gemini-3.5-flash, or gemini-3.5-flash-lite in Settings.")
 
             elif response.status_code == 429:
                 raise ValueError("Gemini API quota or rate limit exceeded. Please try again later.")
