@@ -1,3 +1,5 @@
+import os
+
 import httpx
 
 from app.services.ai.provider import LLMProvider
@@ -6,7 +8,7 @@ from app.services.ai.provider import LLMProvider
 class OllamaProvider(LLMProvider):
     """Local Ollama LLM provider."""
 
-    OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
+    OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/api/chat")
     DEFAULT_MODEL = "qwen3:1.7b"
 
     async def generate_response(

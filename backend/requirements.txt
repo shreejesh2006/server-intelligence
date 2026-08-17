@@ -7,3 +7,7 @@ PyJWT
 python-multipart
 cryptography
 
+numpy
+pandas
+scikit-learn
+joblib

@@ -14,3 +14,4 @@ __pycache__/
 ml/data/
 ml/models/
 ml/**/__pycache__/
+.env
