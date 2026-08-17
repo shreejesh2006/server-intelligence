@@ -30,6 +30,6 @@ export async function deleteAiKeyApi() {
  * @param {Array<{role: string, content: string}>} messages
  */
 export async function sendChatMessageApi(messages) {
-  const response = await apiClient.post('/api/assistant/chat', { messages }, { timeout: 35000 });
+  const response = await apiClient.post('/api/assistant/chat', { messages }, { timeout: 60000 });
   return response.data;
 }

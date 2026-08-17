@@ -63,13 +63,13 @@ class AISetting(Base):
     provider: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        default="gemini",
+        default="ollama",
     )
 
     model: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
-        default="gemini-3.6-flash",
+        default="qwen3:1.7b",
 
 
     )

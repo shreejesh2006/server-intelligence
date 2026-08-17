@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth.permissions import require_admin
+from app.auth.permissions import require_admin, require_viewer
 from app.database.database import get_db
 from app.database.models import AISetting, User
 from app.schemas.ai import AISettingResponse, AISettingUpdate
@@ -13,16 +14,16 @@ from app.services.ai.credentials import create_key_preview, encrypt_api_key
 router = APIRouter(
     prefix="/settings/ai",
     tags=["AI Settings"],
-    dependencies=[Depends(require_admin)],
 )
 
 
 def _get_or_create_ai_setting(db: Session) -> AISetting:
     setting = db.scalar(select(AISetting).order_by(AISetting.id))
+
     if setting is None:
         setting = AISetting(
-            provider="gemini",
-            model="gemini-3.6-flash",
+            provider="ollama",
+            model="qwen3:1.7b",
             encrypted_api_key=None,
             key_preview=None,
             is_enabled=True,
@@ -31,38 +32,35 @@ def _get_or_create_ai_setting(db: Session) -> AISetting:
         db.add(setting)
         db.commit()
         db.refresh(setting)
-    elif setting.model in ("gemini-2.5-flash", "gemini-2.5-pro"):
-        setting.model = "gemini-3.6-flash"
-        db.commit()
-        db.refresh(setting)
+
     return setting
 
 
 @router.get(
     "",
     response_model=AISettingResponse,
+    dependencies=[Depends(require_viewer)],
 )
 def get_ai_settings(
     db: Session = Depends(get_db),
 ):
-    setting = db.scalar(select(AISetting).order_by(AISetting.id))
-    if setting is None:
-        return AISettingResponse(
-            provider="gemini",
-            model="gemini-3.6-flash",
-            configured=False,
-            enabled=True,
-            key_preview=None,
-            updated_by=None,
-            updated_at=None,
+    setting = _get_or_create_ai_setting(db)
+
+    provider = (setting.provider or "ollama").strip().lower()
+    model = setting.model or "qwen3:1.7b"
+
+    # Local Ollama does not require an API key.
+    if provider == "ollama":
+        is_configured = True
+    else:
+        is_configured = bool(
+            setting.encrypted_api_key
+            and setting.encrypted_api_key.strip()
         )
 
-    model_name = "gemini-3.6-flash" if setting.model in ("gemini-2.5-flash", "gemini-2.5-pro") else setting.model
-
-    is_configured = bool(setting.encrypted_api_key and setting.encrypted_api_key.strip())
     return AISettingResponse(
-        provider=setting.provider,
-        model=model_name,
+        provider=provider,
+        model=model,
         configured=is_configured,
         enabled=setting.is_enabled,
         key_preview=setting.key_preview,
@@ -71,10 +69,10 @@ def get_ai_settings(
     )
 
 
-
 @router.put(
     "",
     response_model=AISettingResponse,
+    dependencies=[Depends(require_admin)],
 )
 def update_ai_settings(
     payload: AISettingUpdate,
@@ -89,9 +87,9 @@ def update_ai_settings(
     setting.updated_by = current_admin.username
     setting.updated_at = datetime.now(timezone.utc)
 
-    # Handle API Key update if provided
     if payload.api_key is not None and payload.api_key.strip():
         raw_key = payload.api_key.strip()
+
         try:
             setting.encrypted_api_key = encrypt_api_key(raw_key)
             setting.key_preview = create_key_preview(raw_key)
@@ -101,12 +99,27 @@ def update_ai_settings(
                 detail=str(err),
             )
 
+    # Ollama is local and doesn't require credentials.
+    elif setting.provider == "ollama":
+        setting.encrypted_api_key = None
+        setting.key_preview = None
+
     db.commit()
     db.refresh(setting)
 
-    is_configured = bool(setting.encrypted_api_key and setting.encrypted_api_key.strip())
+    provider = setting.provider.lower()
+
+    is_configured = (
+        True
+        if provider == "ollama"
+        else bool(
+            setting.encrypted_api_key
+            and setting.encrypted_api_key.strip()
+        )
+    )
+
     return AISettingResponse(
-        provider=setting.provider,
+        provider=provider,
         model=setting.model,
         configured=is_configured,
         enabled=setting.is_enabled,
@@ -119,6 +132,7 @@ def update_ai_settings(
 @router.delete(
     "/key",
     response_model=AISettingResponse,
+    dependencies=[Depends(require_admin)],
 )
 def remove_ai_api_key(
     db: Session = Depends(get_db),
@@ -134,10 +148,12 @@ def remove_ai_api_key(
     db.commit()
     db.refresh(setting)
 
+    provider = setting.provider.lower()
+
     return AISettingResponse(
-        provider=setting.provider,
+        provider=provider,
         model=setting.model,
-        configured=False,
+        configured=provider == "ollama",
         enabled=setting.is_enabled,
         key_preview=None,
         updated_by=setting.updated_by,
