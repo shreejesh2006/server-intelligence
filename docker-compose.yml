@@ -22,6 +22,7 @@ services:
 
     environment:
       OLLAMA_URL: "http://host.docker.internal:11434/api/chat"
+      VICTORIAMETRICS_URL: "http://host.docker.internal:8428"
 
     depends_on:
       - victoriametrics
