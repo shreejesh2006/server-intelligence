@@ -27,6 +27,10 @@ class ForecastService:
         if self._cache is not None and (now - self._cache_timestamp) < CACHE_TTL_SECONDS:
             return self._cache
 
+        # Ensure ML artifacts are available even if startup loading
+        # was skipped or the container was started unusually.
+        ml_loader.ensure_loaded()
+
         if not ml_loader.is_forecast_available():
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

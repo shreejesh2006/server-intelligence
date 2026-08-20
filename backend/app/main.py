@@ -15,8 +15,21 @@ from app.services.ml.loader import ml_loader
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print("=== SERVER INTELLIGENCE STARTUP ===")
+
     init_database()
+
+    print("Loading ML artifacts...")
     ml_loader.load_all()
+
+    print(
+        "ML STATUS:",
+        "forecast=", ml_loader.is_forecast_available(),
+        "anomaly=", ml_loader.is_anomaly_available(),
+        "forecast_metadata=", len(ml_loader.forecasting_metadata),
+        "forecast_models=", len(ml_loader.forecasting_models),
+    )
+
     yield
 
 
