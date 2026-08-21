@@ -1,8 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 
-from app.services.victoriametrics import (
-    VictoriaMetricsService,
-)
+from app.services.victoriametrics import VictoriaMetricsService
 
 
 router = APIRouter(
@@ -37,6 +35,20 @@ SUPPORTED_METRICS = {
 }
 
 
+def build_query(metric: str, host: str | None) -> str:
+    if not host:
+        return metric
+
+    # Hostnames are restricted to safe PromQL label characters.
+    if not host.replace("_", "").replace("-", "").isalnum():
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid host",
+        )
+
+    return f'{metric}{{host="{host}"}}'
+
+
 @router.get("/")
 async def list_metrics():
     return {
@@ -45,16 +57,35 @@ async def list_metrics():
 
 
 @router.get("/current")
-async def current_metrics():
+async def current_metrics(
+    host: str | None = Query(default=None),
+):
     result = {}
 
     try:
-        for name, query in SUPPORTED_METRICS.items():
+        for name, metric in SUPPORTED_METRICS.items():
+
+            query = build_query(metric, host)
+
             data = await victoria.query(query)
 
             if not data:
                 result[name] = None
                 continue
+
+            # When a host was explicitly requested, select that exact series.
+            if host:
+                matching = [
+                    item
+                    for item in data
+                    if item.get("metric", {}).get("host") == host
+                ]
+
+                if not matching:
+                    result[name] = None
+                    continue
+
+                data = matching
 
             result[name] = float(
                 data[0]["value"][1]
@@ -62,8 +93,12 @@ async def current_metrics():
 
         return {
             "status": "success",
+            "host": host,
             "metrics": result,
         }
+
+    except HTTPException:
+        raise
 
     except Exception as exc:
         raise HTTPException(
@@ -75,19 +110,22 @@ async def current_metrics():
 @router.get("/{metric_name}")
 async def metric_history(
     metric_name: str,
+    host: str | None = Query(default=None),
     start: str = Query(default="-1h"),
     end: str = Query(default="now"),
     step: str = Query(default="30s"),
 ):
-    query = SUPPORTED_METRICS.get(metric_name)
+    metric = SUPPORTED_METRICS.get(metric_name)
 
-    if query is None:
+    if metric is None:
         raise HTTPException(
             status_code=404,
             detail=f"Unknown metric: {metric_name}",
         )
 
     try:
+        query = build_query(metric, host)
+
         data = await victoria.query_range(
             query=query,
             start=start,
@@ -98,8 +136,25 @@ async def metric_history(
         if not data:
             return {
                 "metric": metric_name,
+                "host": host,
                 "values": [],
             }
+
+        if host:
+            matching = [
+                item
+                for item in data
+                if item.get("metric", {}).get("host") == host
+            ]
+
+            if not matching:
+                return {
+                    "metric": metric_name,
+                    "host": host,
+                    "values": [],
+                }
+
+            data = matching
 
         values = [
             {
@@ -112,11 +167,15 @@ async def metric_history(
 
         return {
             "metric": metric_name,
+            "host": host,
             "start": start,
             "end": end,
             "step": step,
             "values": values,
         }
+
+    except HTTPException:
+        raise
 
     except Exception as exc:
         raise HTTPException(
