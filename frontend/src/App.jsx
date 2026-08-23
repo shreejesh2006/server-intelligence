@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { TimezoneProvider } from './context/TimezoneContext';
+import { ServerProvider, useServer } from './context/ServerContext';
 import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -49,7 +50,8 @@ function PageFallback() {
 }
 
 function AuthenticatedAppShell() {
-  const { metrics, loading, isOffline, lastUpdated, freshnessState, freshnessLabel, refetch } = useMetrics(30000);
+  const { selectedHost } = useServer();
+  const { metrics, loading, isOffline, lastUpdated, freshnessState, freshnessLabel, refetch } = useMetrics(selectedHost, 30000);
 
   return (
     <AppShell
@@ -179,14 +181,16 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <TimezoneProvider>
-            <BrowserRouter>
-              <Suspense fallback={<PageFallback />}>
-                <Routes>
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/*" element={<AuthenticatedAppShell />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
+            <ServerProvider>
+              <BrowserRouter>
+                <Suspense fallback={<PageFallback />}>
+                  <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/*" element={<AuthenticatedAppShell />} />
+                  </Routes>
+                </Suspense>
+              </BrowserRouter>
+            </ServerProvider>
           </TimezoneProvider>
         </AuthProvider>
       </ThemeProvider>

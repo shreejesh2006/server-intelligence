@@ -3,11 +3,13 @@ import { Activity, Server, RefreshCw, User, WifiOff, Sun, Moon, LogOut } from 'l
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTimezone } from '../../context/TimezoneContext';
+import { useServer } from '../../context/ServerContext';
 
 export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessState = 'FRESH', freshnessLabel = 'TELEMETRY FRESH' }) {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const { formatTimestamp } = useTimezone();
+  const { servers, selectedHost, selectServer } = useServer();
 
   const formattedTime = lastUpdated
     ? formatTimestamp(Math.floor(lastUpdated.getTime() / 1000), true)
@@ -32,10 +34,22 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
       </div>
 
       <div className="topbar-right">
-        {/* Host Badge */}
-        <div className="topbar-item">
+        {/* Interactive Host Selector */}
+        <div className="topbar-item server-selector-item font-mono text-xs">
           <Server size={13} className="text-secondary" />
-          <span className="font-mono text-xs">HOST: ubuntu-primary</span>
+          <span className="server-select-label">HOST:</span>
+          <select
+            value={selectedHost}
+            onChange={(e) => selectServer(e.target.value)}
+            aria-label="Select target server"
+            className="topbar-server-dropdown font-mono text-xs"
+          >
+            {servers.map((srv) => (
+              <option key={srv.host} value={srv.host}>
+                {srv.name.toUpperCase()} ({srv.ip})
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="topbar-divider" />
@@ -166,6 +180,27 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
           display: flex;
           align-items: center;
           gap: 8px;
+        }
+
+        .server-select-label {
+          color: var(--text-tertiary);
+          font-size: 11px;
+        }
+
+        .topbar-server-dropdown {
+          background: var(--bg-main);
+          color: var(--accent);
+          border: 1px solid var(--border-strong);
+          padding: 3px 8px;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          cursor: pointer;
+          border-radius: 2px;
+          outline: none;
+        }
+
+        .topbar-server-dropdown:hover {
+          border-color: var(--accent);
         }
 
         .theme-toggle-btn {

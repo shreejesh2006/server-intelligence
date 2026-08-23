@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import PageHeader from '../../components/common/PageHeader';
 import { useAuth } from '../../context/AuthContext';
+import { useServer } from '../../context/ServerContext';
 import { sendChatMessageApi, getAiSettingsApi } from '../../services/ai';
 import {
   Bot,
@@ -16,6 +17,9 @@ import {
   Cpu,
   ShieldAlert,
   LineChart,
+  Copy,
+  Check,
+  Server,
 } from 'lucide-react';
 
 
@@ -67,10 +71,29 @@ function InlineText({ children }) {
 
 
 function CodeBlock({ language, code }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
   return (
-    <div className="assistant-code-block">
+    <div className="assistant-code-block font-mono">
       <div className="code-block-header">
-        <span>{language || 'CODE'}</span>
+        <span className="code-block-lang">{language || 'CODE'}</span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="code-copy-btn"
+          title="Copy code to clipboard"
+        >
+          {copied ? <Check size={11} className="text-healthy" /> : <Copy size={11} />}
+          <span>{copied ? 'COPIED' : 'COPY'}</span>
+        </button>
       </div>
 
       <pre className="code-block-body">
@@ -320,6 +343,7 @@ function ResponseRenderer({ content }) {
 
 export function AssistantPage() {
   const { user } = useAuth();
+  const { activeServer } = useServer();
   const isAdmin = user?.role === 'ADMIN';
   const navigate = useNavigate();
 
@@ -357,7 +381,7 @@ export function AssistantPage() {
         if (!isCancelled) {
           setAiConfig(config);
         }
-      } catch (err) {
+      } catch {
         if (!isCancelled) {
           setAiConfig({
             configured: false,
@@ -399,6 +423,7 @@ export function AssistantPage() {
     const userMessage = {
       role: 'user',
       content: text,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     const updatedMessages = [
@@ -420,6 +445,7 @@ export function AssistantPage() {
         content: response.message,
         provider: response.provider,
         model: response.model,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
       setMessages([
@@ -485,9 +511,8 @@ export function AssistantPage() {
         tag="LOCAL AI"
       >
         {isConfigured && (
-          <span className="editorial-pill pill-healthy">
+          <span className="editorial-pill pill-healthy font-mono">
             <Sparkles size={11} />
-
             {aiConfig.provider?.toUpperCase()}
             {' / '}
             {aiConfig.model?.toUpperCase()}
@@ -501,15 +526,12 @@ export function AssistantPage() {
           ====================================================== */}
 
       {checkingConfig && (
-        <div className="assistant-loading-box">
+        <div className="assistant-loading-box font-mono">
           <RefreshCw
             size={16}
             className="spinning text-accent"
           />
-
-          <span>
-            CONNECTING TO LOCAL AI...
-          </span>
+          <span>CONNECTING TO LOCAL AI...</span>
         </div>
       )}
 
@@ -520,13 +542,11 @@ export function AssistantPage() {
 
       {!checkingConfig && !isConfigured && (
         <section className="unconfigured-card">
-
           <div className="unconfigured-header">
             <Bot
               size={24}
               className="text-secondary"
             />
-
             <h3 className="unconfigured-title font-sans">
               LOCAL AI UNAVAILABLE
             </h3>
@@ -545,12 +565,10 @@ export function AssistantPage() {
                 onClick={() =>
                   navigate('/settings#ai-assistant')
                 }
-                className="editorial-btn btn-configure-ai"
+                className="editorial-btn btn-configure-ai font-mono"
               >
                 <Sliders size={13} />
-                <span>
-                  AI SETTINGS
-                </span>
+                <span>AI SETTINGS</span>
               </button>
             </div>
           )}
@@ -559,16 +577,14 @@ export function AssistantPage() {
 
 
       {/* ======================================================
-          CHAT
+          CHAT CONTAINER
           ====================================================== */}
 
       {!checkingConfig && isConfigured && (
         <div className="chat-container">
 
           {/* Status strip */}
-
           <div className="assistant-status-strip">
-
             <div className="assistant-status-item">
               <span className="assistant-status-dot" />
               <span>LOCAL MODEL ONLINE</span>
@@ -576,25 +592,23 @@ export function AssistantPage() {
 
             <div className="assistant-status-item">
               <Cpu size={13} />
-              <span>
-                {aiConfig.model}
-              </span>
+              <span>{aiConfig.model}</span>
+            </div>
+
+            <div className="assistant-status-item">
+              <Server size={13} />
+              <span>UI CONTEXT: {activeServer.name.toUpperCase()} ({activeServer.ip})</span>
             </div>
 
             <div className="assistant-status-item">
               <Activity size={13} />
-              <span>
-                LIVE SERVER CONTEXT
-              </span>
+              <span>TELEMETRY CONTEXT</span>
             </div>
 
             <div className="assistant-status-item">
               <ShieldAlert size={13} />
-              <span>
-                ANOMALY AWARE
-              </span>
+              <span>ANOMALY AWARE</span>
             </div>
-
           </div>
 
 
@@ -619,40 +633,33 @@ export function AssistantPage() {
                 </h4>
 
                 <p className="empty-hero-sub font-sans text-xs text-secondary">
-                  Ask about the current server state,
-                  forecasts, anomalies, resource usage,
-                  or operational issues.
+                  Ask about overall system state, resource utilization trends,
+                  forecasts, anomalies, or operational issues.
                 </p>
 
-
-                <div className="assistant-capabilities">
-
+                <div className="assistant-capabilities font-mono">
                   <div>
-                    <Activity size={15} />
+                    <Activity size={14} />
                     <span>LIVE TELEMETRY</span>
                   </div>
 
                   <div>
-                    <LineChart size={15} />
+                    <LineChart size={14} />
                     <span>FORECASTS</span>
                   </div>
 
                   <div>
-                    <ShieldAlert size={15} />
+                    <ShieldAlert size={14} />
                     <span>ANOMALIES</span>
                   </div>
-
                 </div>
 
-
-                <div className="prompt-suggestions">
-
+                <div className="prompt-suggestions font-mono">
                   <span className="suggestions-label">
-                    TRY ASKING
+                    SUGGESTED PROMPTS
                   </span>
 
                   <div className="suggestions-grid">
-
                     <button
                       type="button"
                       onClick={() =>
@@ -693,16 +700,14 @@ export function AssistantPage() {
                       type="button"
                       onClick={() =>
                         handlePromptSelect(
-                          'Are there any anomalies? Explain the most important one.'
+                          'Are there any anomalies detected across telemetry metrics?'
                         )
                       }
                       className="suggestion-btn"
                     >
-                      Are there any anomalies?
+                      Are there any anomalies detected?
                     </button>
-
                   </div>
-
                 </div>
 
               </div>
@@ -714,7 +719,6 @@ export function AssistantPage() {
                 ================================================== */}
 
             {messages.map((message, index) => (
-
               <div
                 key={index}
                 className={`chat-bubble-wrapper ${
@@ -723,20 +727,12 @@ export function AssistantPage() {
                     : 'bubble-assistant'
                 }`}
               >
-
                 <div className="bubble-meta font-mono text-xs">
-
                   {message.role === 'user' ? (
                     <>
                       <UserIcon size={12} />
-
                       <span>
-                        YOU
-                        {' '}
-                        (
-                        {user?.username?.toUpperCase() ||
-                          'USER'}
-                        )
+                        YOU ({user?.username?.toUpperCase() || 'USER'})
                       </span>
                     </>
                   ) : (
@@ -745,118 +741,88 @@ export function AssistantPage() {
                         size={12}
                         className="text-accent"
                       />
-
                       <span>
-                        SERVER INTELLIGENCE
-                        {' '}
-                        (
-                        {message.model ||
-                          aiConfig?.model ||
-                          'LOCAL AI'}
-                        )
+                        SERVER INTELLIGENCE ({message.model || aiConfig?.model || 'LOCAL AI'})
                       </span>
                     </>
                   )}
-
+                  {message.timestamp && (
+                    <span className="message-time text-tertiary">{message.timestamp}</span>
+                  )}
                 </div>
 
-
                 <div className="bubble-content">
-
                   {message.role === 'assistant' ? (
                     <ResponseRenderer
                       content={message.content}
                     />
                   ) : (
-                    <p className="user-message-text">
+                    <p className="user-message-text font-mono">
                       {message.content}
                     </p>
                   )}
-
                 </div>
-
               </div>
-
             ))}
 
 
             {/* ==================================================
-                GENERATING
+                GENERATING / THINKING STATE
                 ================================================== */}
 
             {isSending && (
-
               <div className="chat-bubble-wrapper bubble-assistant">
-
                 <div className="bubble-meta font-mono text-xs">
-
                   <Bot
                     size={12}
                     className="text-accent spinning"
                   />
-
                   <span>
                     SERVER INTELLIGENCE IS THINKING...
                   </span>
-
                 </div>
 
-                <div className="typing-indicator">
+                <div className="typing-indicator font-mono">
                   <span className="typing-dot">●</span>
                   <span className="typing-dot">●</span>
                   <span className="typing-dot">●</span>
                 </div>
-
               </div>
-
             )}
 
 
             {/* ==================================================
-                ERROR
+                ERROR BANNER
                 ================================================== */}
 
             {chatError && (
-
-              <div className="editorial-notice-banner notice-error">
-
+              <div className="editorial-notice-banner notice-error font-mono">
                 <AlertCircle size={15} />
-
-                <span>
-                  {chatError}
-                </span>
-
+                <span>{chatError}</span>
                 <button
                   type="button"
-                  onClick={() =>
-                    setChatError(null)
-                  }
+                  onClick={() => setChatError(null)}
                   className="notice-close"
                   aria-label="Dismiss error"
                 >
                   ✕
                 </button>
-
               </div>
-
             )}
 
             <div ref={messagesEndRef} />
-
           </div>
 
 
           {/* ==================================================
-              INPUT
+              INPUT COMPOSER
               ================================================== */}
 
           <form
             onSubmit={handleSend}
             className="chat-input-form"
           >
-
             <div className="input-box-wrapper">
-
               <textarea
                 ref={textareaRef}
                 value={inputText}
@@ -864,7 +830,7 @@ export function AssistantPage() {
                   setInputText(event.target.value)
                 }
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about your server..."
+                placeholder="Ask about system metrics, telemetry trends, or anomalies... (Press Enter to send, Shift+Enter for new line)"
                 rows={2}
                 disabled={isSending}
                 className="chat-textarea font-mono"
@@ -877,9 +843,8 @@ export function AssistantPage() {
                   !inputText.trim()
                 }
                 aria-label="Send message"
-                className="editorial-btn btn-send-chat"
+                className="editorial-btn btn-send-chat font-mono"
               >
-
                 {isSending ? (
                   <RefreshCw
                     size={13}
@@ -891,17 +856,14 @@ export function AssistantPage() {
                     <span>SEND</span>
                   </>
                 )}
-
               </button>
-
             </div>
 
             <div className="input-footer-note font-mono text-xs text-tertiary">
               <span>
-                LOCAL QWEN3 • LIVE TELEMETRY • FORECASTS • ANOMALY DETECTION
+                LOCAL OLLAMA • LIVE TELEMETRY CONTEXT • FORECAST & ANOMALY AWARE
               </span>
             </div>
-
           </form>
 
         </div>
@@ -913,11 +875,6 @@ export function AssistantPage() {
           ====================================================== */}
 
       <style>{`
-        /* =========================================================
-           SERVER INTELLIGENCE — LOCAL AI CHAT
-           Clean layout / explicit sizing / no inherited UI leakage
-           ========================================================= */
-
         .assistant-page {
           width: 100%;
           max-width: 100%;
@@ -925,314 +882,264 @@ export function AssistantPage() {
           box-sizing: border-box;
         }
 
-        .assistant-page *,
-        .assistant-page *::before,
-        .assistant-page *::after {
-          box-sizing: border-box;
-        }
-
-        /* ---------------------------------------------------------
-           Loading / configuration
-           --------------------------------------------------------- */
-
         .assistant-loading-box,
         .unconfigured-card {
           width: 100%;
           margin-top: 1.5rem;
         }
 
-        /* ---------------------------------------------------------
-           Main chat shell
-           --------------------------------------------------------- */
+        .assistant-loading-box {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 24px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-strong);
+          color: var(--text-secondary);
+          font-size: 11px;
+          letter-spacing: 0.06em;
+        }
 
+        .unconfigured-card {
+          padding: 28px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-strong);
+          border-left: 4px solid var(--status-warning);
+        }
+
+        .unconfigured-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+
+        .unconfigured-title {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .unconfigured-action {
+          margin-top: 16px;
+        }
+
+        .btn-configure-ai {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          font-size: 11px;
+        }
+
+        /* Main Chat Shell */
         .assistant-page .chat-container {
           width: 100%;
-          min-width: 0;
           margin-top: 1.5rem;
-          border: 1px solid var(--border, #27272a);
-          background: #101114;
+          border: 1px solid var(--border-strong);
+          background: var(--bg-surface);
+          display: flex;
+          flex-direction: column;
+          height: calc(100vh - 200px);
+          min-height: 520px;
           overflow: hidden;
         }
 
-        /* ---------------------------------------------------------
-           Status strip
-           --------------------------------------------------------- */
-
+        /* Status strip */
         .assistant-page .assistant-status-strip {
           display: flex;
           align-items: center;
           flex-wrap: wrap;
           gap: 8px;
-          width: 100%;
-          min-height: 58px;
-          padding: 12px 16px;
-          border-bottom: 1px solid var(--border, #27272a);
-          background: #13151a;
+          padding: 10px 16px;
+          border-bottom: 1px solid var(--border-subtle);
+          background: var(--bg-main);
+          flex-shrink: 0;
         }
 
         .assistant-page .assistant-status-item {
           display: inline-flex;
           align-items: center;
-          gap: 7px;
-          min-height: 30px;
-          padding: 0 11px;
-          border: 1px solid #2b2e35;
-          border-radius: 999px;
-          background: #111318;
-          color: #9ca3af;
-          font-size: 0.63rem;
-          line-height: 1;
-          letter-spacing: 0.06em;
-          white-space: nowrap;
-        }
-
-        .assistant-page .assistant-status-item svg {
-          flex: 0 0 auto;
-          color: #9ca3af;
+          gap: 6px;
+          padding: 4px 10px;
+          border: 1px solid var(--border-subtle);
+          border-radius: 4px;
+          background: var(--bg-surface);
+          color: var(--text-secondary);
+          font-size: 10px;
+          letter-spacing: 0.05em;
         }
 
         .assistant-page .assistant-status-dot {
-          width: 7px;
-          height: 7px;
-          flex: 0 0 7px;
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
-          background: #10b981;
-          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08);
+          background: var(--status-healthy);
+          box-shadow: 0 0 6px var(--status-healthy);
         }
 
-        /* ---------------------------------------------------------
-           Message area
-           --------------------------------------------------------- */
-
+        /* Messages Scroll Container */
         .assistant-page .chat-messages-area {
-          width: 100%;
-          min-width: 0;
-          min-height: 420px;
-          max-height: 58vh;
-          padding: 28px 30px;
+          flex: 1;
+          padding: 24px;
           overflow-y: auto;
-          overflow-x: hidden;
-          background: #101114;
+          background: var(--bg-main);
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
         }
 
-        /* ---------------------------------------------------------
-           Empty state
-           --------------------------------------------------------- */
-
+        /* Empty state */
         .assistant-page .empty-chat-hero {
-          width: 100%;
-          max-width: 980px;
-          margin: 0 auto;
-          padding: 42px 20px 34px;
+          margin: auto;
+          max-width: 720px;
           text-align: center;
+          padding: 32px 16px;
         }
 
         .assistant-page .empty-hero-icon {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 46px;
-          height: 46px;
-          margin: 0 auto 18px;
-          border: 1px solid #343840;
-          border-radius: 10px;
-          background: #15171c;
+          width: 48px;
+          height: 48px;
+          margin: 0 auto 16px;
+          border: 1px solid var(--border-strong);
+          background: var(--bg-surface);
         }
 
         .assistant-page .empty-hero-title {
-          margin: 0;
-          color: #f4f4f5;
-          font-size: 1.05rem;
-          line-height: 1.35;
-          letter-spacing: -0.01em;
+          margin: 0 0 8px;
+          color: var(--text-primary);
+          font-size: 15px;
+          letter-spacing: 0.05em;
         }
 
         .assistant-page .empty-hero-sub {
-          max-width: 680px;
-          margin: 9px auto 0;
-          color: #9ca3af;
-          line-height: 1.6;
+          margin: 0 0 24px;
+          line-height: 1.5;
         }
-
-        /* ---------------------------------------------------------
-           Capabilities
-           --------------------------------------------------------- */
 
         .assistant-page .assistant-capabilities {
           display: flex;
-          align-items: center;
           justify-content: center;
+          gap: 16px;
+          margin-bottom: 24px;
           flex-wrap: wrap;
-          gap: 8px;
-          margin: 24px 0 28px;
         }
 
-        .assistant-page .assistant-capabilities > div {
-          display: inline-flex;
+        .assistant-page .assistant-capabilities div {
+          display: flex;
           align-items: center;
-          gap: 7px;
-          min-height: 34px;
-          padding: 0 12px;
-          border: 1px solid #2b2e35;
-          border-radius: 7px;
-          background: #13151a;
-          color: #9ca3af;
-          font-size: 0.70rem;
-          letter-spacing: 0.055em;
-          white-space: nowrap;
+          gap: 6px;
+          padding: 6px 12px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          font-size: 10px;
+          color: var(--text-secondary);
         }
-
-        .assistant-page .assistant-capabilities svg {
-          color: #f59e0b;
-          flex: 0 0 auto;
-        }
-
-        /* ---------------------------------------------------------
-           Suggested prompts
-           --------------------------------------------------------- */
 
         .assistant-page .prompt-suggestions {
-          width: 100%;
-          max-width: 900px;
-          margin: 0 auto;
           text-align: left;
         }
 
         .assistant-page .suggestions-label {
           display: block;
-          margin-bottom: 9px;
-          color: #717782;
-          font-size: 0.63rem;
-          letter-spacing: 0.09em;
+          font-size: 10px;
+          color: var(--text-tertiary);
+          letter-spacing: 0.08em;
+          margin-bottom: 10px;
         }
 
         .assistant-page .suggestions-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 9px;
-          width: 100%;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 10px;
         }
 
         .assistant-page .suggestion-btn {
-          appearance: none;
-          display: block;
-          width: 100%;
-          min-width: 0;
-          min-height: 52px;
-          padding: 12px 14px;
-          border: 1px solid #2b2e35;
-          border-radius: 7px;
-          outline: none;
-          background: #14161b;
-          color: #b8bdc7;
-          font-family: var(--font-mono, monospace);
-          font-size: 0.78rem;
-          line-height: 1.5;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          color: var(--text-secondary);
+          padding: 10px 14px;
+          font-family: var(--font-mono);
+          font-size: 11px;
           text-align: left;
-          white-space: normal;
-          overflow-wrap: anywhere;
           cursor: pointer;
-          transition:
-            border-color 140ms ease,
-            background 140ms ease,
-            color 140ms ease;
+          transition: all 0.15s ease;
         }
 
         .assistant-page .suggestion-btn:hover {
-          border-color: #4a4f59;
-          background: #191b21;
-          color: #f4f4f5;
+          border-color: var(--accent);
+          color: var(--accent);
+          background: var(--bg-surface-hover);
         }
 
-        .assistant-page .suggestion-btn:focus-visible {
-          border-color: #f59e0b;
-          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.12);
-        }
-
-        /* ---------------------------------------------------------
-           Chat messages
-           --------------------------------------------------------- */
-
+        /* Chat Bubbles */
         .assistant-page .chat-bubble-wrapper {
-          width: 100%;
-          min-width: 0;
-          margin-bottom: 26px;
-        }
-
-        .assistant-page .chat-bubble-wrapper:last-of-type {
-          margin-bottom: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          max-width: 90%;
         }
 
         .assistant-page .bubble-user {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
+          align-self: flex-end;
+
         }
 
         .assistant-page .bubble-assistant {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
+          align-self: flex-start;
+          width: 100%;
         }
 
         .assistant-page .bubble-meta {
           display: flex;
           align-items: center;
-          gap: 7px;
-          margin-bottom: 8px;
-          color: #737984;
-          font-size: 0.70rem;
-          line-height: 1;
-          letter-spacing: 0.055em;
+          gap: 8px;
+          color: var(--text-tertiary);
+          font-size: 10px;
+          letter-spacing: 0.05em;
         }
 
-        .assistant-page .bubble-meta svg {
-          flex: 0 0 auto;
-        }
-
-        .assistant-page .bubble-content {
-          width: fit-content;
-          max-width: min(820px, 88%);
-          min-width: 0;
-          padding: 14px 17px;
-          border: 1px solid #2b2e35;
-          border-radius: 8px;
-          background: #15171c;
-          color: #d4d7dc;
-          overflow-wrap: anywhere;
+        .assistant-page .message-time {
+          margin-left: 4px;
+          font-size: 9px;
         }
 
         .assistant-page .bubble-user .bubble-content {
-          border-color: rgba(245, 158, 11, 0.35);
-          background: rgba(245, 158, 11, 0.08);
-          color: #e5e7eb;
+          background: var(--bg-surface);
+          border: 1px solid var(--accent);
+          padding: 12px 16px;
+          color: var(--text-primary);
+        }
+
+        .assistant-page .bubble-assistant .bubble-content {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-strong);
+          border-left: 3px solid var(--accent);
+          padding: 16px 20px;
+          color: var(--text-primary);
         }
 
         .assistant-page .user-message-text {
           margin: 0;
+          font-size: 12px;
+          line-height: 1.5;
           white-space: pre-wrap;
-          overflow-wrap: anywhere;
-          font-size: 0.78rem;
-          line-height: 1.6;
         }
 
-        /* ---------------------------------------------------------
-           AI response typography
-           --------------------------------------------------------- */
-
+        /* Response Renderer Markdown Elements */
         .assistant-page .assistant-response {
-          width: 100%;
-          max-width: 820px;
-          color: #d4d7dc;
-          font-family: var(--font-mono, monospace);
-          font-size: 0.90rem;
-          line-height: 1.75;
+          font-family: var(--font-sans);
+          font-size: 13px;
+          line-height: 1.6;
+          color: var(--text-primary);
         }
 
         .assistant-page .assistant-paragraph {
-          margin: 0 0 0.85rem;
-          white-space: normal;
-          overflow-wrap: anywhere;
+          margin: 0 0 10px;
         }
 
         .assistant-page .assistant-paragraph:last-child {
@@ -1240,307 +1147,183 @@ export function AssistantPage() {
         }
 
         .assistant-page .assistant-heading {
-          margin: 1.25rem 0 0.55rem;
-          color: #f4f4f5;
-          font-family: var(--font-sans, Inter, sans-serif);
-          font-weight: 650;
-          line-height: 1.3;
+          font-family: var(--font-mono);
+          margin: 16px 0 8px;
+          color: var(--text-primary);
+          letter-spacing: 0.05em;
         }
 
-        .assistant-page .assistant-heading:first-child {
-          margin-top: 0;
-        }
-
-        .assistant-page .assistant-heading-1 {
-          font-size: 1.05rem;
-        }
-
-        .assistant-page .assistant-heading-2 {
-          font-size: 0.96rem;
-        }
-
-        .assistant-page .assistant-heading-3 {
-          font-size: 0.9rem;
-        }
-
-        .assistant-page .assistant-response strong {
-          color: #f4f4f5;
-          font-family: var(--font-sans, Inter, sans-serif);
-          font-weight: 700;
-        }
-
-        .assistant-page .assistant-response em {
-          font-style: italic;
-        }
-
-        /* ---------------------------------------------------------
-           Lists
-           --------------------------------------------------------- */
+        .assistant-page .assistant-heading-1 { font-size: 15px; font-weight: 700; border-bottom: 1px solid var(--border-subtle); padding-bottom: 4px; }
+        .assistant-page .assistant-heading-2 { font-size: 14px; font-weight: 700; }
+        .assistant-page .assistant-heading-3 { font-size: 13px; font-weight: 600; color: var(--accent); }
 
         .assistant-page .assistant-list {
-          margin: 0.45rem 0 1rem;
-          padding-left: 1.35rem;
+          margin: 8px 0 12px 20px;
+          padding: 0;
         }
 
         .assistant-page .assistant-list li {
-          margin: 0.3rem 0;
-          padding-left: 0.25rem;
-          line-height: 1.6;
+          margin-bottom: 4px;
         }
-
-        .assistant-page .assistant-list li::marker {
-          color: #f59e0b;
-        }
-
-        .assistant-page .assistant-ordered-list li::marker {
-          font-family: var(--font-mono, monospace);
-          font-size: 0.78rem;
-        }
-
-        /* ---------------------------------------------------------
-           Inline code
-           --------------------------------------------------------- */
 
         .assistant-page .assistant-inline-code {
-          display: inline-block;
-          margin: 0 0.08rem;
-          padding: 0.08rem 0.32rem;
-          border: 1px solid #30333a;
-          border-radius: 4px;
-          background: #111318;
-          color: #e5e7eb;
-          font-family: var(--font-mono, monospace);
-          font-size: 0.82em;
+          font-family: var(--font-mono);
+          background: var(--bg-main);
+          border: 1px solid var(--border-subtle);
+          padding: 2px 6px;
+          font-size: 11px;
+          color: var(--accent);
         }
 
-        /* ---------------------------------------------------------
-           Code blocks
-           --------------------------------------------------------- */
+        .assistant-page .assistant-divider {
+          border: none;
+          height: 1px;
+          background: var(--border-subtle);
+          margin: 16px 0;
+        }
 
+        /* Code Block */
         .assistant-page .assistant-code-block {
-          width: 100%;
-          margin: 0.85rem 0 1rem;
-          overflow: hidden;
-          border: 1px solid #2b2e35;
-          border-radius: 7px;
-          background: #0c0e11;
+          margin: 12px 0;
+          background: var(--bg-main);
+          border: 1px solid var(--border-strong);
         }
 
         .assistant-page .code-block-header {
           display: flex;
+          justify-content: space-between;
           align-items: center;
-          min-height: 30px;
-          padding: 0 11px;
-          border-bottom: 1px solid #2b2e35;
-          background: #13151a;
-          color: #737984;
-          font-size: 0.61rem;
+          padding: 6px 12px;
+          background: var(--bg-surface);
+          border-bottom: 1px solid var(--border-subtle);
+          font-size: 10px;
+        }
+
+        .assistant-page .code-block-lang {
+          color: var(--accent);
+          font-weight: 600;
           letter-spacing: 0.08em;
+        }
+
+        .assistant-page .code-copy-btn {
+          background: transparent;
+          border: 1px solid var(--border-subtle);
+          color: var(--text-tertiary);
+          padding: 3px 8px;
+          font-size: 9px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.15s ease;
+        }
+
+        .assistant-page .code-copy-btn:hover {
+          border-color: var(--accent);
+          color: var(--text-primary);
         }
 
         .assistant-page .code-block-body {
           margin: 0;
-          padding: 13px 14px;
+          padding: 14px;
           overflow-x: auto;
-          color: #d4d7dc;
-          font-size: 0.80rem;
-          line-height: 1.65;
-          white-space: pre;
+          font-family: var(--font-mono);
+          font-size: 11px;
+          line-height: 1.5;
+          color: var(--text-primary);
         }
 
-        .assistant-page .assistant-divider {
-          margin: 1.1rem 0;
-          border: 0;
-          border-top: 1px solid #2b2e35;
+        /* Typing indicator */
+        .assistant-page .typing-indicator {
+          display: flex;
+          gap: 6px;
+          padding: 8px 0;
+          color: var(--accent);
         }
 
-        /* ---------------------------------------------------------
-           Composer
-           --------------------------------------------------------- */
+        .assistant-page .typing-dot {
+          animation: blink 1.4s infinite both;
+          font-size: 14px;
+        }
 
+        .assistant-page .typing-dot:nth-child(2) { animation-delay: .2s; }
+        .assistant-page .typing-dot:nth-child(3) { animation-delay: .4s; }
+
+        @keyframes blink {
+          0%, 80%, 100% { opacity: 0.2; }
+          40% { opacity: 1; }
+        }
+
+        /* Input Form */
         .assistant-page .chat-input-form {
-          width: 100%;
-          min-width: 0;
-          padding: 16px;
-          border-top: 1px solid #2b2e35;
-          background: #13151a;
+          border-top: 1px solid var(--border-strong);
+          background: var(--bg-surface);
+          padding: 16px 20px;
+          flex-shrink: 0;
         }
 
         .assistant-page .input-box-wrapper {
           display: flex;
-          align-items: stretch;
-          width: 100%;
-          min-width: 0;
-          gap: 9px;
+          gap: 12px;
+          align-items: flex-end;
         }
 
         .assistant-page .chat-textarea {
-          display: block;
-          flex: 1 1 auto;
-          width: 100%;
-          min-width: 0;
-          min-height: 54px;
-          max-height: 180px;
-          resize: vertical;
-          margin: 0;
-          padding: 14px 15px;
-          border: 1px solid #30343b;
-          border-radius: 7px;
+          flex: 1;
+          background: var(--bg-main);
+          border: 1px solid var(--border-strong);
+          color: var(--text-primary);
+          padding: 10px 14px;
+          font-size: 12px;
+          resize: none;
           outline: none;
-          background: #0f1115;
-          color: #e5e7eb;
-          font-family: var(--font-mono, monospace);
-          font-size: 0.82rem;
-          line-height: 1.55;
-          box-shadow: none;
-        }
-
-        .assistant-page .chat-textarea::placeholder {
-          color: #626873;
-          opacity: 1;
+          min-height: 52px;
+          max-height: 120px;
+          transition: border-color 0.15s ease;
         }
 
         .assistant-page .chat-textarea:focus {
-          border-color: #4b505a;
-          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.08);
-        }
-
-        .assistant-page .chat-textarea:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
+          border-color: var(--accent);
         }
 
         .assistant-page .btn-send-chat {
-          flex: 0 0 92px;
-          align-self: stretch;
-          min-height: 54px;
+          height: 52px;
+          padding: 0 20px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: var(--accent);
+          color: #000000;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
+          transition: opacity 0.15s ease;
+        }
+
+        .assistant-page .btn-send-chat:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
         }
 
         .assistant-page .input-footer-note {
           margin-top: 8px;
-          color: #626873;
-          font-size: 0.67rem;
-          letter-spacing: 0.055em;
+          font-size: 9px;
+          letter-spacing: 0.05em;
         }
 
-        /* ---------------------------------------------------------
-           Typing indicator
-           --------------------------------------------------------- */
+        .text-healthy { color: var(--status-healthy); }
+        .spinning { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        .assistant-page .typing-indicator {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          min-height: 42px;
-          padding: 0 14px;
-          border: 1px solid #2b2e35;
-          border-radius: 7px;
-          background: #15171c;
-        }
-
-        .assistant-page .typing-dot {
-          color: #f59e0b;
-          font-size: 0.55rem;
-          animation: assistantTyping 1.2s infinite ease-in-out;
-        }
-
-        .assistant-page .typing-dot:nth-child(2) {
-          animation-delay: 0.15s;
-        }
-
-        .assistant-page .typing-dot:nth-child(3) {
-          animation-delay: 0.3s;
-        }
-
-        @keyframes assistantTyping {
-          0%, 60%, 100% {
-            opacity: 0.25;
-            transform: translateY(0);
+        @media (max-width: 768px) {
+          .assistant-page .chat-container {
+            height: calc(100vh - 160px);
           }
-
-          30% {
-            opacity: 1;
-            transform: translateY(-2px);
+          .assistant-page .chat-bubble-wrapper {
+            max-width: 100%;
           }
         }
-
-        /* ---------------------------------------------------------
-           Error
-           --------------------------------------------------------- */
-
-        .assistant-page .editorial-notice-banner {
-          width: 100%;
-          margin-top: 12px;
-        }
-
-        /* ---------------------------------------------------------
-           Safety against inherited/global styles
-           --------------------------------------------------------- */
-
-        .assistant-page button {
-          font-family: var(--font-mono, monospace);
-        }
-
-        .assistant-page textarea {
-          appearance: none;
-          -webkit-appearance: none;
-        }
-
-        .assistant-page .bubble-content,
-        .assistant-page .chat-bubble-wrapper {
-          min-width: 0;
-          overflow-wrap: anywhere;
-        }
-
-        /* ---------------------------------------------------------
-           Responsive
-           --------------------------------------------------------- */
-
-        @media (max-width: 800px) {
-          .assistant-page .chat-messages-area {
-            min-height: 360px;
-            padding: 20px 16px;
-          }
-
-          .assistant-page .suggestions-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .assistant-page .bubble-content {
-            max-width: 94%;
-          }
-
-          .assistant-page .input-box-wrapper {
-            flex-direction: column;
-          }
-
-          .assistant-page .btn-send-chat {
-            flex: 0 0 auto;
-            width: 100%;
-            min-height: 44px;
-          }
-        }
-
-        @media (max-width: 520px) {
-          .assistant-page .assistant-status-strip {
-            padding: 10px;
-          }
-
-          .assistant-page .assistant-status-item {
-            font-size: 0.57rem;
-          }
-
-          .assistant-page .chat-input-form {
-            padding: 10px;
-          }
-
-          .assistant-page .empty-chat-hero {
-            padding: 28px 8px;
-          }
-        }
-
       `}</style>
-
     </div>
   );
 }

@@ -70,7 +70,9 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
       <section className="anomaly-hero-card font-mono">
         <div className="hero-top-row">
           <span className="editorial-tag">01 / LIVE ANOMALY EVALUATION</span>
-          <span className="eval-time text-tertiary">LAST EVALUATED: {formattedGeneratedAt}</span>
+          <span className="eval-time text-tertiary">
+            EVALUATION SCOPE: <strong className="text-accent">UBUNTU PRIMARY NODE (100.108.160.2)</strong> &bull; LAST EVALUATED: {formattedGeneratedAt}
+          </span>
         </div>
 
         {loading ? (
@@ -118,7 +120,7 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
       {/* EVALUATION SPECIFICATIONS */}
       <section className="anomaly-specs-section font-mono margin-top-lg">
         <div className="section-top-border">
-          <span className="editorial-tag font-bold">02 / PIPELINE SPECIFICATIONS & SCORE DIRECTION</span>
+          <span className="editorial-tag font-bold">02 / PIPELINE SPECIFICATIONS & EVALUATION SCOPE</span>
         </div>
 
         <div className="specs-grid">
@@ -129,9 +131,9 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
           </div>
 
           <div className="spec-card">
-            <span className="spec-card-title text-tertiary">SCORE CONVENTION</span>
-            <span className="spec-card-body text-primary font-semibold">Normalized Outlier Score</span>
-            <p className="spec-desc text-secondary">Higher score indicates higher anomaly confidence. Positive score exceeds contamination boundary.</p>
+            <span className="spec-card-title text-tertiary">EVALUATION SCOPE</span>
+            <span className="spec-card-body text-primary font-semibold">Ubuntu Primary Host</span>
+            <p className="spec-desc text-secondary">Anomaly scoring model evaluates 11 telemetry features from the primary <code>ubuntu</code> instance.</p>
           </div>
 
           <div className="spec-card">
@@ -169,6 +171,10 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
         .eval-time {
           font-size: 10px;
           letter-spacing: 0.05em;
+        }
+
+        .text-accent {
+          color: var(--accent);
         }
 
         .anomaly-skeleton {

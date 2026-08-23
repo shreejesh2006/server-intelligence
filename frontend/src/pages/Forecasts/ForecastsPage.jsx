@@ -113,6 +113,10 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
             <span className="meta-val">{formattedGeneratedAt}</span>
           </div>
           <div className="hero-meta-item">
+            <span className="meta-label">MODEL EVALUATION SCOPE:</span>
+            <span className="meta-val text-accent">PRIMARY HOST (UBUNTU 100.108.160.2)</span>
+          </div>
+          <div className="hero-meta-item">
             <span className="meta-label">EVALUATION ENGINE:</span>
             <span className="meta-val">CHRONOLOGICAL EMBARGOED PIPELINE</span>
           </div>
@@ -149,9 +153,13 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
       {/* PREDICTIVE PIPELINE SPECIFICATIONS */}
       <section className="pipeline-specs-section font-mono margin-top-lg">
         <div className="section-top-border">
-          <span className="editorial-tag font-bold">02 / MODEL EVALUATION POLICY</span>
+          <span className="editorial-tag font-bold">02 / MODEL EVALUATION POLICY & SCOPE</span>
         </div>
         <div className="specs-list">
+          <div className="spec-item">
+            <span className="spec-bullet">—</span>
+            <span><strong>Host Evaluation Scope:</strong> Capacity forecasting models are trained on telemetry from the primary <code>ubuntu</code> server instance.</span>
+          </div>
           <div className="spec-item">
             <span className="spec-bullet">—</span>
             <span><strong>Model vs Persistence Selection:</strong> Machine Learning model is deployed ONLY when validation MAE strictly improves upon persistence baseline.</span>
@@ -199,6 +207,10 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
         .meta-val {
           color: var(--text-primary);
           font-weight: 600;
+        }
+
+        .text-accent {
+          color: var(--accent);
         }
 
         .forecast-skeleton-grid {

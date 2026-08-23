@@ -17,20 +17,29 @@ export async function getAvailableMetrics() {
 }
 
 /**
- * Fetch current system telemetry metrics
+ * Fetch current system telemetry metrics for a specific host or default
+ * @param {string} [host] - Host label (e.g. 'ubuntu' or 'Kali')
  */
-export async function getCurrentMetrics() {
-  const response = await apiClient.get('/api/metrics/current');
+export async function getCurrentMetrics(host) {
+  const params = host ? { host } : {};
+  const response = await apiClient.get('/api/metrics/current', { params });
   return response.data;
 }
 
 /**
- * Fetch historical metrics for a specific metric name
+ * Fetch historical metrics for a specific metric name and host
+ * @param {string} metricName
+ * @param {string} [start]
+ * @param {string} [end]
+ * @param {string} [step]
+ * @param {string} [host]
  */
-export async function getMetricHistory(metricName, start = '-1h', end = 'now', step = '30s') {
-  const response = await apiClient.get(`/api/metrics/${metricName}`, {
-    params: { start, end, step },
-  });
+export async function getMetricHistory(metricName, start = '-1h', end = 'now', step = '30s', host = null) {
+  const params = { start, end, step };
+  if (host) {
+    params.host = host;
+  }
+  const response = await apiClient.get(`/api/metrics/${metricName}`, { params });
   const data = response.data;
 
   // Transform values array for Recharts compatibility
@@ -47,10 +56,15 @@ export async function getMetricHistory(metricName, start = '-1h', end = 'now', s
 
 /**
  * Fetch multiple historical metrics in parallel for multi-series charts
+ * @param {Array<string>} metricNames
+ * @param {string} [start]
+ * @param {string} [end]
+ * @param {string} [step]
+ * @param {string} [host]
  */
-export async function getMultiMetricHistory(metricNames = [], start = '-1h', end = 'now', step = '30s') {
+export async function getMultiMetricHistory(metricNames = [], start = '-1h', end = 'now', step = '30s', host = null) {
   const promises = metricNames.map((name) =>
-    getMetricHistory(name, start, end, step).catch((err) => ({
+    getMetricHistory(name, start, end, step, host).catch((err) => ({
       metric: name,
       values: [],
       error: err,

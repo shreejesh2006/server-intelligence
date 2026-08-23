@@ -6,8 +6,8 @@ import OfflineBanner from '../../components/common/OfflineBanner';
 import ChartFrame from '../../components/charts/ChartFrame';
 import TelemetryChart from '../../components/charts/TelemetryChart';
 import IntelligenceSection from '../../components/intelligence/IntelligenceSection';
+import { useServer } from '../../context/ServerContext';
 import { 
-
   getMetricHistory, 
   getMultiMetricHistory 
 } from '../../services/metrics';
@@ -29,6 +29,8 @@ const TIME_WINDOWS = [
 ];
 
 export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
+  const { servers, selectedHost, activeServer, selectServer } = useServer();
+
   // Selected time window state
   const [selectedWindowId, setSelectedWindowId] = useState('1h');
   const activeWindow = TIME_WINDOWS.find((w) => w.id === selectedWindowId) || TIME_WINDOWS[3];
@@ -47,7 +49,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
   const [cpuPeak, setCpuPeak] = useState(null);
   const [memPeak, setMemPeak] = useState(null);
 
-  // Fetch telemetry history on load, refetch, or window change
+  // Fetch telemetry history on load, refetch, window change, or server selection change
   useEffect(() => {
     let isCancelled = false;
 
@@ -56,12 +58,12 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
       try {
         const { start, step } = activeWindow;
         const [cpuRes, memRes, swapRes, loadRes, netRes, diskRes] = await Promise.all([
-          getMetricHistory('cpu', start, 'now', step).catch(() => ({ values: [] })),
-          getMetricHistory('memory', start, 'now', step).catch(() => ({ values: [] })),
-          getMetricHistory('swap', start, 'now', step).catch(() => ({ values: [] })),
-          getMultiMetricHistory(['load_1m', 'load_5m', 'load_15m'], start, 'now', step),
-          getMultiMetricHistory(['network_rx', 'network_tx'], start, 'now', step),
-          getMultiMetricHistory(['disk_read', 'disk_write'], start, 'now', step),
+          getMetricHistory('cpu', start, 'now', step, selectedHost).catch(() => ({ values: [] })),
+          getMetricHistory('memory', start, 'now', step, selectedHost).catch(() => ({ values: [] })),
+          getMetricHistory('swap', start, 'now', step, selectedHost).catch(() => ({ values: [] })),
+          getMultiMetricHistory(['load_1m', 'load_5m', 'load_15m'], start, 'now', step, selectedHost),
+          getMultiMetricHistory(['network_rx', 'network_tx'], start, 'now', step, selectedHost),
+          getMultiMetricHistory(['disk_read', 'disk_write'], start, 'now', step, selectedHost),
         ]);
 
         if (isCancelled) return;
@@ -115,7 +117,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
     return () => {
       isCancelled = true;
     };
-  }, [lastUpdated, selectedWindowId, activeWindow]);
+  }, [lastUpdated, selectedWindowId, activeWindow, selectedHost]);
 
   const cpuCurrent = metrics?.cpu != null ? formatNumber(metrics.cpu, 1) : null;
   const memCurrent = metrics?.memory != null ? formatNumber(metrics.memory, 1) : null;
@@ -126,30 +128,39 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
       <PageHeader
         index="01"
         title="SYSTEM PULSE"
-        subtitle="Live telemetry and operational state from VictoriaMetrics."
+        subtitle={`Live telemetry and operational state for ${activeServer.name} (${activeServer.ip}) from VictoriaMetrics.`}
         tag="LIVE SYSTEM OBSERVABILITY"
       />
 
       {isOffline && <OfflineBanner onRetry={refetch} />}
 
-      {/* 1. SERVER STATUS HERO */}
+      {/* 1. SERVER SELECTION & OPERATIONAL STATUS HERO */}
       <section className="health-hero font-mono">
         <div className="hero-status-row">
           <div className="hero-status-left">
-            <span className="editorial-tag">01 / OPERATIONAL STATE</span>
-            <div className="hero-status-title">
-              {isOffline ? (
-                <span className="text-critical">SYSTEM OFFLINE — TELEMETRY UNREACHABLE</span>
-              ) : (
-                <span className="text-healthy">SYSTEM ONLINE — TELEMETRY ACTIVE</span>
-              )}
+            <span className="editorial-tag">01 / TARGET SERVER SELECTION</span>
+            <div className="server-selector-pills margin-top-xs">
+              {servers.map((srv) => (
+                <button
+                  key={srv.host}
+                  type="button"
+                  onClick={() => selectServer(srv.host)}
+                  className={`server-pill-btn ${selectedHost === srv.host ? 'active' : ''}`}
+                >
+                  <span className="srv-name">{srv.name.toUpperCase()}</span>
+                  <span className="srv-ip">{srv.ip}</span>
+                </button>
+              ))}
             </div>
           </div>
 
           <div className="hero-status-right">
-            <div className="engine-badge font-mono">
-              <span className="engine-badge-label">INTELLIGENCE ENGINE:</span>
-              <span className="engine-badge-status">HEURISTIC EVALUATION (HEALTH MODEL PENDING)</span>
+            <div className="hero-status-title">
+              {isOffline ? (
+                <span className="text-critical">SYSTEM OFFLINE — TELEMETRY UNREACHABLE</span>
+              ) : (
+                <span className="text-healthy">NODE ONLINE — {activeServer.host.toUpperCase()} ACTIVE</span>
+              )}
             </div>
           </div>
         </div>
@@ -157,7 +168,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
 
       {/* 2. CURRENT TELEMETRY GRID */}
       <div className="section-label-strip font-mono">
-        <span className="editorial-tag">02 / CURRENT TELEMETRY SNAPSHOT</span>
+        <span className="editorial-tag">02 / TELEMETRY SNAPSHOT — {activeServer.name.toUpperCase()}</span>
       </div>
 
       <section className="primary-telemetry-grid">
@@ -165,7 +176,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
           label="CPU UTILIZATION"
           value={cpuCurrent}
           unit="%"
-          sublabel="2 CORES AVAILABLE"
+          sublabel={`${activeServer.host.toUpperCase()} METRIC`}
           secondaryText={metrics?.iowait != null ? `IO WAIT: ${formatPercent(metrics.iowait)}` : null}
           status={metrics?.cpu > 85 ? 'critical' : metrics?.cpu > 70 ? 'warning' : 'normal'}
         />
@@ -174,7 +185,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
           value={memCurrent}
           unit="%"
           sublabel={metrics?.swap != null ? `SWAP: ${formatPercent(metrics.swap)}` : 'RAM USAGE'}
-          secondaryText="SYSTEM MEMORY"
+          secondaryText={`${activeServer.host.toUpperCase()} RAM`}
           status={metrics?.memory > 90 ? 'critical' : metrics?.memory > 80 ? 'warning' : 'normal'}
         />
         <MetricDisplay
@@ -182,7 +193,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
           value={diskCurrent}
           unit="%"
           sublabel="ROOT MOUNT (/)"
-          secondaryText="PERSISTENT STORAGE"
+          secondaryText={`${activeServer.host.toUpperCase()} STORAGE`}
           status={metrics?.disk > 90 ? 'critical' : metrics?.disk > 80 ? 'warning' : 'normal'}
         />
       </section>
@@ -196,10 +207,9 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
       {/* 4. HISTORICAL TELEMETRY FIGURES */}
       <div className="editorial-header margin-top-lg">
         <div>
-          <span className="editorial-tag">04 / HISTORICAL TELEMETRY FIGURES</span>
+          <span className="editorial-tag">04 / HISTORICAL TELEMETRY FIGURES — {activeServer.host.toUpperCase()}</span>
           <h2 className="editorial-title font-sans">ANALYTICAL TIME SERIES</h2>
         </div>
-
 
         {/* Infrastructure Console Segmented Range Selector */}
         <div className="time-range-segmented-group font-mono">
@@ -224,7 +234,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
         {/* CPU Chart */}
         <ChartFrame
           figNum="FIG. 01"
-          title="CPU UTILIZATION HISTORY"
+          title={`CPU UTILIZATION (${activeServer.host.toUpperCase()})`}
           subtitle={activeWindow.subtitle}
           currentValue={cpuCurrent}
           peakValue={cpuPeak}
@@ -243,7 +253,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
         {/* Memory + Swap Chart */}
         <ChartFrame
           figNum="FIG. 02"
-          title="MEMORY & SWAP UTILIZATION"
+          title={`MEMORY & SWAP (${activeServer.host.toUpperCase()})`}
           subtitle={activeWindow.subtitle}
           currentValue={memCurrent}
           peakValue={memPeak}
@@ -265,7 +275,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
         {/* Load Average Chart */}
         <ChartFrame
           figNum="FIG. 03"
-          title="SYSTEM LOAD AVERAGE"
+          title={`LOAD AVERAGE (${activeServer.host.toUpperCase()})`}
           subtitle={activeWindow.subtitle}
           currentValue={metrics?.load_1m ? formatNumber(metrics.load_1m, 2) : '—'}
           unit=""
@@ -287,7 +297,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
         {/* Network Throughput */}
         <ChartFrame
           figNum="FIG. 04"
-          title="NETWORK THROUGHPUT"
+          title={`NETWORK THROUGHPUT (${activeServer.host.toUpperCase()})`}
           subtitle={activeWindow.subtitle}
           currentValue={metrics?.network_rx ? formatBytesPerSec(metrics.network_rx) : '—'}
           unit=""
@@ -308,7 +318,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
         {/* Disk I/O Throughput */}
         <ChartFrame
           figNum="FIG. 05"
-          title="DISK I/O THROUGHPUT"
+          title={`DISK I/O THROUGHPUT (${activeServer.host.toUpperCase()})`}
           subtitle={activeWindow.subtitle}
           currentValue={metrics?.disk_write ? formatBytesPerSec(metrics.disk_write) : '—'}
           unit=""
@@ -343,28 +353,55 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
           flex-wrap: wrap;
         }
 
-        .hero-status-title {
-          font-size: 15px;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-          margin-top: 4px;
+        .margin-top-xs {
+          margin-top: 8px;
         }
 
-        .engine-badge {
+        .server-selector-pills {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .server-pill-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 14px;
           background: var(--bg-main);
           border: 1px solid var(--border-subtle);
-          padding: 6px 12px;
-          font-size: 10px;
-          display: flex;
-          gap: 6px;
-        }
-
-        .engine-badge-label {
           color: var(--text-tertiary);
+          font-family: var(--font-mono);
+          font-size: 11px;
+          cursor: pointer;
+          transition: all 0.15s ease;
         }
 
-        .engine-badge-status {
+        .server-pill-btn:hover {
+          border-color: var(--accent);
+          color: var(--text-primary);
+        }
+
+        .server-pill-btn.active {
+          background: var(--bg-surface);
+          border-color: var(--accent);
+          color: var(--accent);
+          font-weight: 700;
+        }
+
+        .srv-name {
+          letter-spacing: 0.05em;
+        }
+
+        .srv-ip {
+          font-size: 10px;
           color: var(--text-secondary);
+        }
+
+        .hero-status-title {
+          font-size: 14px;
+          font-weight: 700;
+          letter-spacing: 0.05em;
         }
 
         .section-label-strip {
