@@ -4,6 +4,7 @@ import OfflineBanner from '../../components/common/OfflineBanner';
 import { getAnomaly } from '../../services/intelligence';
 import { formatNumber } from '../../utils/formatters';
 import { useTimezone } from '../../context/TimezoneContext';
+import { ShieldAlert, AlertCircle, CheckCircle2, Sliders, Activity } from 'lucide-react';
 
 export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
   const { formatTimestamp } = useTimezone();
@@ -25,12 +26,7 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
         }
       } catch (err) {
         if (!isCancelled) {
-          const status = err?.response?.status;
-          if (status === 503) {
-            setErrorMsg('Intelligence models unavailable.');
-          } else {
-            setErrorMsg('Intelligence models unavailable.');
-          }
+          setErrorMsg('Intelligence models unavailable.');
         }
       } finally {
         if (!isCancelled) {
@@ -55,8 +51,15 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
   const score = anomalyData?.anomaly_score != null ? formatNumber(anomalyData.anomaly_score, 4) : '—';
   const featuresCount = anomalyData?.features_evaluated ?? 11;
 
+  let severityPillClass = 'pill-healthy';
+  if (severity === 'CRITICAL' || severity === 'HIGH') {
+    severityPillClass = 'pill-critical';
+  } else if (severity === 'WARNING' || severity === 'ELEVATED') {
+    severityPillClass = 'pill-warning';
+  }
+
   return (
-    <div className="anomalies-page">
+    <div className="anomalies-page font-sans">
       <PageHeader
         index="04"
         title="ANOMALY DETECTION"
@@ -66,157 +69,149 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
 
       {isOffline && <OfflineBanner onRetry={refetch} />}
 
-      {/* ANOMALY HERO STATUS */}
-      <section className="anomaly-hero-card font-mono">
-        <div className="hero-top-row">
-          <span className="editorial-tag">01 / LIVE ANOMALY EVALUATION</span>
-          <span className="eval-time text-tertiary">
-            EVALUATION SCOPE: <strong className="text-accent">UBUNTU PRIMARY NODE (100.108.160.2)</strong> &bull; LAST EVALUATED: {formattedGeneratedAt}
-          </span>
+      {/* ANOMALY HERO CARD */}
+      <section className="neo-card neo-card-raised anomaly-hero-card font-mono margin-top-md margin-bottom-lg">
+        <div className="hero-top-row border-bottom padding-bottom-sm">
+          <div className="hero-title-group">
+            <div className="anomaly-icon-box">
+              <ShieldAlert size={20} className={isAnomaly ? 'text-critical' : 'text-accent'} />
+            </div>
+            <div>
+              <span className="editorial-tag">01 / LIVE ANOMALY EVALUATION ENGINE</span>
+              <div className="hero-sub font-mono text-xs text-tertiary">
+                EVALUATION SCOPE: <strong className="text-accent">UBUNTU PRIMARY NODE (100.108.160.2)</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="hero-time text-xs text-tertiary">
+            EVALUATED AT: <strong className="text-primary">{formattedGeneratedAt}</strong>
+          </div>
         </div>
 
         {loading ? (
-          <div className="anomaly-skeleton font-mono">
-            <div className="skeleton-line" />
-            <div className="skeleton-line" />
+          <div className="anomaly-skeleton font-mono margin-top-md">
+            <div className="skeleton-line neo-card-inset" />
+            <div className="skeleton-line neo-card-inset" />
           </div>
         ) : errorMsg ? (
-          <div className="anomaly-error-box font-mono">
+          <div className="neo-card-inset anomaly-error-box font-mono margin-top-md">
             <span>{errorMsg}</span>
           </div>
         ) : (
-          <div className="anomaly-metrics-grid font-mono">
-            <div className="metric-box">
-              <span className="box-label text-tertiary">STATUS</span>
-              <span className="box-value font-bold text-primary">
-                {isAnomaly ? 'DETECTED' : 'NORMAL'}
-              </span>
+          <div className="anomaly-metrics-grid font-mono margin-top-md">
+            <div className="neo-card-inset anomaly-metric-box">
+              <span className="box-label text-tertiary">SYSTEM STATUS</span>
+              <div className="box-val-row margin-top-xs">
+                {isAnomaly ? <AlertCircle size={18} className="text-critical" /> : <CheckCircle2 size={18} className="text-healthy" />}
+                <span className={`box-value font-bold ${isAnomaly ? 'text-critical' : 'text-healthy'}`}>
+                  {isAnomaly ? 'ANOMALY DETECTED' : 'NORMAL / NOMINAL'}
+                </span>
+              </div>
             </div>
 
-            <div className="metric-box">
-              <span className="box-label text-tertiary">SEVERITY</span>
-              <span className="box-value font-semibold text-primary">
-                {severity}
-              </span>
+            <div className="neo-card-inset anomaly-metric-box">
+              <span className="box-label text-tertiary">SEVERITY LEVEL</span>
+              <div className="margin-top-xs">
+                <span className={`editorial-pill ${severityPillClass}`}>
+                  {severity}
+                </span>
+              </div>
             </div>
 
-            <div className="metric-box">
-              <span className="box-label text-tertiary">ANOMALY SCORE</span>
-              <span className="box-value text-primary">
+            <div className="neo-card-inset anomaly-metric-box">
+              <span className="box-label text-tertiary">OUTLIER SCORE</span>
+              <div className="neo-metric-num margin-top-xs">
                 {score}
-              </span>
+              </div>
             </div>
 
-            <div className="metric-box">
+            <div className="neo-card-inset anomaly-metric-box">
               <span className="box-label text-tertiary">FEATURES EVALUATED</span>
-              <span className="box-value text-primary">
+              <div className="neo-metric-num margin-top-xs">
                 {featuresCount}
-              </span>
+              </div>
             </div>
           </div>
         )}
       </section>
 
       {/* EVALUATION SPECIFICATIONS */}
-      <section className="anomaly-specs-section font-mono margin-top-lg">
-        <div className="section-top-border">
-          <span className="editorial-tag font-bold">02 / PIPELINE SPECIFICATIONS & EVALUATION SCOPE</span>
+      <section className="neo-card-dashed font-mono">
+        <div className="specs-header border-bottom padding-bottom-sm">
+          <span className="editorial-tag font-bold">02 / PIPELINE SPECIFICATIONS & SCORE DIRECTION</span>
         </div>
 
-        <div className="specs-grid">
-          <div className="spec-card">
+        <div className="specs-grid margin-top-md">
+          <div className="neo-card-inset spec-card">
             <span className="spec-card-title text-tertiary">MODEL ALGORITHM</span>
-            <span className="spec-card-body text-primary font-semibold">Isolation Forest (iForest)</span>
-            <p className="spec-desc text-secondary">Unsupervised partition trees isolating multivariate statistical outliers.</p>
+            <span className="spec-card-body text-primary font-bold">Isolation Forest (iForest)</span>
+            <p className="spec-desc text-secondary">Unsupervised partition trees isolating multivariate statistical outliers in server metrics.</p>
           </div>
 
-          <div className="spec-card">
+          <div className="neo-card-inset spec-card">
             <span className="spec-card-title text-tertiary">EVALUATION SCOPE</span>
-            <span className="spec-card-body text-primary font-semibold">Ubuntu Primary Host</span>
+            <span className="spec-card-body text-accent font-bold">Ubuntu Primary Host</span>
             <p className="spec-desc text-secondary">Anomaly scoring model evaluates 11 telemetry features from the primary <code>ubuntu</code> instance.</p>
           </div>
 
-          <div className="spec-card">
+          <div className="neo-card-inset spec-card">
             <span className="spec-card-title text-tertiary">SEVERITY THRESHOLDS</span>
-            <span className="spec-card-body text-primary font-semibold">Training Score Quantiles</span>
+            <span className="spec-card-body text-primary font-bold">Training Score Quantiles</span>
             <p className="spec-desc text-secondary">Derived from training score distribution (q85, q95, q98, q99.5 percentiles).</p>
           </div>
         </div>
       </section>
 
       <style>{`
-        .margin-top-lg {
-          margin-top: 28px;
-        }
+        .margin-top-xs { margin-top: 6px; }
+        .margin-top-md { margin-top: 20px; }
+        .margin-bottom-lg { margin-bottom: 28px; }
 
         .anomaly-hero-card {
-          background-color: var(--bg-surface);
-          border: 1px solid var(--border-strong);
           padding: 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
         }
 
         .hero-top-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-bottom: 1px solid var(--border-subtle);
-          padding-bottom: 12px;
+          gap: 16px;
           flex-wrap: wrap;
-          gap: 12px;
         }
 
-        .eval-time {
-          font-size: 10px;
-          letter-spacing: 0.05em;
-        }
-
-        .text-accent {
-          color: var(--accent);
-        }
-
-        .anomaly-skeleton {
+        .hero-title-group {
           display: flex;
-          flex-direction: column;
+          align-items: center;
           gap: 12px;
-          padding: 16px 0;
         }
 
-        .skeleton-line {
-          height: 24px;
-          background: var(--bg-surface-hover);
-          animation: pulse-subtle 1.8s infinite ease-in-out;
-        }
-
-        @keyframes pulse-subtle {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 0.9; }
-        }
-
-        .anomaly-error-box {
-          padding: 32px 20px;
-          text-align: center;
-          background: var(--bg-main);
+        .anomaly-icon-box {
+          width: 40px;
+          height: 40px;
+          background: var(--bg-inset);
+          box-shadow: var(--shadow-inset-sm);
+          border-radius: var(--radius-md);
           border: 1px solid var(--border-subtle);
-          color: var(--text-secondary);
-          font-size: 12px;
-          letter-spacing: 0.05em;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .anomaly-metrics-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
           gap: 16px;
         }
 
-        .metric-box {
-          background: var(--bg-main);
-          border: 1px solid var(--border-subtle);
-          padding: 16px 14px;
+        .anomaly-metric-box {
+          padding: 16px 18px;
+          border-radius: var(--radius-md);
+        }
+
+        .box-val-row {
           display: flex;
-          flex-direction: column;
+          align-items: center;
           gap: 8px;
         }
 
@@ -225,21 +220,24 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
           letter-spacing: 0.08em;
         }
 
-        .box-value {
-          font-size: 16px;
-          letter-spacing: 0.05em;
+        .anomaly-skeleton {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
         }
 
-        .anomaly-specs-section {
-          background: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          padding: 24px;
+        .skeleton-line {
+          height: 32px;
+          border-radius: var(--radius-md);
+          animation: pulse-subtle 1.8s infinite ease-in-out;
         }
 
-        .section-top-border {
-          padding-bottom: 12px;
-          border-bottom: 1px solid var(--border-subtle);
-          margin-bottom: 16px;
+        .anomaly-error-box {
+          padding: 32px 20px;
+          text-align: center;
+          color: var(--text-secondary);
+          font-size: 12px;
+          border-radius: var(--radius-md);
         }
 
         .specs-grid {
@@ -249,9 +247,8 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
         }
 
         .spec-card {
-          background: var(--bg-main);
-          border: 1px solid var(--border-subtle);
           padding: 16px;
+          border-radius: var(--radius-md);
           display: flex;
           flex-direction: column;
           gap: 6px;
@@ -264,7 +261,6 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
 
         .spec-card-body {
           font-size: 13px;
-          letter-spacing: 0.05em;
         }
 
         .spec-desc {
@@ -273,11 +269,15 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
           margin-top: 4px;
         }
 
-        @media (max-width: 768px) {
-          .anomaly-metrics-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
+        .border-bottom { border-bottom: 1px solid var(--border-subtle); }
+        .padding-bottom-sm { padding-bottom: 10px; }
+
+        .text-accent { color: var(--accent); }
+        .text-critical { color: var(--status-critical); }
+        .text-healthy { color: var(--status-healthy); }
+        .text-tertiary { color: var(--text-tertiary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-primary { color: var(--text-primary); }
       `}</style>
     </div>
   );

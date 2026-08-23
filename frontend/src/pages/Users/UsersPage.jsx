@@ -14,7 +14,7 @@ import {
   AlertCircle, 
   ShieldAlert,
   UserCheck, 
-  UserX 
+  UserX
 } from 'lucide-react';
 
 export function UsersPage() {
@@ -25,7 +25,7 @@ export function UsersPage() {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
 
-  // Create User Form State
+  // Create User Form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -33,13 +33,10 @@ export function UsersPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
 
-  // Confirmation Modal State for Disabling Users
+  // Confirmation Modal
   const [confirmDisableTarget, setConfirmDisableTarget] = useState(null);
-
-  // Track pending user actions by user ID
   const [pendingUserId, setPendingUserId] = useState(null);
 
-  // Auto-dismiss notice after 4 seconds
   useEffect(() => {
     if (notice) {
       const timer = setTimeout(() => setNotice(null), 4000);
@@ -47,7 +44,6 @@ export function UsersPage() {
     }
   }, [notice]);
 
-  // Fetch users from /api/users
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -55,7 +51,7 @@ export function UsersPage() {
       const data = await getUsersApi();
       setUsers(data || []);
     } catch (err) {
-      setError(err?.response?.data?.detail || err.message || 'Failed to fetch users');
+      setError(err?.response?.data?.detail || err.message || 'Failed to fetch user accounts');
     } finally {
       setLoading(false);
     }
@@ -65,7 +61,6 @@ export function UsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Handle user creation
   const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!newUsername.trim() || !newPassword.trim() || isCreating) return;
@@ -89,23 +84,22 @@ export function UsersPage() {
         role: newRole,
       });
 
-      setNotice(`User '${createdUser.username}' created successfully.`);
+      setNotice(`User account '${createdUser.username}' created successfully.`);
       setNewUsername('');
       setNewPassword('');
       setNewRole('VIEWER');
       setShowCreateForm(false);
       fetchUsers();
     } catch (err) {
-      setCreateError(err?.response?.data?.detail || 'Failed to create user.');
+      setCreateError(err?.response?.data?.detail || 'Failed to register user.');
     } finally {
       setIsCreating(false);
     }
   };
 
-  // Handle role update
   const handleRoleChange = async (targetUserId, targetUsername, newRoleValue) => {
     if (targetUserId === currentUser?.id) {
-      setNotice('Cannot change your own administrative role.');
+      setNotice('Cannot modify your own active administrative role.');
       return;
     }
     if (pendingUserId) return;
@@ -113,19 +107,18 @@ export function UsersPage() {
     setPendingUserId(targetUserId);
     try {
       await updateUserRoleApi(targetUserId, newRoleValue);
-      setNotice(`Updated role for '${targetUsername}' to ${newRoleValue}.`);
+      setNotice(`Updated role assignment for '${targetUsername}' to ${newRoleValue}.`);
       fetchUsers();
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to update role.');
+      setError(err?.response?.data?.detail || 'Failed to update role assignment.');
     } finally {
       setPendingUserId(null);
     }
   };
 
-  // Handle status toggle execution after confirmation
   const executeStatusToggle = async (targetUserId, targetUsername, currentStatus) => {
     if (targetUserId === currentUser?.id) {
-      setNotice('Cannot disable your own administrative account.');
+      setNotice('Cannot disable your own administrative session.');
       return;
     }
     if (pendingUserId) return;
@@ -136,90 +129,86 @@ export function UsersPage() {
     const nextStatus = !currentStatus;
     try {
       await updateUserStatusApi(targetUserId, nextStatus);
-      setNotice(`User '${targetUsername}' ${nextStatus ? 'enabled' : 'disabled'}.`);
+      setNotice(`User account '${targetUsername}' ${nextStatus ? 'enabled' : 'disabled'}.`);
       fetchUsers();
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to update status.');
+      setError(err?.response?.data?.detail || 'Failed to update user status.');
     } finally {
       setPendingUserId(null);
     }
   };
 
-  // Trigger confirmation or execute toggle directly if enabling
   const onRequestStatusToggle = (targetUser) => {
     if (targetUser.id === currentUser?.id) {
-      setNotice('Cannot disable your own administrative account.');
+      setNotice('Cannot disable your own administrative session.');
       return;
     }
 
     if (targetUser.is_active) {
-      // Show confirmation dialog before disabling an active user
       setConfirmDisableTarget(targetUser);
     } else {
-      // Re-enabling can be executed directly
       executeStatusToggle(targetUser.id, targetUser.username, false);
     }
   };
 
   return (
-    <div className="users-page font-mono">
+    <div className="users-page font-sans">
       <PageHeader
         index="07"
         title="USER & ACCESS CONTROL"
-        subtitle="Role-Based Access Control (RBAC) user administration registry."
-        tag="SECURITY & ACCESS"
+        subtitle="Role-Based Access Control (RBAC) administrative account management."
+        tag="SECURITY REGISTRY"
       >
         <button
           type="button"
           onClick={() => setShowCreateForm((prev) => !prev)}
-          aria-label={showCreateForm ? 'Close user creation form' : 'Open create user form'}
-          className="editorial-btn"
+          className={`neo-btn ${showCreateForm ? 'neo-btn-active' : 'neo-btn-primary'}`}
         >
           <UserPlus size={13} />
-          <span>{showCreateForm ? 'CLOSE CREATION FORM' : '+ CREATE USER'}</span>
+          <span>{showCreateForm ? 'CLOSE REGISTRATION' : '+ PROVISION USER'}</span>
         </button>
       </PageHeader>
 
-      {/* Global Alerts & Notices */}
+      {/* Global Alerts */}
       {notice && (
-        <div className="editorial-notice-banner notice-success">
-          <CheckCircle2 size={15} />
+        <div className="editorial-notice-banner notice-success font-mono margin-bottom-md">
+          <CheckCircle2 size={14} />
           <span>{notice}</span>
-          <button type="button" onClick={() => setNotice(null)} aria-label="Close notification" className="notice-close">✕</button>
+          <button type="button" onClick={() => setNotice(null)} className="notice-close">✕</button>
         </div>
       )}
 
       {error && (
-        <div className="editorial-notice-banner notice-error">
-          <AlertCircle size={15} />
+        <div className="editorial-notice-banner notice-error font-mono margin-bottom-md">
+          <AlertCircle size={14} />
           <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} aria-label="Close error message" className="notice-close">✕</button>
+          <button type="button" onClick={() => setError(null)} className="notice-close">✕</button>
         </div>
       )}
 
-      {/* Disabling Confirmation Modal */}
+      {/* Deactivation Confirmation Modal */}
       {confirmDisableTarget && (
         <div className="confirm-modal-overlay">
-          <div className="confirm-modal-card">
-            <div className="modal-header">
-              <ShieldAlert size={20} className="text-critical" />
+          <div className="neo-card confirm-modal-card font-mono">
+            <div className="modal-header border-bottom padding-bottom-xs">
+              <ShieldAlert size={18} className="text-critical" />
               <h3 className="modal-title font-sans">CONFIRM USER DEACTIVATION</h3>
             </div>
-            <p className="modal-body font-sans text-xs">
-              Are you sure you want to disable account <strong>'{confirmDisableTarget.username}'</strong>? Disabling will immediately revoke authentication access.
+            <p className="modal-body font-sans text-xs text-secondary margin-top-sm">
+              Are you sure you want to disable account <strong>'{confirmDisableTarget.username}'</strong>? Deactivating will immediately revoke session access.
             </p>
-            <div className="modal-actions">
+            <div className="modal-actions margin-top-md">
               <button
                 type="button"
                 onClick={() => setConfirmDisableTarget(null)}
-                className="editorial-btn"
+                className="neo-btn"
               >
                 CANCEL
               </button>
               <button
                 type="button"
                 onClick={() => executeStatusToggle(confirmDisableTarget.id, confirmDisableTarget.username, true)}
-                className="editorial-btn btn-danger-confirm"
+                className="neo-btn btn-danger"
               >
                 DISABLE ACCOUNT
               </button>
@@ -228,82 +217,85 @@ export function UsersPage() {
         </div>
       )}
 
-      {/* Create User Form Section */}
+      {/* User Creation Form */}
       {showCreateForm && (
-        <section className="create-user-section font-mono">
-          <div className="section-header">
-            <span className="editorial-tag font-bold">USER REGISTRATION FORM</span>
-            <span className="editorial-pill pill-neutral font-mono">ADMIN PRIVILEGE</span>
+        <section className="neo-card neo-card-raised form-section font-mono margin-bottom-lg">
+          <div className="form-header border-bottom padding-bottom-xs">
+            <div className="title-box">
+              <UserPlus size={16} className="text-accent" />
+              <span className="editorial-tag">PROVISION NEW USER ACCOUNT</span>
+            </div>
+            <span className="editorial-pill pill-neutral">ADMINISTRATIVE ACTION</span>
           </div>
 
           {createError && (
-            <div className="editorial-notice-banner notice-error mb-4">
-              <AlertCircle size={14} />
+            <div className="editorial-notice-banner notice-error margin-top-sm">
+              <AlertCircle size={13} />
               <span>{createError}</span>
             </div>
           )}
 
-          <form onSubmit={handleCreateUser} className="create-user-form">
+          <form onSubmit={handleCreateUser} className="margin-top-md">
             <div className="form-grid">
-              <div className="form-field">
-                <label htmlFor="new-username-input" className="field-label">USERNAME (MIN 3 CHARS):</label>
+              <div className="field-box">
+                <label htmlFor="new-username" className="field-label text-tertiary">USERNAME (MIN 3 CHARS):</label>
                 <input
-                  id="new-username-input"
+                  id="new-username"
                   type="text"
                   required
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="e.g. operator_john"
                   disabled={isCreating}
-                  className="editorial-input field-input"
+                  className="neo-input"
                 />
               </div>
 
-              <div className="form-field">
-                <label htmlFor="new-password-input" className="field-label">PASSWORD (MIN 8 CHARS):</label>
+              <div className="field-box">
+                <label htmlFor="new-password" className="field-label text-tertiary">PASSWORD (MIN 8 CHARS):</label>
                 <input
-                  id="new-password-input"
+                  id="new-password"
                   type="password"
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
                   disabled={isCreating}
-                  className="editorial-input field-input"
+                  className="neo-input"
                 />
               </div>
 
-              <div className="form-field">
-                <label htmlFor="new-role-select" className="field-label">ASSIGNED ROLE:</label>
+              <div className="field-box">
+                <label htmlFor="new-role" className="field-label text-tertiary">ROLE ASSIGNMENT:</label>
                 <select
-                  id="new-role-select"
+                  id="new-role"
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value)}
                   disabled={isCreating}
-                  className="editorial-select field-select"
+                  className="neo-select"
                 >
-                  <option value="VIEWER">VIEWER (Read-Only)</option>
-                  <option value="OPERATOR">OPERATOR (Alert Management)</option>
-                  <option value="ADMIN">ADMIN (Full Control)</option>
+                  <option value="VIEWER">VIEWER (Read-Only Telemetry)</option>
+                  <option value="OPERATOR">OPERATOR (Alert & Node Control)</option>
+                  <option value="ADMIN">ADMIN (Full Administrative Control)</option>
                 </select>
               </div>
             </div>
 
-            <div className="form-actions">
+            <div className="form-footer margin-top-md">
               <button
                 type="submit"
                 disabled={isCreating || !newUsername.trim() || !newPassword.trim()}
-                className="editorial-btn btn-submit"
+                className="neo-btn neo-btn-primary"
               >
                 {isCreating ? (
                   <>
                     <RefreshCw size={12} className="spinning" />
-                    <span>CREATING USER...</span>
+                    <span>PROVISIONING...</span>
                   </>
                 ) : (
                   <>
                     <UserPlus size={12} />
-                    <span>REGISTER USER IDENTIFIER</span>
+                    <span>REGISTER ACCOUNT</span>
                   </>
                 )}
               </button>
@@ -312,47 +304,46 @@ export function UsersPage() {
         </section>
       )}
 
-      {/* Users Registry Table */}
-      <section className="user-registry-section">
-        <div className="section-top">
+      {/* Users Registry Table Card */}
+      <section className="neo-card registry-card font-mono">
+        <div className="registry-header border-bottom padding-bottom-xs">
           <div>
-            <span className="editorial-tag font-bold">AUTHENTICATED USER REGISTRY</span>
-            <p className="editorial-subtitle font-sans text-xs text-secondary mt-1">
-              Active user accounts provisioned in authentication database.
+            <span className="editorial-tag">AUTHENTICATED USERS REGISTRY</span>
+            <p className="editorial-subtitle font-sans text-xs text-secondary margin-top-xs">
+              Provisioned user accounts and Role-Based Access Control privileges.
             </p>
           </div>
-          <div className="section-actions">
+          <div className="header-actions">
             <span className="editorial-pill pill-neutral">
               {users.length} REGISTERED {users.length === 1 ? 'ACCOUNT' : 'ACCOUNTS'}
             </span>
             <button
               type="button"
               onClick={fetchUsers}
-              aria-label="Refresh user accounts list"
-              className={`icon-btn ${loading ? 'spinning' : ''}`}
-              title="Refresh users list"
+              className={`neo-icon-btn ${loading ? 'spinning' : ''}`}
+              title="Refresh users"
             >
-              <RefreshCw size={13} />
+              <RefreshCw size={12} />
             </button>
           </div>
         </div>
 
         {loading ? (
           <div className="users-loading-state font-mono">
-            <RefreshCw size={16} className="spinning text-accent" />
-            <span>FETCHING USER REGISTRY FROM BACKEND...</span>
+            <RefreshCw size={14} className="spinning text-accent" />
+            <span>FETCHING USER ACCOUNTS...</span>
           </div>
         ) : (
-          <div className="table-responsive">
-            <table className="editorial-table font-mono">
+          <div className="table-wrapper margin-top-md">
+            <table className="user-table font-mono">
               <thead>
                 <tr>
                   <th>ID</th>
                   <th>USERNAME</th>
                   <th>ROLE ASSIGNMENT</th>
-                  <th>ACCOUNT STATUS</th>
+                  <th>STATUS</th>
                   <th>CREATED AT</th>
-                  <th>ACTIONS</th>
+                  <th>ACTION</th>
                 </tr>
               </thead>
               <tbody>
@@ -365,10 +356,10 @@ export function UsersPage() {
 
                   return (
                     <tr key={u.id} className={isSelf ? 'row-self' : ''}>
-                      <td className="font-mono text-tertiary">#{u.id}</td>
+                      <td className="text-tertiary">#{u.id}</td>
                       <td>
-                        <div className="username-cell">
-                          <span className="username-text">{u.username}</span>
+                        <div className="user-name-cell font-sans">
+                          <span className="user-name font-bold">{u.username}</span>
                           {isSelf && <span className="editorial-pill pill-healthy self-tag">YOU (ACTIVE SESSION)</span>}
                         </div>
                       </td>
@@ -377,8 +368,7 @@ export function UsersPage() {
                           value={u.role}
                           disabled={isSelf || isPending}
                           onChange={(e) => handleRoleChange(u.id, u.username, e.target.value)}
-                          className="editorial-select role-select"
-                          title={isSelf ? 'Cannot change your own role' : 'Change user role'}
+                          className="neo-select select-role"
                           aria-label={`Role for user ${u.username}`}
                         >
                           <option value="ADMIN">ADMIN</option>
@@ -397,15 +387,13 @@ export function UsersPage() {
                           </span>
                         )}
                       </td>
-                      <td className="text-secondary text-xs">{formattedDate}</td>
+                      <td className="text-tertiary text-xs">{formattedDate}</td>
                       <td>
                         <button
                           type="button"
                           disabled={isSelf || isPending}
                           onClick={() => onRequestStatusToggle(u)}
-                          aria-label={`${u.is_active ? 'Disable' : 'Enable'} user ${u.username}`}
-                          className={`editorial-btn text-xs ${u.is_active ? 'btn-disable' : 'btn-enable'}`}
-                          title={isSelf ? 'Cannot disable your own account' : u.is_active ? 'Disable account' : 'Enable account'}
+                          className={`neo-btn text-xs ${u.is_active ? 'btn-toggle-disable' : 'btn-toggle-enable'}`}
                         >
                           {isPending ? (
                             <RefreshCw size={11} className="spinning" />
@@ -422,8 +410,8 @@ export function UsersPage() {
 
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="text-center py-6 text-tertiary">
-                      NO USER ACCOUNTS RETURNED FROM BACKEND
+                    <td colSpan="6" className="empty-row text-tertiary">
+                      NO USER ACCOUNTS REGISTERED
                     </td>
                   </tr>
                 )}
@@ -434,31 +422,32 @@ export function UsersPage() {
       </section>
 
       <style>{`
-        .users-page {
-          display: flex;
-          flex-direction: column;
-        }
+        .margin-top-xs { margin-top: 4px; }
+        .margin-top-sm { margin-top: 8px; }
+        .margin-top-md { margin-top: 16px; }
+        .margin-bottom-md { margin-bottom: 16px; }
+        .margin-bottom-lg { margin-bottom: 24px; }
+        .padding-bottom-xs { padding-bottom: 8px; }
+        .border-bottom { border-bottom: 1px solid var(--border-subtle); }
 
         .editorial-notice-banner {
-          padding: 10px 16px;
+          padding: 8px 14px;
           font-size: 11px;
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin-bottom: 20px;
+          gap: 8px;
+          border-radius: var(--radius-md);
         }
 
         .notice-success {
-          background: rgba(34, 197, 94, 0.1);
-          border: 1px solid rgba(34, 197, 94, 0.3);
-          border-left: 3px solid var(--status-healthy);
+          background: var(--accent-muted);
+          border: 1px solid var(--accent-border);
           color: var(--status-healthy);
         }
 
         .notice-error {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.3);
-          border-left: 3px solid var(--status-critical);
+          background: rgba(220, 38, 38, 0.1);
+          border: 1px solid rgba(220, 38, 38, 0.3);
           color: var(--status-critical);
         }
 
@@ -476,7 +465,7 @@ export function UsersPage() {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.7);
+          background: rgba(15, 23, 42, 0.5);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -485,179 +474,176 @@ export function UsersPage() {
         }
 
         .confirm-modal-card {
-          background: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          border-left: 4px solid var(--status-critical);
-          padding: 24px 28px;
           max-width: 440px;
           width: 100%;
+          border-left: 3px solid var(--status-critical);
         }
 
         .modal-header {
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin-bottom: 12px;
+          gap: 8px;
         }
 
         .modal-title {
           font-size: 13px;
           font-weight: 700;
           color: var(--status-critical);
-          letter-spacing: 0.05em;
-        }
-
-        .modal-body {
-          color: var(--text-secondary);
-          line-height: 1.5;
-          margin-bottom: 20px;
         }
 
         .modal-actions {
           display: flex;
           justify-content: flex-end;
-          gap: 12px;
+          gap: 10px;
         }
 
-        .btn-danger-confirm {
-          border-color: var(--status-critical);
-          color: var(--status-critical);
-        }
-
-        .btn-danger-confirm:hover {
+        .btn-danger {
           background: var(--status-critical);
-          color: #fff;
+          color: #ffffff;
+          border: none;
         }
 
-        .create-user-section {
-          background: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          padding: 24px;
-          margin-bottom: 28px;
+        .btn-danger:hover {
+          background: #b91c1c;
         }
 
-        .section-header {
+        .form-section {
+          padding: 20px 24px;
+        }
+
+        .form-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding-bottom: 14px;
-          border-bottom: 1px solid var(--border-subtle);
-          margin-bottom: 20px;
+        }
+
+        .title-box {
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
         .form-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 20px;
-          margin-bottom: 20px;
+          gap: 16px;
         }
 
-        .form-field {
+        .field-box {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 4px;
         }
 
         .field-label {
           font-size: 10px;
-          color: var(--text-tertiary);
-          letter-spacing: 0.08em;
+          letter-spacing: 0.05em;
         }
 
-        .field-input, .field-select {
-          width: 100%;
-          text-align: left;
-          padding: 8px 12px;
-          font-size: 11px;
-        }
-
-        .form-actions {
+        .form-footer {
           display: flex;
           justify-content: flex-end;
         }
 
-        .btn-submit {
-          padding: 10px 20px;
+        .registry-card {
+          padding: 20px 24px;
         }
 
-        .user-registry-section {
-          background: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          padding: 24px;
-        }
-
-        .section-top {
+        .registry-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          padding-bottom: 16px;
-          border-bottom: 1px solid var(--border-subtle);
-          margin-bottom: 16px;
+          gap: 16px;
+          flex-wrap: wrap;
         }
 
-        .section-actions {
+        .header-actions {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
         }
 
         .users-loading-state {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 12px;
-          padding: 40px 0;
+          gap: 10px;
+          padding: 36px 0;
           color: var(--text-tertiary);
           font-size: 11px;
         }
 
-        .username-cell {
-          display: flex;
-          align-items: center;
-          gap: 10px;
+        .table-wrapper {
+          overflow-x: auto;
         }
 
-        .username-text {
-          font-weight: 600;
-          color: var(--text-primary);
+        .user-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 11px;
+          text-align: left;
         }
 
-        .self-tag {
-          font-size: 9px;
-        }
-
-        .role-select {
-          padding: 4px 8px;
+        .user-table th {
           font-size: 10px;
+          letter-spacing: 0.08em;
+          color: var(--text-tertiary);
+          border-bottom: 1px solid var(--border-strong);
+          padding: 8px 12px;
+        }
+
+        .user-table td {
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--border-subtle);
+          color: var(--text-primary);
+          vertical-align: middle;
         }
 
         .row-self {
           background-color: var(--accent-muted);
         }
 
-        .btn-disable:hover:not(:disabled) {
-          border-color: var(--status-critical);
+        .user-name-cell {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .user-name {
+          font-size: 12px;
+        }
+
+        .self-tag {
+          font-size: 9px;
+        }
+
+        .select-role {
+          height: 28px;
+          font-size: 10px;
+          padding: 2px 6px;
+        }
+
+        .btn-toggle-disable:hover:not(:disabled) {
+          border-color: rgba(220, 38, 38, 0.4);
           color: var(--status-critical);
         }
 
-        .btn-enable:hover:not(:disabled) {
-          border-color: var(--status-healthy);
+        .btn-toggle-enable:hover:not(:disabled) {
+          border-color: var(--accent-border);
           color: var(--status-healthy);
         }
 
-        .text-center { text-align: center; }
-        .py-6 { padding-top: 24px; padding-bottom: 24px; }
+        .empty-row {
+          text-align: center;
+          padding: 24px 0;
+        }
+
+        .text-accent { color: var(--accent); }
+        .text-critical { color: var(--status-critical); }
+        .text-healthy { color: var(--status-healthy); }
         .text-tertiary { color: var(--text-tertiary); }
         .text-secondary { color: var(--text-secondary); }
-        .text-xs { font-size: 11px; }
-        .mb-4 { margin-bottom: 16px; }
-
-        .spinning {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          100% { transform: rotate(360deg); }
-        }
+        .text-primary { color: var(--text-primary); }
       `}</style>
     </div>
   );

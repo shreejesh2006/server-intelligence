@@ -11,12 +11,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { useTimezone } from '../../context/TimezoneContext';
-import { RefreshCw } from 'lucide-react';
 
-/**
- * Compute 6 to 8 evenly spaced tick timestamps from the dataset.
- * Guarantees crisp, un-crowded X-axis labels regardless of range duration.
- */
 function getAdaptiveTicks(data, targetCount = 7) {
   if (!data || data.length === 0) return [];
   if (data.length <= targetCount) return data.map((d) => d.timestamp);
@@ -38,7 +33,7 @@ const CustomTooltip = ({ active, payload, label, unitFormatter, seriesConfig, fo
   if (active && payload && payload.length) {
     const timestampStr = formatTimestamp ? formatTimestamp(label, true) : `${label}`;
     return (
-      <div className="editorial-tooltip font-mono">
+      <div className="neo-tooltip font-mono">
         <div className="tooltip-time">{timestampStr}</div>
         <div className="tooltip-divider" />
         {payload.map((entry, idx) => {
@@ -61,19 +56,20 @@ const CustomTooltip = ({ active, payload, label, unitFormatter, seriesConfig, fo
         })}
 
         <style>{`
-          .editorial-tooltip {
-            background-color: var(--chart-tooltip-bg);
-            border: 1px solid var(--chart-tooltip-border);
+          .neo-tooltip {
+            background-color: var(--bg-surface-raised);
+            border: 1px solid var(--border-strong);
             padding: 8px 12px;
             font-size: 11px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            box-shadow: var(--shadow-raised-md);
             border-left: 3px solid var(--accent);
+            border-radius: var(--radius-md);
           }
           .tooltip-time {
             color: var(--text-secondary);
             font-size: 10px;
             margin-bottom: 4px;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
           }
           .tooltip-divider {
             height: 1px;
@@ -97,7 +93,7 @@ const CustomTooltip = ({ active, payload, label, unitFormatter, seriesConfig, fo
           }
           .tooltip-val {
             color: var(--text-primary);
-            font-weight: 600;
+            font-weight: 700;
             margin-left: auto;
           }
         `}</style>
@@ -110,7 +106,7 @@ const CustomTooltip = ({ active, payload, label, unitFormatter, seriesConfig, fo
 export function TelemetryChart({
   data = [],
   series = [
-    { key: 'value', label: 'Value', color: '#f97316', fillOpacity: 0.15 }
+    { key: 'value', label: 'Value', color: '#16a34a', fillOpacity: 0.15 }
   ],
   unitFormatter,
   yDomain = [0, 'auto'],
@@ -119,13 +115,12 @@ export function TelemetryChart({
 }) {
   const { formatChartTime, formatTimestamp } = useTimezone();
 
-  // Dynamically compute 6 to 8 tick timestamps based on dataset size
   const adaptiveTicks = useMemo(() => getAdaptiveTicks(data, 7), [data]);
 
-  if (loading) {
+  // If loading and no prior data exists at all
+  if (loading && (!data || data.length === 0)) {
     return (
       <div className="chart-loading-skeleton font-mono">
-        <RefreshCw size={14} className="spinning text-accent" />
         <span>FETCHING TELEMETRY HISTORY...</span>
         <style>{`
           .chart-loading-skeleton {
@@ -133,15 +128,10 @@ export function TelemetryChart({
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
             color: var(--text-tertiary);
             font-size: 10px;
-            background: var(--bg-main);
-            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
           }
-          .text-accent { color: var(--accent); }
-          .spinning { animation: spin 1s linear infinite; }
-          @keyframes spin { 100% { transform: rotate(360deg); } }
         `}</style>
       </div>
     );
@@ -160,6 +150,7 @@ export function TelemetryChart({
             color: var(--text-tertiary);
             font-size: 11px;
             border: 1px dashed var(--border-subtle);
+            border-radius: var(--radius-md);
           }
         `}</style>
       </div>
@@ -174,7 +165,7 @@ export function TelemetryChart({
   return (
     <ResponsiveContainer width="100%" height="100%">
       {chartType === 'area' ? (
-        <AreaChart data={data} margin={{ top: 12, right: 24, left: 0, bottom: 8 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 16, left: -10, bottom: 4 }}>
           <defs>
             {series.map((s) => (
               <linearGradient key={s.key} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
@@ -183,7 +174,7 @@ export function TelemetryChart({
               </linearGradient>
             ))}
           </defs>
-          <CartesianGrid strokeDasharray="2 4" stroke="var(--chart-grid)" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="timestamp"
             ticks={adaptiveTicks}
@@ -191,7 +182,7 @@ export function TelemetryChart({
             stroke="var(--chart-axis)"
             tick={{ fill: 'var(--text-tertiary)', fontSize: 10, fontFamily: 'var(--font-mono)' }}
             tickLine={false}
-            axisLine={{ stroke: 'var(--border-strong)' }}
+            axisLine={{ stroke: 'var(--border-subtle)' }}
             interval={0}
             minTickGap={35}
             padding={{ left: 10, right: 10 }}
@@ -215,15 +206,17 @@ export function TelemetryChart({
               dataKey={s.key}
               name={s.label}
               stroke={s.color}
-              strokeWidth={1.5}
+              strokeWidth={1.8}
               fill={`url(#grad-${s.key})`}
-              isAnimationActive={false}
+              isAnimationActive={true}
+              animationDuration={400}
+              animationEasing="ease-in-out"
             />
           ))}
         </AreaChart>
       ) : (
-        <LineChart data={data} margin={{ top: 12, right: 24, left: 0, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="2 4" stroke="var(--chart-grid)" vertical={false} />
+        <LineChart data={data} margin={{ top: 8, right: 16, left: -10, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="timestamp"
             ticks={adaptiveTicks}
@@ -231,7 +224,7 @@ export function TelemetryChart({
             stroke="var(--chart-axis)"
             tick={{ fill: 'var(--text-tertiary)', fontSize: 10, fontFamily: 'var(--font-mono)' }}
             tickLine={false}
-            axisLine={{ stroke: 'var(--border-strong)' }}
+            axisLine={{ stroke: 'var(--border-subtle)' }}
             interval={0}
             minTickGap={35}
             padding={{ left: 10, right: 10 }}
@@ -255,9 +248,11 @@ export function TelemetryChart({
               dataKey={s.key}
               name={s.label}
               stroke={s.color}
-              strokeWidth={1.5}
+              strokeWidth={1.8}
               dot={false}
-              isAnimationActive={false}
+              isAnimationActive={true}
+              animationDuration={400}
+              animationEasing="ease-in-out"
             />
           ))}
         </LineChart>

@@ -16,18 +16,16 @@ import {
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { id: '01', name: 'OVERVIEW', path: '/overview', icon: LayoutDashboard, adminOnly: false },
-  { id: '02', name: 'SERVERS', path: '/servers', icon: Server, adminOnly: false },
-  { id: '03', name: 'FORECASTS', path: '/forecasts', icon: TrendingUp, adminOnly: false },
-  { id: '04', name: 'ANOMALIES', path: '/anomalies', icon: AlertTriangle, adminOnly: false },
-  { id: '05', name: 'ALERTS', path: '/alerts', icon: Bell, adminOnly: false },
-  { id: '06', name: 'ANALYTICS', path: '/analytics', icon: BarChart2, adminOnly: false },
-  { id: '07', name: 'USERS', path: '/users', icon: Users, adminOnly: true },
-  { id: '08', name: 'ASSISTANT', path: '/assistant', icon: Bot, adminOnly: false },
-  { id: '09', name: 'SETTINGS', path: '/settings', icon: Sliders, adminOnly: true },
+  { name: 'OVERVIEW', path: '/overview', icon: LayoutDashboard, adminOnly: false },
+  { name: 'SERVERS', path: '/servers', icon: Server, adminOnly: false },
+  { name: 'FORECASTS', path: '/forecasts', icon: TrendingUp, adminOnly: false },
+  { name: 'ANOMALIES', path: '/anomalies', icon: AlertTriangle, adminOnly: false },
+  { name: 'ALERTS', path: '/alerts', icon: Bell, adminOnly: false },
+  { name: 'ANALYTICS', path: '/analytics', icon: BarChart2, adminOnly: false },
+  { name: 'USERS', path: '/users', icon: Users, adminOnly: true },
+  { name: 'ASSISTANT', path: '/assistant', icon: Bot, adminOnly: false },
+  { name: 'SETTINGS', path: '/settings', icon: Sliders, adminOnly: true },
 ];
-
-
 
 export function Sidebar() {
   const { user } = useAuth();
@@ -48,17 +46,17 @@ export function Sidebar() {
   };
 
   return (
-    <aside className={`sidebar ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
-      {/* Sidebar Header with Collapse Toggle */}
-      <div className="sidebar-section-header">
-        {!isCollapsed && <span className="editorial-tag font-mono">NAVIGATION / INDEX</span>}
+    <aside className={`neo-sidebar ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
+      {/* Sidebar Header */}
+      <div className="sidebar-header">
+        {!isCollapsed && <span className="editorial-tag font-mono">NAVIGATION</span>}
         <button
           type="button"
           onClick={toggleCollapse}
-          className="collapse-toggle-btn"
+          className="neo-toggle-btn"
           title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          {isCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
         </button>
       </div>
 
@@ -68,16 +66,15 @@ export function Sidebar() {
           const Icon = item.icon;
           return (
             <NavLink
-              key={item.id}
+              key={item.name}
               to={item.path}
-              title={isCollapsed ? `${item.id} / ${item.name}` : undefined}
+              title={isCollapsed ? item.name : undefined}
               className={({ isActive }) =>
-                `nav-item ${isActive ? 'nav-item-active' : ''}`
+                `neo-nav-item ${isActive ? 'nav-item-active' : ''}`
               }
             >
-              <span className="nav-num">{item.id}</span>
-              {!isCollapsed && <span className="nav-label">{item.name}</span>}
               <Icon size={14} className="nav-icon" />
+              {!isCollapsed && <span className="nav-label">{item.name}</span>}
             </NavLink>
           );
         })}
@@ -85,173 +82,161 @@ export function Sidebar() {
 
       {/* Sidebar Footer */}
       <div className="sidebar-footer font-mono">
-        {isCollapsed ? (
-          <div className="system-meta-compact" title="VICTORIAMETRICS CONNECTED">
-            <span className="live-dot-small" />
+        {!isCollapsed ? (
+          <div className="system-status-inset">
+            <div className="status-label text-tertiary">ENGINE TELEMETRY</div>
+            <div className="status-value text-accent font-bold">VICTORIAMETRICS ACTIVE</div>
           </div>
         ) : (
-          <div className="system-meta-block">
-            <div className="meta-label">ENGINE STATE</div>
-            <div className="meta-value">VICTORIAMETRICS CONNECTED</div>
+          <div className="status-dot-compact" title="VICTORIAMETRICS ACTIVE">
+            <span className="live-dot-small" />
           </div>
         )}
       </div>
 
       <style>{`
-        .sidebar {
+        .neo-sidebar {
           width: var(--sidebar-width);
-          height: calc(100vh - var(--topbar-height) - var(--footer-height));
           position: sticky;
-          top: var(--topbar-height);
-          align-self: flex-start;
-          overflow-y: auto;
+          top: 0;
           background-color: var(--bg-surface);
-          border-right: 1px solid var(--border-strong);
+          border-right: 1px solid var(--border-subtle);
           display: flex;
           flex-direction: column;
-          padding: 16px 0;
+          padding: 12px 10px;
           flex-shrink: 0;
-          transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: width 0.15s ease;
           z-index: 8;
         }
 
         .sidebar-collapsed {
-          width: 64px;
+          width: 60px;
+          padding: 12px 6px;
         }
 
-        .sidebar-section-header {
-          padding: 0 16px 12px 16px;
+        .sidebar-header {
+          padding: 0 4px 10px 4px;
           border-bottom: 1px solid var(--border-subtle);
-          margin-bottom: 12px;
+          margin-bottom: 10px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          height: 36px;
         }
 
-        .sidebar-collapsed .sidebar-section-header {
+        .sidebar-collapsed .sidebar-header {
           justify-content: center;
-          padding: 0 0 12px 0;
         }
 
-        .collapse-toggle-btn {
-          background: transparent;
+        .neo-toggle-btn {
+          background: var(--bg-inset);
           border: 1px solid var(--border-subtle);
           color: var(--text-secondary);
           width: 24px;
           height: 24px;
+          border-radius: var(--radius-sm);
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
           transition: all 0.15s ease;
-          border-radius: 2px;
         }
 
-        .collapse-toggle-btn:hover {
-          background: var(--bg-surface-hover);
+        .neo-toggle-btn:hover {
           color: var(--accent);
-          border-color: var(--accent);
+          border-color: var(--accent-border);
         }
 
         .nav-list {
           display: flex;
           flex-direction: column;
           flex: 1;
-          gap: 2px;
+          gap: 4px;
           width: 100%;
         }
 
-        .nav-item {
+        .neo-nav-item {
           display: flex;
           align-items: center;
-          height: 42px;
+          gap: 10px;
+          height: 36px;
           width: 100%;
-          padding: 0 20px;
+          padding: 0 12px;
           color: var(--text-secondary);
           text-decoration: none;
-          font-family: var(--font-mono);
           font-size: 11px;
-          letter-spacing: 0.05em;
-          border-left: 3px solid transparent;
+          letter-spacing: 0.04em;
+          border-radius: var(--radius-md);
           transition: all 0.15s ease;
           box-sizing: border-box;
           white-space: nowrap;
+          border-left: 3px solid transparent;
         }
 
-        .sidebar-collapsed .nav-item {
-          justify-content: space-between;
-          padding: 0 14px;
+        .sidebar-collapsed .neo-nav-item {
+          justify-content: center;
+          padding: 0;
         }
 
-        .nav-item:hover {
+        .neo-nav-item:hover:not(.nav-item-active) {
           color: var(--text-primary);
           background-color: var(--bg-surface-hover);
         }
 
         .nav-item-active {
-          color: var(--accent);
-          background-color: var(--accent-muted);
+          background: var(--accent-muted);
           border-left-color: var(--accent);
-          font-weight: 600;
-        }
-
-        .nav-num {
-          font-family: var(--font-mono);
-          opacity: 0.6;
-          font-size: 10px;
-          width: 24px;
-          flex-shrink: 0;
-          text-align: left;
+          color: var(--accent);
+          font-weight: 700;
         }
 
         .nav-label {
           flex: 1;
           overflow: hidden;
           text-overflow: ellipsis;
-          text-align: left;
-          padding-left: 4px;
         }
 
         .nav-icon {
           flex-shrink: 0;
-          opacity: 0.6;
-          width: 16px;
+          opacity: 0.7;
           transition: opacity 0.15s ease;
         }
 
-        .nav-item:hover .nav-icon,
+        .neo-nav-item:hover .nav-icon,
         .nav-item-active .nav-icon {
           opacity: 1;
         }
 
         .sidebar-footer {
-          padding: 16px;
+          padding-top: 10px;
           border-top: 1px solid var(--border-subtle);
-          margin-top: 12px;
-          width: 100%;
+          margin-top: 10px;
         }
 
-        .sidebar-collapsed .sidebar-footer {
-          padding: 12px 0;
-          display: flex;
-          justify-content: center;
-        }
-
-        .system-meta-block {
-          background: var(--bg-main);
+        .system-status-inset {
+          background: var(--bg-inset);
           border: 1px solid var(--border-subtle);
-          padding: 10px 12px;
-          width: 100%;
+          border-radius: var(--radius-md);
+          padding: 8px 10px;
         }
 
-        .system-meta-compact {
+        .status-label {
+          font-size: 9px;
+          letter-spacing: 0.06em;
+          margin-bottom: 2px;
+        }
+
+        .status-value {
+          font-size: 10px;
+          letter-spacing: 0.03em;
+        }
+
+        .status-dot-compact {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 32px;
-          height: 32px;
-          background: var(--bg-main);
+          height: 28px;
+          background: var(--bg-inset);
+          border-radius: var(--radius-sm);
           border: 1px solid var(--border-subtle);
         }
 
@@ -260,23 +245,6 @@ export function Sidebar() {
           height: 6px;
           border-radius: 50%;
           background-color: var(--status-healthy);
-          box-shadow: 0 0 6px var(--status-healthy);
-        }
-
-        .meta-label {
-          font-family: var(--font-mono);
-          font-size: 9px;
-          letter-spacing: 0.1em;
-          color: var(--text-tertiary);
-          text-transform: uppercase;
-          margin-bottom: 4px;
-        }
-
-        .meta-value {
-          font-family: var(--font-mono);
-          font-size: 10px;
-          color: var(--text-primary);
-          font-weight: 500;
         }
       `}</style>
     </aside>

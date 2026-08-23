@@ -3,21 +3,35 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('server_intel_theme') || 'dark';
+  const [theme, setThemeState] = useState(() => {
+    const saved = localStorage.getItem('server_intel_theme');
+    if (saved === 'dark') return 'dark';
+    return 'light';
   });
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('server_intel_theme', theme);
+    const validTheme = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', validTheme);
+    localStorage.setItem('server_intel_theme', validTheme);
   }, [theme]);
 
+  const setTheme = (themeMode) => {
+    const next = themeMode === 'dark' ? 'dark' : 'light';
+    setThemeState(next);
+  };
+
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider
+      value={{
+        theme: theme === 'dark' ? 'dark' : 'light',
+        setTheme,
+        toggleTheme,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );

@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import PageHeader from '../../components/common/PageHeader';
-import MetricDisplay from '../../components/common/MetricDisplay';
-import DataStrip from '../../components/common/DataStrip';
 import OfflineBanner from '../../components/common/OfflineBanner';
 import ChartFrame from '../../components/charts/ChartFrame';
 import TelemetryChart from '../../components/charts/TelemetryChart';
@@ -14,8 +12,10 @@ import {
 import { 
   formatPercent, 
   formatBytesPerSec, 
-  formatNumber 
+  formatNumber,
+  formatUptime
 } from '../../utils/formatters';
+import { Server, Activity, Cpu, HardDrive, ShieldCheck, Zap, Network, Layers } from 'lucide-react';
 
 const TIME_WINDOWS = [
   { id: '5m', label: '5M', start: '-5m', step: '5s', subtitle: 'OVER 5 MINUTES (5s STEP)' },
@@ -31,25 +31,19 @@ const TIME_WINDOWS = [
 export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
   const { servers, selectedHost, activeServer, selectServer } = useServer();
 
-  // Selected time window state
   const [selectedWindowId, setSelectedWindowId] = useState('1h');
   const activeWindow = TIME_WINDOWS.find((w) => w.id === selectedWindowId) || TIME_WINDOWS[3];
 
-  // History loading state
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  // History state for charts
   const [cpuHistory, setCpuHistory] = useState([]);
   const [memoryHistory, setMemoryHistory] = useState([]);
   const [loadHistory, setLoadHistory] = useState([]);
   const [networkHistory, setNetworkHistory] = useState([]);
-  const [diskIoHistory, setDiskIoHistory] = useState([]);
 
-  // Peaks
   const [cpuPeak, setCpuPeak] = useState(null);
   const [memPeak, setMemPeak] = useState(null);
 
-  // Fetch telemetry history on load, refetch, window change, or server selection change
   useEffect(() => {
     let isCancelled = false;
 
@@ -57,18 +51,16 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
       setHistoryLoading(true);
       try {
         const { start, step } = activeWindow;
-        const [cpuRes, memRes, swapRes, loadRes, netRes, diskRes] = await Promise.all([
+        const [cpuRes, memRes, swapRes, loadRes, netRes] = await Promise.all([
           getMetricHistory('cpu', start, 'now', step, selectedHost).catch(() => ({ values: [] })),
           getMetricHistory('memory', start, 'now', step, selectedHost).catch(() => ({ values: [] })),
           getMetricHistory('swap', start, 'now', step, selectedHost).catch(() => ({ values: [] })),
           getMultiMetricHistory(['load_1m', 'load_5m', 'load_15m'], start, 'now', step, selectedHost),
           getMultiMetricHistory(['network_rx', 'network_tx'], start, 'now', step, selectedHost),
-          getMultiMetricHistory(['disk_read', 'disk_write'], start, 'now', step, selectedHost),
         ]);
 
         if (isCancelled) return;
 
-        // CPU
         const cpuVals = cpuRes.values || [];
         setCpuHistory(cpuVals);
         if (cpuVals.length > 0) {
@@ -78,7 +70,6 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
           setCpuPeak(null);
         }
 
-        // Memory + Swap merged
         const swapMap = new Map((swapRes.values || []).map((v) => [v.timestamp, v.value]));
         const mergedMem = (memRes.values || []).map((v) => ({
           timestamp: v.timestamp,
@@ -93,16 +84,10 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
           setMemPeak(null);
         }
 
-        // Load
         setLoadHistory(loadRes.timeline || []);
-
-        // Network
         setNetworkHistory(netRes.timeline || []);
-
-        // Disk IO
-        setDiskIoHistory(diskRes.timeline || []);
       } catch (err) {
-        if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
+        if (import.meta.env.DEV) {
           console.warn('Error loading telemetry history:', err);
         }
       } finally {
@@ -119,374 +104,586 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
     };
   }, [lastUpdated, selectedWindowId, activeWindow, selectedHost]);
 
-  const cpuCurrent = metrics?.cpu != null ? formatNumber(metrics.cpu, 1) : null;
-  const memCurrent = metrics?.memory != null ? formatNumber(metrics.memory, 1) : null;
-  const diskCurrent = metrics?.disk != null ? formatNumber(metrics.disk, 1) : null;
+  const cpuVal = metrics?.cpu != null ? metrics.cpu : 0;
+  const memVal = metrics?.memory != null ? metrics.memory : 0;
+  const diskVal = metrics?.disk != null ? metrics.disk : 0;
 
   return (
-    <div className="overview-page">
+    <div className="overview-page font-sans">
       <PageHeader
         index="01"
         title="SYSTEM PULSE"
-        subtitle={`Live telemetry and operational state for ${activeServer.name} (${activeServer.ip}) from VictoriaMetrics.`}
-        tag="LIVE SYSTEM OBSERVABILITY"
+        subtitle={`Real-time observability console for ${activeServer.name} (${activeServer.ip}).`}
+        tag="OBSERVABILITY CONSOLE"
       />
 
       {isOffline && <OfflineBanner onRetry={refetch} />}
 
-      {/* 1. SERVER SELECTION & OPERATIONAL STATUS HERO */}
-      <section className="health-hero font-mono">
-        <div className="hero-status-row">
-          <div className="hero-status-left">
-            <span className="editorial-tag">01 / TARGET SERVER SELECTION</span>
-            <div className="server-selector-pills margin-top-xs">
+      {/* 1. LARGE PRIMARY HERO CARD */}
+      <section className="neo-card hero-primary-card margin-bottom-lg">
+        <div className="hero-top-bar">
+          <div className="hero-left-title">
+            <div className="node-icon-box">
+              <Server size={22} className="text-accent" />
+            </div>
+            <div>
+              <div className="node-title font-sans">{activeServer.name}</div>
+              <div className="node-subtitle font-mono text-tertiary">
+                {activeServer.os} &bull; <strong className="text-primary">{activeServer.ip}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="hero-right-controls">
+            <div className="neo-segmented-track font-mono">
               {servers.map((srv) => (
                 <button
                   key={srv.host}
                   type="button"
                   onClick={() => selectServer(srv.host)}
-                  className={`server-pill-btn ${selectedHost === srv.host ? 'active' : ''}`}
+                  className={`neo-segmented-item ${selectedHost === srv.host ? 'active' : ''}`}
                 >
-                  <span className="srv-name">{srv.name.toUpperCase()}</span>
-                  <span className="srv-ip">{srv.ip}</span>
+                  {srv.host.toUpperCase()}
                 </button>
               ))}
             </div>
+
+            <span className={`editorial-pill ${!isOffline && metrics ? 'pill-healthy' : 'pill-critical'}`}>
+              <ShieldCheck size={12} />
+              {!isOffline && metrics ? 'NODE ONLINE' : 'NODE UNREACHABLE'}
+            </span>
+          </div>
+        </div>
+
+        <div className="hero-divider" />
+
+        {/* Primary Health Gauges Row */}
+        <div className="hero-gauges-grid font-mono">
+          <div className="gauge-item">
+            <div className="gauge-header">
+              <Cpu size={15} className="text-accent" />
+              <span className="gauge-label text-tertiary">CPU UTILIZATION</span>
+            </div>
+            <div className="neo-metric-num hero-gauge-num">
+              {formatNumber(cpuVal, 1)}
+              <span className="neo-metric-unit">%</span>
+            </div>
+            <div className="neo-progress-track">
+              <div
+                className="neo-progress-fill bg-accent"
+                style={{ width: `${Math.min(100, Math.max(0, cpuVal))}%` }}
+              />
+            </div>
           </div>
 
-          <div className="hero-status-right">
-            <div className="hero-status-title">
-              {isOffline ? (
-                <span className="text-critical">SYSTEM OFFLINE — TELEMETRY UNREACHABLE</span>
-              ) : (
-                <span className="text-healthy">NODE ONLINE — {activeServer.host.toUpperCase()} ACTIVE</span>
-              )}
+          <div className="gauge-item">
+            <div className="gauge-header">
+              <Activity size={15} className="text-info" />
+              <span className="gauge-label text-tertiary">MEMORY USAGE</span>
+            </div>
+            <div className="neo-metric-num hero-gauge-num">
+              {formatNumber(memVal, 1)}
+              <span className="neo-metric-unit">%</span>
+            </div>
+            <div className="neo-progress-track">
+              <div
+                className="neo-progress-fill bg-info"
+                style={{ width: `${Math.min(100, Math.max(0, memVal))}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="gauge-item">
+            <div className="gauge-header">
+              <HardDrive size={15} className="text-warning" />
+              <span className="gauge-label text-tertiary">DISK STORAGE</span>
+            </div>
+            <div className="neo-metric-num hero-gauge-num">
+              {formatNumber(diskVal, 1)}
+              <span className="neo-metric-unit">%</span>
+            </div>
+            <div className="neo-progress-track">
+              <div
+                className="neo-progress-fill bg-warning"
+                style={{ width: `${Math.min(100, Math.max(0, diskVal))}%` }}
+              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. CURRENT TELEMETRY GRID */}
-      <div className="section-label-strip font-mono">
-        <span className="editorial-tag">02 / TELEMETRY SNAPSHOT — {activeServer.name.toUpperCase()}</span>
+      {/* 2. MEDIUM TELEMETRY CARDS */}
+      <div className="section-label-strip font-mono margin-bottom-sm">
+        <span className="editorial-tag">02 / LIVE TELEMETRY SNAPSHOT</span>
       </div>
 
-      <section className="primary-telemetry-grid">
-        <MetricDisplay
-          label="CPU UTILIZATION"
-          value={cpuCurrent}
-          unit="%"
-          sublabel={`${activeServer.host.toUpperCase()} METRIC`}
-          secondaryText={metrics?.iowait != null ? `IO WAIT: ${formatPercent(metrics.iowait)}` : null}
-          status={metrics?.cpu > 85 ? 'critical' : metrics?.cpu > 70 ? 'warning' : 'normal'}
-        />
-        <MetricDisplay
-          label="MEMORY USAGE"
-          value={memCurrent}
-          unit="%"
-          sublabel={metrics?.swap != null ? `SWAP: ${formatPercent(metrics.swap)}` : 'RAM USAGE'}
-          secondaryText={`${activeServer.host.toUpperCase()} RAM`}
-          status={metrics?.memory > 90 ? 'critical' : metrics?.memory > 80 ? 'warning' : 'normal'}
-        />
-        <MetricDisplay
-          label="DISK STORAGE"
-          value={diskCurrent}
-          unit="%"
-          sublabel="ROOT MOUNT (/)"
-          secondaryText={`${activeServer.host.toUpperCase()} STORAGE`}
-          status={metrics?.disk > 90 ? 'critical' : metrics?.disk > 80 ? 'warning' : 'normal'}
-        />
-      </section>
-
-      {/* Operational Data Strip */}
-      <DataStrip metrics={metrics} isOffline={isOffline} lastUpdated={lastUpdated} />
-
-      {/* INTELLIGENCE ENGINE (ML & PERSISTENCE) */}
-      <IntelligenceSection lastUpdated={lastUpdated} />
-
-      {/* 4. HISTORICAL TELEMETRY FIGURES */}
-      <div className="editorial-header margin-top-lg">
-        <div>
-          <span className="editorial-tag">04 / HISTORICAL TELEMETRY FIGURES — {activeServer.host.toUpperCase()}</span>
-          <h2 className="editorial-title font-sans">ANALYTICAL TIME SERIES</h2>
+      <div className="telemetry-cards-grid margin-bottom-lg">
+        {/* CPU Card */}
+        <div className="neo-card metric-card font-mono">
+          <div className="metric-card-header">
+            <span className="editorial-tag">CPU UTILIZATION</span>
+            <span className={`editorial-pill ${cpuVal > 85 ? 'pill-critical' : cpuVal > 70 ? 'pill-warning' : 'pill-healthy'}`}>
+              {cpuVal > 85 ? 'CRITICAL' : cpuVal > 70 ? 'ELEVATED' : 'NOMINAL'}
+            </span>
+          </div>
+          <div className="neo-metric-num hero-gauge-num margin-top-xs">
+            {formatNumber(cpuVal, 1)}
+            <span className="neo-metric-unit">%</span>
+          </div>
+          <div className="metric-card-footer text-tertiary text-xs margin-top-sm">
+            <span>IO WAIT: {metrics?.iowait != null ? formatPercent(metrics.iowait) : '0.0%'}</span>
+            <span>PEAK: {cpuPeak ? `${cpuPeak}%` : '—'}</span>
+          </div>
         </div>
 
-        {/* Infrastructure Console Segmented Range Selector */}
-        <div className="time-range-segmented-group font-mono">
-          <span className="range-group-label">TIME RANGE:</span>
-          <div className="range-buttons-wrap">
-            {TIME_WINDOWS.map((win) => (
-              <button
-                key={win.id}
-                type="button"
-                aria-label={`Set time range to ${win.label}`}
-                className={`range-segment-btn ${selectedWindowId === win.id ? 'active' : ''}`}
-                onClick={() => setSelectedWindowId(win.id)}
-              >
-                {win.label}
-              </button>
-            ))}
+        {/* Memory Card */}
+        <div className="neo-card metric-card font-mono">
+          <div className="metric-card-header">
+            <span className="editorial-tag">MEMORY USAGE</span>
+            <span className={`editorial-pill ${memVal > 90 ? 'pill-critical' : memVal > 80 ? 'pill-warning' : 'pill-healthy'}`}>
+              {memVal > 90 ? 'CRITICAL' : memVal > 80 ? 'ELEVATED' : 'NOMINAL'}
+            </span>
+          </div>
+          <div className="neo-metric-num hero-gauge-num margin-top-xs">
+            {formatNumber(memVal, 1)}
+            <span className="neo-metric-unit">%</span>
+          </div>
+          <div className="metric-card-footer text-tertiary text-xs margin-top-sm">
+            <span>SWAP: {metrics?.swap != null ? formatPercent(metrics.swap) : '0.0%'}</span>
+            <span>PEAK: {memPeak ? `${memPeak}%` : '—'}</span>
+          </div>
+        </div>
+
+        {/* System Load Card */}
+        <div className="neo-card metric-card font-mono">
+          <div className="metric-card-header">
+            <span className="editorial-tag">LOAD 1M / 5M / 15M</span>
+            <Zap size={14} className="text-accent" />
+          </div>
+          <div className="neo-metric-num hero-gauge-num margin-top-xs">
+            {metrics?.load_1m != null ? formatNumber(metrics.load_1m, 2) : '—'}
+          </div>
+          <div className="metric-card-footer text-tertiary text-xs margin-top-sm">
+            <span>5M: {metrics?.load_5m != null ? formatNumber(metrics.load_5m, 2) : '—'}</span>
+            <span>15M: {metrics?.load_15m != null ? formatNumber(metrics.load_15m, 2) : '—'}</span>
+          </div>
+        </div>
+
+        {/* Storage Card */}
+        <div className="neo-card metric-card font-mono">
+          <div className="metric-card-header">
+            <span className="editorial-tag">DISK STORAGE</span>
+            <span className={`editorial-pill ${diskVal > 90 ? 'pill-critical' : 'pill-neutral'}`}>
+              ROOT (/)
+            </span>
+          </div>
+          <div className="neo-metric-num hero-gauge-num margin-top-xs">
+            {formatNumber(diskVal, 1)}
+            <span className="neo-metric-unit">%</span>
+          </div>
+          <div className="metric-card-footer text-tertiary text-xs margin-top-sm">
+            <span>MOUNT: /</span>
+            <span>TYPE: ext4</span>
           </div>
         </div>
       </div>
 
-      <div className="charts-grid">
+      {/* 3. INTELLIGENCE SECTION */}
+      <IntelligenceSection lastUpdated={lastUpdated} />
+
+      {/* 4. TELEMETRY CHARTS SECTION */}
+      <div className="editorial-header font-mono margin-top-lg">
+        <div>
+          <h2 className="editorial-title font-sans font-bold">TELEMETRY TIME SERIES ANALYSIS</h2>
+          <span className="editorial-tag">{activeWindow.subtitle} — {activeServer.name.toUpperCase()}</span>
+        </div>
+
+        {/* Time Window Selector Controls */}
+        <div className="neo-segmented-track font-mono">
+          {TIME_WINDOWS.map((win) => (
+            <button
+              key={win.id}
+              type="button"
+              onClick={() => setSelectedWindowId(win.id)}
+              className={`neo-segmented-item ${selectedWindowId === win.id ? 'active' : ''}`}
+            >
+              {win.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Charts Grid */}
+      <div className="charts-grid margin-top-md">
         {/* CPU Chart */}
         <ChartFrame
-          figNum="FIG. 01"
-          title={`CPU UTILIZATION (${activeServer.host.toUpperCase()})`}
-          subtitle={activeWindow.subtitle}
-          currentValue={cpuCurrent}
-          peakValue={cpuPeak}
-          unit="%"
+          title="CPU UTILIZATION HISTORY (%)"
+          subtitle={`Sustained vs peak CPU usage trends over ${activeWindow.label}`}
+          badge={`${formatNumber(cpuVal, 1)}% CURRENT`}
+          badgeType={cpuVal > 85 ? 'critical' : cpuVal > 70 ? 'warning' : 'healthy'}
         >
           <TelemetryChart
             data={cpuHistory}
-            series={[{ key: 'value', label: 'CPU %', color: '#f97316', fillOpacity: 0.15 }]}
-            unitFormatter={(v) => `${Number(v).toFixed(1)}%`}
+            series={[
+              { key: 'value', label: 'CPU Usage', color: 'var(--accent)', fillOpacity: 0.18 }
+            ]}
+            unitFormatter={(val) => `${Number(val).toFixed(1)}%`}
             yDomain={[0, 100]}
             chartType="area"
             loading={historyLoading}
           />
         </ChartFrame>
 
-        {/* Memory + Swap Chart */}
+        {/* Memory Chart */}
         <ChartFrame
-          figNum="FIG. 02"
-          title={`MEMORY & SWAP (${activeServer.host.toUpperCase()})`}
-          subtitle={activeWindow.subtitle}
-          currentValue={memCurrent}
-          peakValue={memPeak}
-          unit="%"
+          title="MEMORY & SWAP SATURATION (%)"
+          subtitle={`RAM footprint vs swap utilization over ${activeWindow.label}`}
+          badge={`${formatNumber(memVal, 1)}% CURRENT`}
+          badgeType={memVal > 90 ? 'critical' : memVal > 80 ? 'warning' : 'healthy'}
         >
           <TelemetryChart
             data={memoryHistory}
             series={[
-              { key: 'memory', label: 'Memory %', color: '#38bdf8', fillOpacity: 0.15 },
-              { key: 'swap', label: 'Swap %', color: '#fbbf24', fillOpacity: 0.05 },
+              { key: 'memory', label: 'RAM Usage', color: 'var(--status-info)', fillOpacity: 0.18 },
+              { key: 'swap', label: 'Swap Usage', color: 'var(--status-warning)', fillOpacity: 0.1 }
             ]}
-            unitFormatter={(v) => `${Number(v).toFixed(1)}%`}
+            unitFormatter={(val) => `${Number(val).toFixed(1)}%`}
             yDomain={[0, 100]}
             chartType="area"
             loading={historyLoading}
           />
         </ChartFrame>
 
-        {/* Load Average Chart */}
+        {/* System Load Chart */}
         <ChartFrame
-          figNum="FIG. 03"
-          title={`LOAD AVERAGE (${activeServer.host.toUpperCase()})`}
-          subtitle={activeWindow.subtitle}
-          currentValue={metrics?.load_1m ? formatNumber(metrics.load_1m, 2) : '—'}
-          unit=""
+          title="SYSTEM LOAD AVERAGES (1M / 5M / 15M)"
+          subtitle={`Exponential run-queue load thread averages over ${activeWindow.label}`}
+          badge={metrics?.load_1m != null ? `${formatNumber(metrics.load_1m, 2)} LOAD` : 'N/A'}
+          badgeType="neutral"
         >
           <TelemetryChart
             data={loadHistory}
             series={[
-              { key: 'load_1m', label: 'Load 1m', color: '#f97316' },
-              { key: 'load_5m', label: 'Load 5m', color: '#34d399' },
-              { key: 'load_15m', label: 'Load 15m', color: '#a78bfa' },
+              { key: 'load_1m', label: '1m Load', color: 'var(--accent)' },
+              { key: 'load_5m', label: '5m Load', color: 'var(--status-info)' },
+              { key: 'load_15m', label: '15m Load', color: 'var(--text-tertiary)' }
             ]}
-            unitFormatter={(v) => Number(v).toFixed(2)}
+            unitFormatter={(val) => Number(val).toFixed(2)}
             yDomain={[0, 'auto']}
             chartType="line"
             loading={historyLoading}
           />
         </ChartFrame>
 
-        {/* Network Throughput */}
+        {/* Network I/O Throughput Chart */}
         <ChartFrame
-          figNum="FIG. 04"
-          title={`NETWORK THROUGHPUT (${activeServer.host.toUpperCase()})`}
-          subtitle={activeWindow.subtitle}
-          currentValue={metrics?.network_rx ? formatBytesPerSec(metrics.network_rx) : '—'}
-          unit=""
+          title="NETWORK THROUGHPUT (RX / TX)"
+          subtitle={`Network ingress (receive) and egress (transmit) rates over ${activeWindow.label}`}
+          badge="LIVE I/O"
+          badgeType="neutral"
         >
           <TelemetryChart
             data={networkHistory}
             series={[
-              { key: 'network_rx', label: 'RX Rate', color: '#38bdf8', fillOpacity: 0.15 },
-              { key: 'network_tx', label: 'TX Rate', color: '#f43f5e', fillOpacity: 0.15 },
+              { key: 'network_rx', label: 'Receive (RX)', color: 'var(--accent)' },
+              { key: 'network_tx', label: 'Transmit (TX)', color: 'var(--status-warning)' }
             ]}
-            unitFormatter={formatBytesPerSec}
+            unitFormatter={(val) => formatBytesPerSec(val)}
             yDomain={[0, 'auto']}
-            chartType="area"
-            loading={historyLoading}
-          />
-        </ChartFrame>
-
-        {/* Disk I/O Throughput */}
-        <ChartFrame
-          figNum="FIG. 05"
-          title={`DISK I/O THROUGHPUT (${activeServer.host.toUpperCase()})`}
-          subtitle={activeWindow.subtitle}
-          currentValue={metrics?.disk_write ? formatBytesPerSec(metrics.disk_write) : '—'}
-          unit=""
-        >
-          <TelemetryChart
-            data={diskIoHistory}
-            series={[
-              { key: 'disk_read', label: 'Disk Read', color: '#34d399', fillOpacity: 0.15 },
-              { key: 'disk_write', label: 'Disk Write', color: '#fbbf24', fillOpacity: 0.15 },
-            ]}
-            unitFormatter={formatBytesPerSec}
-            yDomain={[0, 'auto']}
-            chartType="area"
+            chartType="line"
             loading={historyLoading}
           />
         </ChartFrame>
       </div>
 
+      {/* 5. CONTEXTUAL METRICS & HARDWARE DETAILS */}
+      <div className="section-label-strip font-mono margin-top-lg margin-bottom-sm">
+        <span className="editorial-tag">04 / CONTEXTUAL HARDWARE & SUBSYSTEM DETAILS</span>
+      </div>
+
+      <div className="contextual-cards-grid font-mono margin-bottom-lg">
+        <div className="neo-card context-card">
+          <div className="context-card-header text-tertiary">
+            <Cpu size={14} className="text-accent" />
+            <span className="editorial-tag">CPU SUBSYSTEM</span>
+          </div>
+          <div className="context-card-body margin-top-sm">
+            <div className="context-row">
+              <span className="text-tertiary">CORES DETECTED:</span>
+              <span className="text-primary font-bold">{metrics?.cpu_count ?? 'N/A'}</span>
+            </div>
+            <div className="context-row">
+              <span className="text-tertiary">IO WAIT TIME:</span>
+              <span className="text-primary font-bold">{metrics?.iowait != null ? formatPercent(metrics.iowait) : 'N/A'}</span>
+            </div>
+            <div className="context-row">
+              <span className="text-tertiary">WINDOW PEAK:</span>
+              <span className="text-accent font-bold">{cpuPeak ? `${cpuPeak}%` : 'N/A'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="neo-card context-card">
+          <div className="context-card-header text-tertiary">
+            <Layers size={14} className="text-info" />
+            <span className="editorial-tag">MEMORY & SWAP</span>
+          </div>
+          <div className="context-card-body margin-top-sm">
+            <div className="context-row">
+              <span className="text-tertiary">SWAP USED:</span>
+              <span className="text-primary font-bold">{metrics?.swap != null ? formatPercent(metrics.swap) : 'N/A'}</span>
+            </div>
+            <div className="context-row">
+              <span className="text-tertiary">RAM PEAK:</span>
+              <span className="text-info font-bold">{memPeak ? `${memPeak}%` : 'N/A'}</span>
+            </div>
+            <div className="context-row">
+              <span className="text-tertiary">MEMORY STATUS:</span>
+              <span className="text-healthy font-bold">OPTIMAL</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="neo-card context-card">
+          <div className="context-card-header text-tertiary">
+            <Network size={14} className="text-warning" />
+            <span className="editorial-tag">SYSTEM & UPTIME</span>
+          </div>
+          <div className="context-card-body margin-top-sm">
+            <div className="context-row">
+              <span className="text-tertiary">UPTIME DURATION:</span>
+              <span className="text-primary font-bold">{metrics?.uptime ? formatUptime(metrics.uptime) : 'N/A'}</span>
+            </div>
+            <div className="context-row">
+              <span className="text-tertiary">ACTIVE TARGET:</span>
+              <span className="text-accent font-bold">{activeServer.name}</span>
+            </div>
+            <div className="context-row">
+              <span className="text-tertiary">TAILSCALE IP:</span>
+              <span className="text-primary font-bold">{activeServer.ip}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <style>{`
-        .health-hero {
-          background-color: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          padding: 20px 24px;
-          margin-bottom: 20px;
+        .margin-top-xs { margin-top: 4px; }
+        .margin-top-sm { margin-top: 8px; }
+        .margin-top-md { margin-top: 16px; }
+        .margin-top-lg { margin-top: 24px; }
+        .margin-bottom-sm { margin-bottom: 8px; }
+        .margin-bottom-lg { margin-bottom: 24px; }
+
+        .hero-primary-card {
+          padding: 24px 28px;
         }
 
-        .hero-status-row {
+        .hero-top-bar {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 20px;
+          gap: 16px;
           flex-wrap: wrap;
         }
 
-        .margin-top-xs {
-          margin-top: 8px;
-        }
-
-        .server-selector-pills {
+        .hero-left-title {
           display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .server-pill-btn {
-          display: inline-flex;
           align-items: center;
-          gap: 8px;
-          padding: 6px 14px;
-          background: var(--bg-main);
+          gap: 14px;
+        }
+
+        .node-icon-box {
+          width: 44px;
+          height: 44px;
+          background: var(--bg-inset);
+          border-radius: var(--radius-md);
           border: 1px solid var(--border-subtle);
-          color: var(--text-tertiary);
-          font-family: var(--font-mono);
-          font-size: 11px;
-          cursor: pointer;
-          transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
-        .server-pill-btn:hover {
-          border-color: var(--accent);
+        .node-title {
+          font-size: 22px;
+          font-weight: 700;
           color: var(--text-primary);
+          letter-spacing: -0.01em;
         }
 
-        .server-pill-btn.active {
-          background: var(--bg-surface);
-          border-color: var(--accent);
-          color: var(--accent);
-          font-weight: 700;
+        .node-subtitle {
+          font-size: 12px;
+          margin-top: 2px;
         }
 
-        .srv-name {
-          letter-spacing: 0.05em;
-        }
-
-        .srv-ip {
-          font-size: 10px;
-          color: var(--text-secondary);
-        }
-
-        .hero-status-title {
-          font-size: 14px;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-        }
-
-        .section-label-strip {
-          margin-bottom: 12px;
-        }
-
-        .primary-telemetry-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 20px;
-          margin-bottom: 24px;
-        }
-
-        .margin-top-lg {
-          margin-top: 36px;
-        }
-
-        .time-range-segmented-group {
+        .hero-right-controls {
           display: flex;
           align-items: center;
           gap: 12px;
-          background: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          padding: 4px 12px;
           flex-wrap: wrap;
         }
 
-        .range-group-label {
-          font-size: 10px;
-          color: var(--text-tertiary);
-          letter-spacing: 0.08em;
+        .hero-divider {
+          height: 1px;
+          background: var(--border-subtle);
+          margin: 20px 0;
         }
 
-        .range-buttons-wrap {
-          display: flex;
-          gap: 2px;
-          background: var(--bg-main);
+        .hero-gauges-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
+        }
+
+        .gauge-item {
+          background: var(--bg-inset);
+          border-radius: var(--radius-md);
           border: 1px solid var(--border-subtle);
-          padding: 2px;
-          flex-wrap: wrap;
+          padding: 16px 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
         }
 
-        .range-segment-btn {
-          background: transparent;
-          border: none;
-          color: var(--text-tertiary);
-          padding: 4px 10px;
-          font-family: var(--font-mono);
-          font-size: 10px;
+        .gauge-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .gauge-label {
+          font-size: 11px;
+          letter-spacing: 0.06em;
           font-weight: 600;
-          letter-spacing: 0.05em;
-          cursor: pointer;
-          transition: all 0.15s ease;
         }
 
-        .range-segment-btn:hover {
+        .hero-gauge-num {
+          font-size: 28px !important;
+          font-weight: 800;
           color: var(--text-primary);
-          background: var(--bg-surface-hover);
+          letter-spacing: -0.02em;
+          line-height: 1.2;
         }
 
-        .range-segment-btn.active {
-          background: var(--bg-surface);
-          color: var(--accent);
-          border: 1px solid var(--accent-border);
+        .neo-progress-track {
+          height: 6px;
+          background: rgba(148, 163, 184, 0.2);
+          border-radius: var(--radius-pill);
+          overflow: hidden;
+        }
+
+        .neo-progress-fill {
+          height: 100%;
+          border-radius: var(--radius-pill);
+          transition: width 0.3s ease;
+        }
+
+        .bg-accent { background: var(--accent); }
+        .bg-info { background: var(--status-info); }
+        .bg-warning { background: var(--status-warning); }
+
+        .telemetry-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+
+        .metric-card {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 125px;
+          padding: 18px 20px;
+        }
+
+        .metric-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .metric-card-footer {
+          display: flex;
+          justify-content: space-between;
+          border-top: 1px solid var(--border-subtle);
+          padding-top: 8px;
+        }
+
+        .editorial-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          padding-bottom: 12px;
+          border-bottom: 1px solid var(--border-subtle);
+          margin-bottom: 18px;
+        }
+
+        .editorial-title {
+          font-size: 16px;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+          color: var(--text-primary);
         }
 
         .charts-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
-          gap: 24px;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
         }
 
-        @media (max-width: 768px) {
+        .contextual-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+        }
+
+        .context-card-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          border-bottom: 1px solid var(--border-subtle);
+          padding-bottom: 8px;
+        }
+
+        .context-card-body {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .context-row {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+        }
+
+        .text-accent { color: var(--accent); }
+        .text-info { color: var(--status-info); }
+        .text-warning { color: var(--status-warning); }
+        .text-healthy { color: var(--status-healthy); }
+        .text-tertiary { color: var(--text-tertiary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-primary { color: var(--text-primary); }
+
+        @media (max-width: 1100px) {
+          .telemetry-cards-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
           .charts-grid {
             grid-template-columns: 1fr;
           }
-          .editorial-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
+          .contextual-cards-grid {
+            grid-template-columns: 1fr;
           }
         }
 
-        .text-healthy { color: var(--status-healthy); }
-        .text-critical { color: var(--status-critical); }
+        @media (max-width: 768px) {
+          .hero-gauges-grid {
+            grid-template-columns: 1fr;
+          }
+          .telemetry-cards-grid {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
     </div>
   );

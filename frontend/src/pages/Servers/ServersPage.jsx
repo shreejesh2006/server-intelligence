@@ -8,7 +8,7 @@ import {
   formatUptime, 
   formatNumber 
 } from '../../utils/formatters';
-import { Server, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Server, CheckCircle2, ArrowRight, Cpu, HardDrive, Activity, Zap } from 'lucide-react';
 
 export function ServersPage({ isOffline, refetch }) {
   const { servers, selectedHost, selectServer } = useServer();
@@ -59,41 +59,49 @@ export function ServersPage({ isOffline, refetch }) {
   }, []);
 
   return (
-    <div className="servers-page font-mono">
+    <div className="servers-page font-sans">
       <PageHeader
         index="02"
         title="MANAGED SERVERS"
-        subtitle="Infrastructure VM node inventory and live telemetry state for monitored servers."
-        tag="NODE INVENTORY"
+        subtitle="Infrastructure VM inventory & physical machine node status."
+        tag="NODE INVENTORY CONSOLE"
       />
 
       {isOffline && <OfflineBanner onRetry={refetch} />}
 
-      <div className="server-nodes-grid">
+      <div className="server-nodes-grid margin-top-md">
         {servers.map((srv) => {
           const isSelected = selectedHost === srv.host;
           const nodeState = nodesData[srv.host] || {};
-          const nodeMetrics = nodeState.metrics;
-          const isHealthy = !isOffline && nodeMetrics != null;
+          const m = nodeState.metrics;
+          const isHealthy = !isOffline && m != null;
+
+          const cpuVal = m?.cpu != null ? m.cpu : 0;
+          const memVal = m?.memory != null ? m.memory : 0;
+          const diskVal = m?.disk != null ? m.disk : 0;
 
           return (
             <section
               key={srv.host}
-              className={`server-node-card ${isSelected ? 'card-selected' : ''}`}
+              className={`neo-card physical-node-card ${isSelected ? 'card-active-target' : ''}`}
             >
               <div className="node-card-header">
                 <div className="node-title-box">
-                  <Server size={20} className={isSelected ? 'text-accent' : 'text-secondary'} />
+                  <div className="node-icon font-mono">
+                    <Server size={20} className={isSelected ? 'text-accent' : 'text-secondary'} />
+                  </div>
                   <div>
                     <div className="node-name font-sans">{srv.name}</div>
-                    <div className="node-sub font-mono">{srv.os}</div>
+                    <div className="node-sub font-mono text-tertiary">
+                      {srv.os} &bull; <strong className="text-primary">{srv.ip}</strong>
+                    </div>
                   </div>
                 </div>
 
-                <div className="header-badges">
+                <div className="node-badges font-mono">
                   {isSelected && (
-                    <span className="editorial-pill pill-healthy font-mono">
-                      <CheckCircle2 size={11} /> SELECTED TARGET
+                    <span className="editorial-pill pill-healthy">
+                      <CheckCircle2 size={11} /> ACTIVE TARGET
                     </span>
                   )}
                   <span className={`editorial-pill ${isHealthy ? 'pill-healthy' : 'pill-critical'}`}>
@@ -102,75 +110,106 @@ export function ServersPage({ isOffline, refetch }) {
                 </div>
               </div>
 
-              <div className="editorial-rule-subtle" />
+              <div className="node-divider" />
 
-              <div className="node-spec-grid font-mono">
+              {/* Specs Grid */}
+              <div className="node-specs-row font-mono">
                 <div className="spec-item">
-                  <span className="spec-label">HOST LABEL:</span>
-                  <span className="spec-val text-accent">{srv.host}</span>
+                  <span className="spec-label text-tertiary">HOST LABEL:</span>
+                  <span className="spec-val text-accent font-bold">{srv.host}</span>
                 </div>
                 <div className="spec-item">
-                  <span className="spec-label">TAILSCALE IP:</span>
-                  <span className="spec-val">{srv.ip}</span>
+                  <span className="spec-label text-tertiary">TAILSCALE IP:</span>
+                  <span className="spec-val text-primary font-bold">{srv.ip}</span>
                 </div>
                 <div className="spec-item">
-                  <span className="spec-label">ROLE:</span>
-                  <span className="spec-val">{srv.role}</span>
+                  <span className="spec-label text-tertiary">ROLE:</span>
+                  <span className="spec-val text-secondary">{srv.role}</span>
                 </div>
                 <div className="spec-item">
-                  <span className="spec-label">UPTIME:</span>
-                  <span className="spec-val">
-                    {nodeMetrics?.uptime ? formatUptime(nodeMetrics.uptime) : 'N/A'}
+                  <span className="spec-label text-tertiary">UPTIME:</span>
+                  <span className="spec-val text-healthy font-bold">
+                    {m?.uptime ? formatUptime(m.uptime) : 'N/A'}
                   </span>
                 </div>
               </div>
 
-              {/* REAL LIVE TELEMETRY STRIP */}
-              <div className="node-metrics-strip margin-top-md font-mono">
-                <div className="strip-metric">
-                  <span className="strip-label">CPU:</span>
-                  <span className="strip-val">
-                    {nodeMetrics?.cpu != null ? formatPercent(nodeMetrics.cpu) : '—'}
-                  </span>
+              {/* Node Gauges */}
+              <div className="node-gauges-grid font-mono margin-top-md">
+                <div className="node-gauge-box">
+                  <div className="gauge-header">
+                    <Cpu size={13} className="text-accent" />
+                    <span className="gauge-title text-tertiary">CPU</span>
+                  </div>
+                  <div className="neo-metric-num">
+                    {formatNumber(cpuVal, 1)}
+                    <span className="neo-metric-unit">%</span>
+                  </div>
+                  <div className="neo-progress-track margin-top-xs">
+                    <div
+                      className="neo-progress-fill bg-accent"
+                      style={{ width: `${Math.min(100, Math.max(0, cpuVal))}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="strip-sep">/</div>
-                <div className="strip-metric">
-                  <span className="strip-label">RAM:</span>
-                  <span className="strip-val">
-                    {nodeMetrics?.memory != null ? formatPercent(nodeMetrics.memory) : '—'}
-                  </span>
+
+                <div className="node-gauge-box">
+                  <div className="gauge-header">
+                    <Activity size={13} className="text-info" />
+                    <span className="gauge-title text-tertiary">MEMORY</span>
+                  </div>
+                  <div className="neo-metric-num">
+                    {formatNumber(memVal, 1)}
+                    <span className="neo-metric-unit">%</span>
+                  </div>
+                  <div className="neo-progress-track margin-top-xs">
+                    <div
+                      className="neo-progress-fill bg-info"
+                      style={{ width: `${Math.min(100, Math.max(0, memVal))}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="strip-sep">/</div>
-                <div className="strip-metric">
-                  <span className="strip-label">DISK:</span>
-                  <span className="strip-val">
-                    {nodeMetrics?.disk != null ? formatPercent(nodeMetrics.disk) : '—'}
-                  </span>
+
+                <div className="node-gauge-box">
+                  <div className="gauge-header">
+                    <HardDrive size={13} className="text-warning" />
+                    <span className="gauge-title text-tertiary">DISK (/)</span>
+                  </div>
+                  <div className="neo-metric-num">
+                    {formatNumber(diskVal, 1)}
+                    <span className="neo-metric-unit">%</span>
+                  </div>
+                  <div className="neo-progress-track margin-top-xs">
+                    <div
+                      className="neo-progress-fill bg-warning"
+                      style={{ width: `${Math.min(100, Math.max(0, diskVal))}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="strip-sep">/</div>
-                <div className="strip-metric">
-                  <span className="strip-label">SWAP:</span>
-                  <span className="strip-val">
-                    {nodeMetrics?.swap != null ? formatPercent(nodeMetrics.swap) : '—'}
-                  </span>
-                </div>
-                <div className="strip-sep">/</div>
-                <div className="strip-metric">
-                  <span className="strip-label">LOAD 1M:</span>
-                  <span className="strip-val">
-                    {nodeMetrics?.load_1m != null ? formatNumber(nodeMetrics.load_1m, 2) : '—'}
-                  </span>
+
+                <div className="node-gauge-box">
+                  <div className="gauge-header">
+                    <Zap size={13} className="text-accent" />
+                    <span className="gauge-title text-tertiary">LOAD 1M</span>
+                  </div>
+                  <div className="neo-metric-num">
+                    {m?.load_1m != null ? formatNumber(m.load_1m, 2) : '—'}
+                  </div>
+                  <div className="text-tertiary text-xs margin-top-xs">
+                    SWAP: {m?.swap != null ? formatPercent(m.swap) : '—'}
+                  </div>
                 </div>
               </div>
 
-              <div className="node-card-footer margin-top-md">
+              {/* Node selection footer */}
+              <div className="node-card-footer margin-top-md font-mono">
                 <button
                   type="button"
                   onClick={() => selectServer(srv.host)}
                   disabled={isSelected}
-                  className={`editorial-btn btn-select-node font-mono ${isSelected ? 'btn-active-node' : ''}`}
+                  className={`neo-btn ${isSelected ? 'neo-btn-active' : 'neo-btn-primary'}`}
                 >
-                  <span>{isSelected ? 'CURRENTLY MONITORING' : 'SELECT FOR MONITORING'}</span>
+                  <span>{isSelected ? 'CURRENTLY MONITORING NODE' : 'INSPECT & SELECT NODE'}</span>
                   {!isSelected && <ArrowRight size={13} />}
                 </button>
               </div>
@@ -180,23 +219,23 @@ export function ServersPage({ isOffline, refetch }) {
       </div>
 
       <style>{`
+        .margin-top-xs { margin-top: 4px; }
+        .margin-top-md { margin-top: 16px; }
+
         .server-nodes-grid {
           display: flex;
           flex-direction: column;
-          gap: 24px;
+          gap: 20px;
         }
 
-        .server-node-card {
-          background: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          border-left: 4px solid var(--border-strong);
-          padding: 24px;
-          transition: all 0.15s ease;
+        .physical-node-card {
+          padding: 22px 24px;
+          border-left: 3px solid var(--border-strong);
         }
 
-        .server-node-card.card-selected {
-          border-left: 4px solid var(--accent);
-          background: var(--bg-surface);
+        .physical-node-card.card-active-target {
+          border-left: 3px solid var(--accent);
+          box-shadow: var(--shadow-raised-md);
         }
 
         .node-card-header {
@@ -213,84 +252,97 @@ export function ServersPage({ isOffline, refetch }) {
           gap: 12px;
         }
 
-        .header-badges {
+        .node-icon {
+          width: 40px;
+          height: 40px;
+          background: var(--bg-inset);
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-subtle);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .node-badges {
           display: flex;
           align-items: center;
           gap: 8px;
         }
 
         .node-name {
-          font-size: 17px;
+          font-size: 18px;
           font-weight: 700;
           color: var(--text-primary);
+          letter-spacing: -0.01em;
         }
 
         .node-sub {
-          font-size: 10px;
-          color: var(--text-tertiary);
-          letter-spacing: 0.05em;
+          font-size: 11px;
+          margin-top: 1px;
         }
 
-        .editorial-rule-subtle {
+        .node-divider {
           height: 1px;
           background: var(--border-subtle);
-          margin: 20px 0;
+          margin: 16px 0;
         }
 
-        .node-spec-grid {
+        .node-specs-row {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 16px;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 12px;
           font-size: 11px;
+          background: var(--bg-inset);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: 10px 14px;
         }
 
         .spec-item {
           display: flex;
-          gap: 8px;
-        }
-
-        .spec-label {
-          color: var(--text-tertiary);
-          width: 100px;
-          flex-shrink: 0;
-        }
-
-        .spec-val {
-          color: var(--text-primary);
-          font-weight: 500;
-        }
-
-        .node-metrics-strip {
-          background: var(--bg-main);
-          border: 1px solid var(--border-subtle);
-          padding: 14px 18px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          font-size: 11px;
-          flex-wrap: wrap;
-        }
-
-        .strip-metric {
-          display: flex;
           gap: 6px;
         }
 
-        .strip-label {
-          color: var(--text-tertiary);
+        .spec-label {
+          width: 85px;
+          flex-shrink: 0;
         }
 
-        .strip-val {
-          color: var(--accent);
-          font-weight: 600;
+        .node-gauges-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
         }
 
-        .strip-sep {
-          color: var(--border-strong);
+        .node-gauge-box {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: 12px 14px;
         }
 
-        .margin-top-md {
-          margin-top: 20px;
+        .gauge-header {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 6px;
+        }
+
+        .gauge-title {
+          font-size: 10px;
+          letter-spacing: 0.05em;
+        }
+
+        .neo-progress-track {
+          height: 4px;
+          background: rgba(148, 163, 184, 0.2);
+          border-radius: var(--radius-pill);
+          overflow: hidden;
+        }
+
+        .neo-progress-fill {
+          height: 100%;
+          border-radius: var(--radius-pill);
         }
 
         .node-card-footer {
@@ -298,23 +350,23 @@ export function ServersPage({ isOffline, refetch }) {
           justify-content: flex-end;
         }
 
-        .btn-select-node {
-          padding: 8px 18px;
-          font-size: 11px;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .btn-active-node {
-          border-color: var(--accent-border);
-          color: var(--accent);
-          background: var(--bg-main);
-          cursor: default;
-        }
+        .bg-accent { background: var(--accent); }
+        .bg-info { background: var(--status-info); }
+        .bg-warning { background: var(--status-warning); }
 
         .text-accent { color: var(--accent); }
+        .text-info { color: var(--status-info); }
+        .text-warning { color: var(--status-warning); }
+        .text-healthy { color: var(--status-healthy); }
+        .text-tertiary { color: var(--text-tertiary); }
         .text-secondary { color: var(--text-secondary); }
+        .text-primary { color: var(--text-primary); }
+
+        @media (max-width: 900px) {
+          .node-gauges-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
       `}</style>
     </div>
   );

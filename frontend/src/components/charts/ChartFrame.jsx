@@ -11,7 +11,7 @@ export function ChartFrame({
   children,
 }) {
   return (
-    <div className="chart-frame font-mono">
+    <div className="neo-chart-frame neo-card font-mono">
       <div className="chart-frame-header">
         <div className="chart-title-group">
           <span className="editorial-number text-xs">{figNum}</span>
@@ -23,8 +23,8 @@ export function ChartFrame({
         <div className="chart-meta-group">
           {currentValue !== undefined && currentValue !== null && (
             <div className="meta-readout">
-              <span className="meta-readout-label">NOW</span>
-              <span className="meta-readout-value">
+              <span className="meta-readout-label text-tertiary">NOW:</span>
+              <span className="meta-readout-value text-accent font-bold">
                 {currentValue}
                 {unit}
               </span>
@@ -32,8 +32,8 @@ export function ChartFrame({
           )}
           {peakValue !== undefined && peakValue !== null && (
             <div className="meta-readout">
-              <span className="meta-readout-label">PEAK</span>
-              <span className="meta-readout-value">
+              <span className="meta-readout-label text-tertiary">PEAK:</span>
+              <span className="meta-readout-value text-primary font-bold">
                 {peakValue}
                 {unit}
               </span>
@@ -43,33 +43,30 @@ export function ChartFrame({
         </div>
       </div>
 
-      <div className="chart-body">{children}</div>
+      <div className="chart-body-inset">{children}</div>
 
       <style>{`
-        .chart-frame {
-          background-color: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          padding: 20px;
+        .neo-chart-frame {
+          padding: 16px 18px;
           display: flex;
           flex-direction: column;
-          margin-bottom: 24px;
         }
 
         .chart-frame-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding-bottom: 12px;
+          padding-bottom: 10px;
           border-bottom: 1px solid var(--border-subtle);
-          margin-bottom: 16px;
+          margin-bottom: 12px;
           flex-wrap: wrap;
-          gap: 12px;
+          gap: 8px;
         }
 
         .chart-title-group {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
         }
 
         .chart-slash {
@@ -77,52 +74,54 @@ export function ChartFrame({
         }
 
         .chart-title {
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 700;
           color: var(--text-primary);
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.04em;
         }
 
         .chart-subtitle {
           font-size: 10px;
           color: var(--text-tertiary);
-          margin-left: 4px;
+          margin-left: 2px;
         }
 
         .chart-meta-group {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 12px;
           font-size: 10px;
         }
 
         .meta-readout {
           display: flex;
           align-items: center;
-          gap: 6px;
-        }
-
-        .meta-readout-label {
-          color: var(--text-tertiary);
-        }
-
-        .meta-readout-value {
-          color: var(--text-primary);
-          font-weight: 600;
+          gap: 4px;
         }
 
         .chart-source-tag {
           font-size: 9px;
           color: var(--text-tertiary);
           border: 1px solid var(--border-subtle);
-          padding: 1px 6px;
+          background: var(--bg-inset);
+          padding: 2px 6px;
+          border-radius: var(--radius-sm);
         }
 
-        .chart-body {
+        .chart-body-inset {
           width: 100%;
-          height: 220px;
+          height: 210px;
+          background: var(--bg-inset);
+          box-shadow: var(--shadow-inset-sm);
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-subtle);
+          padding: 10px;
         }
+
+        .text-accent { color: var(--accent); }
+        .text-tertiary { color: var(--text-tertiary); }
+        .text-primary { color: var(--text-primary); }
       `}</style>
     </div>
   );

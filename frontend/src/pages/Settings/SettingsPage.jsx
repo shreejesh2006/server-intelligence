@@ -2,30 +2,46 @@ import React, { useState, useEffect } from 'react';
 import PageHeader from '../../components/common/PageHeader';
 import { 
   Database, 
-  Bell, 
   Lock, 
   Sun, 
   Moon, 
   Clock, 
-  Sliders, 
   CheckCircle2, 
   AlertCircle,
-  Save
+  Bot,
+  Save,
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useTimezone } from '../../context/TimezoneContext';
 import { useAuth } from '../../context/AuthContext';
+import { 
+  getAiSettingsApi, 
+  updateAiSettingsApi, 
+  deleteAiKeyApi 
+} from '../../services/ai';
+
 export function SettingsPage() {
-  const { theme, toggleTheme } = useTheme();
-  const { timezone, setTimezone, formatTimestamp, TIMEZONE_OPTIONS } = useTimezone();
+  const { theme = 'light', toggleTheme } = useTheme();
+  const { timezone = 'UTC', setTimezone, formatTimestamp, TIMEZONE_OPTIONS = [] } = useTimezone();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const livePreviewTime = formatTimestamp(nowSeconds, true);
+  const livePreviewTime = formatTimestamp ? formatTimestamp(nowSeconds, true) : 'NOW';
 
   const [notice, setNotice] = useState(null);
   const [error, setError] = useState(null);
+
+  // AI Settings State
+  const [aiProvider, setAiProvider] = useState('ollama');
+  const [aiModel, setAiModel] = useState('llama3');
+  const [aiApiKey, setAiApiKey] = useState('');
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [aiHasKey, setAiHasKey] = useState(false);
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [savingAi, setSavingAi] = useState(false);
 
   // Auto-dismiss notice
   useEffect(() => {
@@ -34,6 +50,40 @@ export function SettingsPage() {
       return () => clearTimeout(timer);
     }
   }, [notice]);
+
+  // Fetch AI configuration on load if admin
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadAiSettings() {
+      if (!isAdmin) return;
+      setLoadingAi(true);
+
+      try {
+        const config = await getAiSettingsApi();
+        if (!isCancelled && config) {
+          setAiProvider(config.provider || 'ollama');
+          setAiModel(config.model || 'llama3');
+          setAiEnabled(config.enabled ?? true);
+          setAiHasKey(config.has_key ?? false);
+        }
+      } catch (err) {
+        if (!isCancelled && import.meta.env.DEV) {
+          console.warn('AI Settings fetch error:', err);
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoadingAi(false);
+        }
+      }
+    }
+
+    loadAiSettings();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isAdmin]);
 
   // Handle smooth scroll anchor for #ai-assistant
   useEffect(() => {
@@ -45,103 +95,104 @@ export function SettingsPage() {
     }
   }, []);
 
+  // Save AI settings
+  const handleSaveAiSettings = async (e) => {
+    e.preventDefault();
+    if (!isAdmin || savingAi) return;
+
+    setSavingAi(true);
+    setNotice(null);
+    setError(null);
+
+    try {
+      const payload = {
+        provider: aiProvider,
+        model: aiModel,
+        enabled: aiEnabled,
+      };
+
+      if (aiApiKey.trim()) {
+        payload.api_key = aiApiKey.trim();
+      }
+
+      const res = await updateAiSettingsApi(payload);
+      setNotice('AI Assistant configuration updated successfully.');
+      setAiHasKey(res.has_key ?? !!aiApiKey.trim());
+      setAiApiKey('');
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to save AI settings.');
+    } finally {
+      setSavingAi(false);
+    }
+  };
+
+  // Delete saved AI Key
+  const handleDeleteAiKey = async () => {
+    if (!isAdmin || savingAi) return;
+    setSavingAi(true);
+
+    try {
+      await deleteAiKeyApi();
+      setNotice('Saved AI API Key removed.');
+      setAiHasKey(false);
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to remove API key.');
+    } finally {
+      setSavingAi(false);
+    }
+  };
+
+  const isDarkMode = theme === 'dark';
+
   return (
-    <div className="settings-page font-mono">
+    <div className="settings-page font-sans">
       <PageHeader
         index="09"
         title="SYSTEM SETTINGS"
-
-        subtitle="Global platform configuration, metric collection parameters, and security policies."
+        subtitle="Global platform configuration, visual theme preferences, and security policies."
         tag="PLATFORM CONFIGURATION"
       />
 
-      {/* Feedback Notices */}
+      {/* Global Alerts */}
       {notice && (
-        <div className="editorial-notice-banner notice-success mb-4">
-          <CheckCircle2 size={15} />
+        <div className="editorial-notice-banner notice-success font-mono margin-bottom-md">
+          <CheckCircle2 size={14} />
           <span>{notice}</span>
           <button type="button" onClick={() => setNotice(null)} className="notice-close">✕</button>
         </div>
       )}
 
       {error && (
-        <div className="editorial-notice-banner notice-error mb-4">
-          <AlertCircle size={15} />
+        <div className="editorial-notice-banner notice-error font-mono margin-bottom-md">
+          <AlertCircle size={14} />
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} className="notice-close">✕</button>
         </div>
       )}
 
-      <div className="settings-sections">
-        {/* Monitoring Settings */}
-        <section className="settings-card">
-          <div className="settings-card-header">
-            <div className="title-with-icon">
-              <Database size={16} className="text-accent" />
-              <h3 className="section-title">01 / MONITORING & COLLECTOR</h3>
-            </div>
-            <span className="editorial-pill pill-healthy font-mono">ACTIVE ENGINE</span>
-          </div>
-
-          <div className="setting-row">
-            <div className="setting-info">
-              <div className="setting-name">COLLECTION INTERVAL</div>
-              <div className="setting-desc font-sans text-xs text-secondary">
-                Frequency at which the Python metric collector scrapes system metrics.
-              </div>
-            </div>
-            <div className="setting-control font-mono">
-              <input
-                type="text"
-                readOnly
-                value="30 SECONDS"
-                className="editorial-input"
-              />
-              <span className="control-note">READ-ONLY (ACTIVE CONFIG)</span>
-            </div>
-          </div>
-
-          <div className="setting-row">
-            <div className="setting-info">
-              <div className="setting-name">FASTAPI BACKEND TARGET URL</div>
-              <div className="setting-desc font-sans text-xs text-secondary">
-                Base URL endpoint for authentication and telemetry metrics API.
-              </div>
-            </div>
-            <div className="setting-control">
-              <input
-                type="text"
-                readOnly
-                value="same-origin /api -> http://192.168.64.22:8000"
-                className="editorial-input"
-              />
-              <span className="control-note">VITE PROXY GATEWAY</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Visual Theme & Timezone Settings */}
-        <section className="settings-card">
-          <div className="settings-card-header">
-            <div className="title-with-icon">
+      <div className="settings-cards-grid">
+        {/* 1. VISUAL THEME & TIMEZONE PREFERENCES */}
+        <section className="neo-card settings-card font-mono">
+          <div className="card-header border-bottom padding-bottom-xs">
+            <div className="title-box">
               <Clock size={16} className="text-accent" />
-              <h3 className="section-title">02 / VISUAL THEME & TIMEZONE PREFERENCE</h3>
+              <span className="editorial-tag">VISUAL THEME & TIMEZONE PREFERENCES</span>
             </div>
-            <span className="editorial-pill pill-healthy">USER PREFERENCE PERSISTED</span>
+            <span className="editorial-pill pill-healthy">USER PERSISTED</span>
           </div>
 
-          <div className="setting-row">
-            <div className="setting-info">
-              <div className="setting-name">DISPLAY TIMEZONE</div>
+          <div className="setting-row margin-top-md">
+            <div className="row-info">
+              <div className="setting-title font-sans">DISPLAY TIMEZONE</div>
               <div className="setting-desc font-sans text-xs text-secondary">
-                Timezone formatting for live telemetry updates, chart axes, and logs.
+                Timezone formatting for live telemetry updates, chart axes, and incident logs.
               </div>
             </div>
-            <div className="setting-control">
+            <div className="row-control">
               <select
                 value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-                className="editorial-select timezone-select"
+                onChange={(e) => setTimezone && setTimezone(e.target.value)}
+                className="neo-select select-tz"
               >
                 {TIMEZONE_OPTIONS.map((opt) => (
                   <option key={opt.id} value={opt.id}>
@@ -149,224 +200,286 @@ export function SettingsPage() {
                   </option>
                 ))}
               </select>
-              <span className="control-note">PREVIEW: {livePreviewTime}</span>
+              <span className="control-subtext text-tertiary text-xs">PREVIEW: {livePreviewTime}</span>
             </div>
           </div>
 
-          <div className="setting-row">
-            <div className="setting-info">
-              <div className="setting-name">EDITORIAL COLOR MODE</div>
+          <div className="setting-row margin-top-md">
+            <div className="row-info">
+              <div className="setting-title font-sans">EDITORIAL COLOR MODE</div>
               <div className="setting-desc font-sans text-xs text-secondary">
-                Toggle between Dark Graphite and Light Paper technical editorial themes.
+                Toggle between Light Paper Industrial and Dark Graphite technical editorial themes.
               </div>
             </div>
-            <div className="setting-control">
+            <div className="row-control">
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="editorial-btn"
+                className="neo-btn"
               >
-                {theme === 'dark' ? <Moon size={12} /> : <Sun size={12} />}
-                <span>CURRENT THEME: {theme.toUpperCase()}</span>
+                {isDarkMode ? <Moon size={13} /> : <Sun size={13} />}
+                <span>CURRENT MODE: {isDarkMode ? 'DARK' : 'LIGHT'}</span>
               </button>
             </div>
           </div>
         </section>
 
-        {/* Forecasting & AI Engine */}
-        <section className="settings-card">
-          <div className="settings-card-header">
-            <div className="title-with-icon">
-              <Sliders size={16} className="text-accent" />
-              <h3 className="section-title">03 / FORECASTING & AI ENGINE</h3>
+        {/* 2. AI ASSISTANT CONFIGURATION */}
+        <section id="ai-assistant" className="neo-card settings-card font-mono">
+          <div className="card-header border-bottom padding-bottom-xs">
+            <div className="title-box">
+              <Bot size={16} className="text-accent" />
+              <span className="editorial-tag">AI ENGINEERING COPILOT CONFIGURATION</span>
             </div>
-            <span className="editorial-pill pill-neutral">PENDING API</span>
+            <span className={`editorial-pill ${aiEnabled ? 'pill-healthy' : 'pill-neutral'}`}>
+              {aiEnabled ? 'COPILOT ENABLED' : 'COPILOT DISABLED'}
+            </span>
           </div>
 
-          <div className="setting-row">
-            <div className="setting-info">
-              <div className="setting-name">PATCHTST MODEL HORIZON</div>
-              <div className="setting-desc font-sans text-xs text-secondary">
-                Default multi-step prediction window for capacity forecasting.
+          {!isAdmin ? (
+            <div className="setting-row margin-top-md">
+              <div className="setting-desc font-sans text-xs text-tertiary">
+                AI Assistant provider settings are read-only for non-admin accounts. Contact an administrator to update Ollama/LLM configuration.
               </div>
             </div>
-            <div className="setting-control">
-              <select disabled className="editorial-select">
-                <option>30 MINUTES (DEFAULT)</option>
-              </select>
+          ) : loadingAi ? (
+            <div className="loading-box text-tertiary text-xs padding-md margin-top-md">
+              <RefreshCw size={14} className="spinning text-accent" />
+              <span>LOADING COPILOT SETTINGS...</span>
+            </div>
+          ) : (
+            <form onSubmit={handleSaveAiSettings} className="margin-top-md">
+              <div className="setting-row">
+                <div className="row-info">
+                  <div className="setting-title font-sans">COPILOT SERVICE STATUS</div>
+                  <div className="setting-desc font-sans text-xs text-secondary">
+                    Enable or disable the local AI copilot chat interface across the platform.
+                  </div>
+                </div>
+                <div className="row-control">
+                  <button
+                    type="button"
+                    onClick={() => setAiEnabled((prev) => !prev)}
+                    className={`neo-btn ${aiEnabled ? 'neo-btn-active' : ''}`}
+                  >
+                    <span>{aiEnabled ? 'ENABLED' : 'DISABLED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="setting-row margin-top-md">
+                <div className="row-info">
+                  <div className="setting-title font-sans">AI PROVIDER ENGINE</div>
+                  <div className="setting-desc font-sans text-xs text-secondary">
+                    Target LLM inference backend engine.
+                  </div>
+                </div>
+                <div className="row-control">
+                  <select
+                    value={aiProvider}
+                    onChange={(e) => setAiProvider(e.target.value)}
+                    className="neo-select"
+                  >
+                    <option value="ollama">Ollama (Local Server Endpoint)</option>
+                    <option value="openai">OpenAI (API Endpoint)</option>
+                    <option value="anthropic">Anthropic Claude (API Endpoint)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="setting-row margin-top-md">
+                <div className="row-info">
+                  <div className="setting-title font-sans">MODEL ARCHITECTURE</div>
+                  <div className="setting-desc font-sans text-xs text-secondary">
+                    Selected LLM model for operational telemetry analysis.
+                  </div>
+                </div>
+                <div className="row-control">
+                  <select
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value)}
+                    className="neo-select"
+                  >
+                    {aiProvider === 'ollama' && (
+                      <>
+                        <option value="llama3">Llama 3 (8B Instruct)</option>
+                        <option value="mistral">Mistral (7B Instruct)</option>
+                        <option value="qwen">Qwen 2.5 (Coder)</option>
+                      </>
+                    )}
+                    {aiProvider === 'openai' && (
+                      <>
+                        <option value="gpt-4o-mini">GPT-4o Mini (Fast Observability)</option>
+                        <option value="gpt-4o">GPT-4o (High Precision)</option>
+                      </>
+                    )}
+                    {aiProvider === 'anthropic' && (
+                      <>
+                        <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                        <option value="claude-3-haiku">Claude 3 Haiku</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {aiProvider !== 'ollama' && (
+                <div className="setting-row margin-top-md">
+                  <div className="row-info">
+                    <div className="setting-title font-sans">PROVIDER API KEY</div>
+                    <div className="setting-desc font-sans text-xs text-secondary">
+                      Encrypted credentials for cloud LLM provider.
+                    </div>
+                  </div>
+                  <div className="row-control">
+                    <div className="api-key-input-group">
+                      <input
+                        type="password"
+                        value={aiApiKey}
+                        onChange={(e) => setAiApiKey(e.target.value)}
+                        placeholder={aiHasKey ? '••••••••••••••••' : 'Enter Provider API Key'}
+                        className="neo-input"
+                      />
+                      {aiHasKey && (
+                        <button
+                          type="button"
+                          onClick={handleDeleteAiKey}
+                          className="neo-btn btn-danger-icon"
+                          title="Remove saved API key"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
+                    {aiHasKey && <span className="control-subtext text-healthy text-xs">ENCRYPTED KEY SAVED</span>}
+                  </div>
+                </div>
+              )}
+
+              <div className="form-save-bar margin-top-md">
+                <button
+                  type="submit"
+                  disabled={savingAi}
+                  className="neo-btn neo-btn-primary"
+                >
+                  {savingAi ? <RefreshCw size={12} className="spinning" /> : <Save size={12} />}
+                  <span>SAVE COPILOT SETTINGS</span>
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
+
+        {/* 3. MONITORING & SCRAPER */}
+        <section className="neo-card settings-card font-mono">
+          <div className="card-header border-bottom padding-bottom-xs">
+            <div className="title-box">
+              <Database size={16} className="text-accent" />
+              <span className="editorial-tag">MONITORING & TELEMETRY ENGINE</span>
+            </div>
+            <span className="editorial-pill pill-healthy">VICTORIAMETRICS ONLINE</span>
+          </div>
+
+          <div className="setting-row margin-top-md">
+            <div className="row-info">
+              <div className="setting-title font-sans">SCRAPE COLLECTION INTERVAL</div>
+              <div className="setting-desc font-sans text-xs text-secondary">
+                Python daemon scrape frequency for VM metrics telemetry.
+              </div>
+            </div>
+            <div className="row-control">
+              <input type="text" readOnly value="30 SECONDS" className="neo-input input-readonly" />
+              <span className="control-subtext text-tertiary text-xs">ACTIVE PIPELINE CONFIG</span>
+            </div>
+          </div>
+
+          <div className="setting-row margin-top-md">
+            <div className="row-info">
+              <div className="setting-title font-sans">FASTAPI BACKEND GATEWAY</div>
+              <div className="setting-desc font-sans text-xs text-secondary">
+                Telemetry API gateway and authentication endpoint.
+              </div>
+            </div>
+            <div className="row-control">
+              <input type="text" readOnly value="http://192.168.64.22:8000 /api" className="neo-input input-readonly" />
+              <span className="control-subtext text-tertiary text-xs">VITE REVERSE PROXY ACTIVE</span>
             </div>
           </div>
         </section>
 
-        {/* Alert Thresholds */}
-        <section className="settings-card">
-          <div className="settings-card-header">
-            <div className="title-with-icon">
-              <Bell size={16} className="text-accent" />
-              <h3 className="section-title">04 / ALERT THRESHOLDS</h3>
+        {/* 4. ALERT THRESHOLDS & SECURITY */}
+        <section className="neo-card settings-card font-mono">
+          <div className="card-header border-bottom padding-bottom-xs">
+            <div className="title-box">
+              <Lock size={16} className="text-accent" />
+              <span className="editorial-tag">ALERT THRESHOLDS & GEOLOCK POLICY</span>
             </div>
-            <span className="editorial-pill pill-neutral">READ-ONLY PREVIEW</span>
+            <span className="editorial-pill pill-healthy">POLICY ENFORCED</span>
           </div>
 
-          <div className="setting-row">
-            <div className="setting-info">
-              <div className="setting-name">CPU CRITICAL THRESHOLD</div>
+          <div className="setting-row margin-top-md">
+            <div className="row-info">
+              <div className="setting-title font-sans">CPU CRITICAL THRESHOLD</div>
               <div className="setting-desc font-sans text-xs text-secondary">
-                Sustained utilization trigger level for critical alerts.
+                Sustained utilization trigger level for incident alerts.
               </div>
             </div>
-            <div className="setting-control">
-              <input type="text" readOnly value="85.0%" className="editorial-input" />
+            <div className="row-control">
+              <input type="text" readOnly value="85.0%" className="neo-input input-readonly" />
             </div>
           </div>
 
-          <div className="setting-row">
-            <div className="setting-info">
-              <div className="setting-name">MEMORY CRITICAL THRESHOLD</div>
+          <div className="setting-row margin-top-md">
+            <div className="row-info">
+              <div className="setting-title font-sans">MEMORY CRITICAL THRESHOLD</div>
               <div className="setting-desc font-sans text-xs text-secondary">
                 RAM saturation level before dispatching incident warning.
               </div>
             </div>
-            <div className="setting-control">
-              <input type="text" readOnly value="90.0%" className="editorial-input" />
+            <div className="row-control">
+              <input type="text" readOnly value="90.0%" className="neo-input input-readonly" />
             </div>
           </div>
-        </section>
 
-        {/* Security & GeoLock */}
-        <section className="settings-card">
-          <div className="settings-card-header">
-            <div className="title-with-icon">
-              <Lock size={16} className="text-accent" />
-              <h3 className="section-title">05 / SECURITY & GEOLOCK</h3>
-            </div>
-            <span className="editorial-pill pill-neutral">ENFORCEMENT READY</span>
-          </div>
-
-          <div className="setting-row">
-            <div className="setting-info">
-              <div className="setting-name">GEOLOCK IP FILTERING</div>
+          <div className="setting-row margin-top-md">
+            <div className="row-info">
+              <div className="setting-title font-sans">SUBNET GEOLOCK FILTER</div>
               <div className="setting-desc font-sans text-xs text-secondary">
-                Restrict access to verified subnet ranges only.
+                Tailscale VM subnet IP verification enforcement.
               </div>
             </div>
-            <div className="setting-control">
-              <span className="editorial-pill pill-healthy">ENABLED (SUBNET MATCH)</span>
+            <div className="row-control">
+              <span className="editorial-pill pill-healthy">ENABLED (100.x.x.x SUBNET)</span>
             </div>
           </div>
         </section>
-
       </div>
 
       <style>{`
-        .settings-sections {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-        }
-
-        .settings-card {
-          background: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          padding: 24px 28px;
-        }
-
-        .settings-card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding-bottom: 14px;
-          border-bottom: 1px solid var(--border-subtle);
-          margin-bottom: 20px;
-        }
-
-        .title-with-icon {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .section-title {
-          font-size: 13px;
-          font-weight: 700;
-          color: var(--text-primary);
-          letter-spacing: 0.05em;
-        }
-
-        .text-accent {
-          color: var(--accent);
-        }
-
-        .setting-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 14px 0;
-          border-bottom: 1px solid var(--border-subtle);
-          gap: 20px;
-        }
-
-        .setting-row:last-child {
-          border-bottom: none;
-        }
-
-        .setting-name {
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text-primary);
-          letter-spacing: 0.05em;
-        }
-
-        .setting-control {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 4px;
-        }
-
-        .editorial-input, .editorial-select {
-          background: var(--bg-main);
-          border: 1px solid var(--border-strong);
-          color: var(--text-primary);
-          padding: 6px 12px;
-          font-family: var(--font-mono);
-          font-size: 11px;
-          text-align: right;
-        }
-
-        .timezone-select {
-          cursor: pointer;
-          min-width: 220px;
-        }
-
-        .editorial-select:disabled {
-          opacity: 0.6;
-        }
-
-        .control-note {
-          font-size: 9px;
-          color: var(--text-tertiary);
-        }
+        .margin-top-xs { margin-top: 4px; }
+        .margin-top-md { margin-top: 16px; }
+        .margin-bottom-md { margin-bottom: 16px; }
+        .padding-bottom-xs { padding-bottom: 8px; }
+        .border-bottom { border-bottom: 1px solid var(--border-subtle); }
 
         .editorial-notice-banner {
-          padding: 10px 16px;
+          padding: 8px 14px;
           font-size: 11px;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
+          border-radius: var(--radius-md);
         }
 
         .notice-success {
-          background: rgba(34, 197, 94, 0.1);
-          border: 1px solid rgba(34, 197, 94, 0.3);
-          border-left: 3px solid var(--status-healthy);
+          background: var(--accent-muted);
+          border: 1px solid var(--accent-border);
           color: var(--status-healthy);
         }
 
         .notice-error {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.3);
-          border-left: 3px solid var(--status-critical);
+          background: rgba(220, 38, 38, 0.1);
+          border: 1px solid rgba(220, 38, 38, 0.3);
           color: var(--status-critical);
         }
 
@@ -378,9 +491,94 @@ export function SettingsPage() {
           cursor: pointer;
         }
 
-        .mb-4 { margin-bottom: 16px; }
-        .spinning { animation: spin 1s linear infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .settings-cards-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .settings-card {
+          padding: 20px 24px;
+        }
+
+        .card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .title-box {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .setting-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .setting-row:last-child {
+          border-bottom: none;
+          padding-bottom: 0;
+        }
+
+        .setting-title {
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .row-control {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 4px;
+          min-width: 200px;
+        }
+
+        .select-tz {
+          min-width: 220px;
+        }
+
+        .input-readonly {
+          opacity: 0.75;
+          width: 220px;
+          text-align: right;
+        }
+
+        .api-key-input-group {
+          display: flex;
+          gap: 6px;
+        }
+
+        .btn-danger-icon {
+          color: var(--status-critical);
+          padding: 0 8px;
+        }
+
+        .form-save-bar {
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .loading-box {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .text-accent { color: var(--accent); }
+        .text-healthy { color: var(--status-healthy); }
+        .text-tertiary { color: var(--text-tertiary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-primary { color: var(--text-primary); }
       `}</style>
     </div>
   );
