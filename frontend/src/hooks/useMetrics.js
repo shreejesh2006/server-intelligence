@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getCurrentMetrics, getHealthStatus } from '../services/metrics';
 
-export function useMetrics(pollIntervalMs = 30000) {
+export function useMetrics(targetHost = null, pollIntervalMs = 30000) {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
@@ -16,10 +16,10 @@ export function useMetrics(pollIntervalMs = 30000) {
       setLoading(true);
     }
     try {
-      // Fetch health and current metrics
-      const [healthRes, metricsRes] = await Promise.all([
+      // Fetch health and current metrics for specified host
+      const [, metricsRes] = await Promise.all([
         getHealthStatus().catch(() => null),
-        getCurrentMetrics(),
+        getCurrentMetrics(targetHost),
       ]);
 
       if (!isMounted.current) return;
@@ -56,7 +56,7 @@ export function useMetrics(pollIntervalMs = 30000) {
         setLoading(false);
       }
     }
-  }, []);
+  }, [targetHost]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -72,7 +72,7 @@ export function useMetrics(pollIntervalMs = 30000) {
     };
   }, [fetchTelemetry, pollIntervalMs]);
 
-  // Determine actual data freshness state
+  // Determine data freshness state
   let freshnessState = 'FRESH';
   let freshnessLabel = 'TELEMETRY FRESH';
 
