@@ -46,42 +46,7 @@ Managing heterogeneous Linux environments (e.g., Ubuntu enterprise nodes and Kal
 ## 3. SYSTEM ARCHITECTURE
 
 ### Conceptual Architecture & Data Flow
-
-```mermaid
-flowchart TD
-    subgraph Monitored_Linux_Nodes [Monitored Infrastructure Nodes]
-        U_VM["Ubuntu VM (host='ubuntu')\n100.108.160.2\nPython Collector Daemon"]
-        K_VM["Kali VM (host='Kali')\n100.115.122.92\nPython Collector Daemon"]
-    end
-
-    subgraph Network_Layer [Private Mesh Network]
-        TS["Tailscale Mesh Subnet (100.x.x.x)"]
-    end
-
-    subgraph Storage_Backend [Central Telemetry & Data Layer (Ubuntu VM)]
-        VM["VictoriaMetrics TSDB\nPort 8428"]
-        DB[(SQLite DB\nserver_intelligence.db)]
-        ML["ML Model Artifacts\n/ml/models/"]
-    end
-
-    subgraph API_Gateway [Control & Intelligence Layer]
-        API["FastAPI Backend Gateway\nPort 8000"]
-        LLM["Ollama / Cloud LLM Engine\nPort 11434 / HTTPS"]
-    end
-
-    subgraph Presentation_Layer [Mac Workstation / Developer Host]
-        UI["React 19 + Vite Frontend\nPort 80 / Port 5173"]
-    end
-
-    U_VM -- "Wall-clock ingestion (30s)" --> TS
-    K_VM -- "Wall-clock ingestion (30s)" --> TS
-    TS -- "HTTP POST /api/v1/import/prometheus" --> VM
-    API -- "PromQL Query & Range Query" --> VM
-    API -- "Auth & AI Settings" --> DB
-    API -- "Joblib Loaders" --> ML
-    API -- "Telemetry Context & Chat" --> LLM
-    UI -- "REST API (Axios + Host Filters)" --> API
-```
+<img width="800" height="741" alt="image" src="https://github.com/user-attachments/assets/6e432c45-69d1-4bf0-96b1-5f862e0fbcc7" />
 
 ### Component Roles
 1. **Telemetry Collector (`/collector`)**: Standalone Python daemon running on monitored VMs. Uses `psutil` to sample system metrics every 30 seconds aligned to wall-clock boundaries (`:00`, `:30`) and pushes Prometheus text exposition payloads to VictoriaMetrics.
