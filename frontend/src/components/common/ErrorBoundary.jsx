@@ -24,6 +24,8 @@ export class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
+      const errorMsg = this.state.error?.message || 'Isolated component rendering fault';
+
       return (
         <div className="error-boundary-screen font-mono">
           <div className="error-boundary-container">
@@ -40,7 +42,7 @@ export class ErrorBoundary extends Component {
                 <div>
                   <h3 className="card-title font-sans">UNHANDLED RUNTIME EXCEPTION</h3>
                   <p className="card-subtitle font-sans">
-                    The rendering engine encountered an isolated fault. Application state was safely halted.
+                    {errorMsg}
                   </p>
                 </div>
               </div>
@@ -74,7 +76,7 @@ export class ErrorBoundary extends Component {
           <style>{`
             .error-boundary-screen {
               min-height: 100vh;
-              background-color: var(--bg-main);
+              background-color: var(--bg-app);
               display: flex;
               align-items: center;
               justify-content: center;
@@ -92,6 +94,7 @@ export class ErrorBoundary extends Component {
               border-left: 4px solid var(--status-critical);
               padding: 28px 32px;
               margin-top: 24px;
+              border-radius: var(--radius-lg);
             }
 
             .card-header {
@@ -120,7 +123,7 @@ export class ErrorBoundary extends Component {
             }
 
             .error-spec-box {
-              background: var(--bg-main);
+              background: var(--bg-inset);
               border: 1px solid var(--border-subtle);
               padding: 14px 16px;
               display: flex;
@@ -128,6 +131,7 @@ export class ErrorBoundary extends Component {
               gap: 8px;
               margin-bottom: 24px;
               font-size: 11px;
+              border-radius: var(--radius-md);
             }
 
             .spec-row {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Server, RefreshCw, User, WifiOff, Sun, Moon, LogOut } from 'lucide-react';
+import { Activity, Server, RefreshCw, WifiOff, Sun, Moon, LogOut, Shield } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTimezone } from '../../context/TimezoneContext';
@@ -9,13 +9,12 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const { formatTimestamp } = useTimezone();
-  const { servers, selectedHost, selectServer } = useServer();
+  const { servers = [], selectedHost, selectServer } = useServer();
 
   const formattedTime = lastUpdated
     ? formatTimestamp(Math.floor(lastUpdated.getTime() / 1000), true)
     : 'INITIALIZING...';
 
-  // Determine freshness pill style
   let pillClass = 'pill-healthy';
   if (freshnessState === 'OFFLINE' || isOffline) {
     pillClass = 'pill-critical';
@@ -23,30 +22,36 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
     pillClass = 'pill-warning';
   }
 
+  const isDarkMode = theme === 'dark';
+
   return (
-    <header className="topbar">
+    <header className="neo-topbar font-mono">
       <div className="topbar-left">
         <div className="brand">
-          <Activity className="brand-icon" size={16} />
-          <span className="brand-title">SERVER INTELLIGENCE</span>
-          <span className="brand-tag">v0.1.0</span>
+          <div className="brand-logo-box">
+            <Activity className="brand-icon" size={15} />
+          </div>
+          <div className="brand-text font-sans">
+            <span className="brand-title">SERVER INTELLIGENCE</span>
+            <span className="brand-tag font-mono">v0.1.0-INDUSTRIAL</span>
+          </div>
         </div>
       </div>
 
       <div className="topbar-right">
-        {/* Interactive Host Selector */}
-        <div className="topbar-item server-selector-item font-mono text-xs">
-          <Server size={13} className="text-secondary" />
-          <span className="server-select-label">HOST:</span>
+        {/* Prominent Multi-Server Selector Control */}
+        <div className="neo-server-selector">
+          <Server size={13} className="text-accent" />
+          <span className="selector-label text-tertiary">NODE:</span>
           <select
-            value={selectedHost}
-            onChange={(e) => selectServer(e.target.value)}
+            value={selectedHost || 'ubuntu'}
+            onChange={(e) => selectServer && selectServer(e.target.value)}
             aria-label="Select target server"
-            className="topbar-server-dropdown font-mono text-xs"
+            className="neo-server-select"
           >
             {servers.map((srv) => (
               <option key={srv.host} value={srv.host}>
-                {srv.name.toUpperCase()} ({srv.ip})
+                {String(srv.name || srv.host).toUpperCase()} ({srv.ip})
               </option>
             ))}
           </select>
@@ -55,7 +60,7 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
         <div className="topbar-divider" />
 
         {/* Live / Stale / Offline Freshness Status */}
-        <div className="topbar-item">
+        <div>
           {isOffline || freshnessState === 'OFFLINE' ? (
             <span className="editorial-pill pill-critical">
               <WifiOff size={11} /> API OFFLINE
@@ -70,14 +75,14 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
 
         <div className="topbar-divider" />
 
-        {/* Refresh Indicator */}
-        <div className="topbar-item font-mono text-xs text-secondary">
-          <span>UPDATED: {formattedTime}</span>
+        {/* Refresh Indicator & Timestamp */}
+        <div className="topbar-item text-xs text-secondary">
+          <span className="timestamp-text">UPDATED: {formattedTime}</span>
           <button
             type="button"
             onClick={onRefresh}
             aria-label="Refresh telemetry metrics"
-            className={`icon-btn ${loading ? 'spinning' : ''}`}
+            className={`neo-icon-btn ${loading ? 'spinning' : ''}`}
             title="Refresh metrics"
           >
             <RefreshCw size={12} />
@@ -86,26 +91,26 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
 
         <div className="topbar-divider" />
 
-        {/* Theme Toggle */}
-        <div className="topbar-item">
+        {/* Light & Dark Theme Mode Toggle Button */}
+        <div>
           <button
             type="button"
             onClick={toggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} visual mode`}
-            className="editorial-btn text-xs font-mono theme-toggle-btn"
-            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+            aria-label={`Switch to ${isDarkMode ? 'Light' : 'Dark'} mode`}
+            className="neo-btn theme-toggle-btn"
+            title={`Switch to ${isDarkMode ? 'Light' : 'Dark'} mode`}
           >
-            {theme === 'dark' ? <Moon size={12} /> : <Sun size={12} />}
-            <span>{theme.toUpperCase()}</span>
+            {isDarkMode ? <Moon size={12} /> : <Sun size={12} />}
+            <span>{isDarkMode ? 'DARK' : 'LIGHT'}</span>
           </button>
         </div>
 
         <div className="topbar-divider" />
 
-        {/* Real User Identity & Logout */}
-        <div className="topbar-item font-mono text-xs">
-          <User size={13} className="text-secondary" />
-          <span className="user-name-text">{user?.username || 'GUEST'}</span>
+        {/* User Profile & Sign Out */}
+        <div className="user-profile-box">
+          <Shield size={13} className="text-secondary" />
+          <span className="user-name-text text-xs">{user?.username || 'GUEST'}</span>
           {user?.role && (
             <span className={`editorial-pill ${user.role === 'ADMIN' ? 'pill-healthy' : 'pill-neutral'}`}>
               {user.role}
@@ -115,32 +120,31 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
             type="button"
             onClick={logout}
             aria-label="Sign Out and terminate session"
-            className="icon-btn logout-btn"
+            className="neo-icon-btn logout-btn"
             title="Sign Out / Terminate Session"
           >
-            <LogOut size={13} />
+            <LogOut size={12} />
           </button>
         </div>
       </div>
 
       <style>{`
-        .topbar {
+        .neo-topbar {
           height: var(--topbar-height);
-          position: sticky;
-          top: 0;
           background-color: var(--bg-surface);
-          border-bottom: 1px solid var(--border-strong);
+          border-bottom: 1px solid var(--border-subtle);
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 24px;
+          padding: 0 20px;
+          flex-shrink: 0;
           z-index: 10;
         }
 
         .topbar-left, .topbar-right {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 12px;
         }
 
         .brand {
@@ -149,25 +153,38 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
           gap: 10px;
         }
 
+        .brand-logo-box {
+          width: 30px;
+          height: 30px;
+          background: var(--bg-inset);
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-subtle);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
         .brand-icon {
           color: var(--accent);
         }
 
+        .brand-text {
+          display: flex;
+          flex-direction: column;
+        }
+
         .brand-title {
-          font-family: var(--font-sans);
           font-weight: 700;
           font-size: 13px;
-          letter-spacing: 0.12em;
+          letter-spacing: 0.04em;
           color: var(--text-primary);
+          line-height: 1.2;
         }
 
         .brand-tag {
-          font-family: var(--font-mono);
-          font-size: 10px;
+          font-size: 9px;
           color: var(--text-tertiary);
-          border: 1px solid var(--border-subtle);
-          padding: 1px 5px;
-          border-radius: 2px;
+          letter-spacing: 0.05em;
         }
 
         .topbar-divider {
@@ -179,33 +196,51 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
         .topbar-item {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
         }
 
-        .server-select-label {
+        .timestamp-text {
+          font-size: 10px;
           color: var(--text-tertiary);
-          font-size: 11px;
         }
 
-        .topbar-server-dropdown {
-          background: var(--bg-main);
-          color: var(--accent);
-          border: 1px solid var(--border-strong);
-          padding: 3px 8px;
-          font-weight: 600;
+        .neo-server-selector {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: var(--bg-inset);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: 0 8px;
+          height: 32px;
+        }
+
+        .selector-label {
+          font-size: 10px;
           letter-spacing: 0.05em;
+        }
+
+        .neo-server-select {
+          background: transparent;
+          color: var(--accent);
+          border: none;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.03em;
           cursor: pointer;
-          border-radius: 2px;
           outline: none;
         }
 
-        .topbar-server-dropdown:hover {
-          border-color: var(--accent);
+        .theme-toggle-btn {
+          height: 32px;
+          padding: 0 10px;
+          font-size: 10px;
         }
 
-        .theme-toggle-btn {
-          padding: 4px 10px;
-          font-size: 10px;
+        .user-profile-box {
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
         .user-name-text {
@@ -213,13 +248,29 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
           color: var(--text-primary);
         }
 
-        .logout-btn {
-          margin-left: 4px;
+        .neo-icon-btn {
+          background: var(--bg-inset);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
           color: var(--text-tertiary);
+          cursor: pointer;
+          width: 28px;
+          height: 28px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+        }
+
+        .neo-icon-btn:hover {
+          color: var(--accent);
+          border-color: var(--accent-border);
+          background: var(--bg-surface-hover);
         }
 
         .logout-btn:hover {
           color: var(--status-critical);
+          border-color: rgba(220, 38, 38, 0.3);
         }
 
         .live-dot {
@@ -228,45 +279,10 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
           border-radius: 50%;
           background-color: var(--status-healthy);
           display: inline-block;
-          box-shadow: 0 0 6px var(--status-healthy);
         }
 
         .dot-stale {
           background-color: var(--status-warning);
-          box-shadow: 0 0 6px var(--status-warning);
-        }
-
-        .pill-warning {
-          background: rgba(245, 158, 11, 0.1);
-          color: var(--status-warning);
-          border-color: rgba(245, 158, 11, 0.3);
-        }
-
-        .icon-btn {
-          background: transparent;
-          border: none;
-          color: var(--text-tertiary);
-          cursor: pointer;
-          padding: 2px;
-          display: flex;
-          align-items: center;
-          transition: color 0.15s ease;
-        }
-
-        .icon-btn:hover {
-          color: var(--accent);
-        }
-
-        .spinning {
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          100% { transform: rotate(360deg); }
-        }
-
-        .text-secondary {
-          color: var(--text-secondary);
         }
 
         .text-xs {
