@@ -58,7 +58,12 @@ class SystemMetrics:
         swap = psutil.swap_memory()
         disk = psutil.disk_usage("/")
 
-        load_1m, load_5m, load_15m = os.getloadavg()
+        try:
+            load_1m, load_5m, load_15m = os.getloadavg()
+        except AttributeError:
+            load_1m = 0.0
+            load_5m = 0.0
+            load_15m = 0.0
 
         uptime_seconds = time.time() - psutil.boot_time()
 

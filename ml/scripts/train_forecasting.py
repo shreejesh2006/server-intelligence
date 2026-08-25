@@ -194,8 +194,20 @@ def main():
 
         for horizon_name, horizon_steps in HORIZON_STEPS_MAP.items():
             print(f"Evaluating Target: {target:<10} | Horizon: {horizon_name:<5} ({horizon_steps} steps)...")
-            model, metadata, summary_row = train_and_evaluate_forecasting(df, target, horizon_name, horizon_steps)
 
+            try:
+                model, metadata, summary_row = train_and_evaluate_forecasting(
+                    df,
+                    target,
+                    horizon_name,
+                    horizon_steps
+                )
+            except ValueError as exc:
+                print(f"  -> SKIPPED: {exc}")
+                continue
+            except ValueError as exc:
+                print(f"  -> SKIPPED: {exc}")
+                continue
             # Save model artifact (always save trained model artifact)
             model_file = os.path.join(args.output_dir, f"{target}_{horizon_name}.joblib")
             joblib.dump(model, model_file)

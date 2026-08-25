@@ -7,6 +7,7 @@ from app.api.metrics import router as metrics_router
 from app.database.init_db import init_database
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
+from app.api.alerts import router as alerts_router
 from app.api.ai_settings import router as ai_settings_router
 from app.api.assistant import router as assistant_router
 from app.api.intelligence import router as intelligence_router
@@ -84,6 +85,10 @@ app.include_router(
     prefix="/api",
 )
 
+app.include_router(
+    alerts_router,
+    prefix="/api",
+)
 
 @app.get("/")
 async def root():
