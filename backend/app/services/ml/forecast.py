@@ -1,4 +1,4 @@
-import time
+﻿import time
 import numpy as np
 import pandas as pd
 from datetime import datetime, timezone
@@ -14,21 +14,25 @@ class ForecastService:
     """
     Service for generating telemetry forecasts.
     Respects saved metadata strategies ('persistence' vs 'model').
-    Uses 30-second TTL cache to prevent repeated inference.
+    Uses per-host 30-second TTL cache to prevent repeated inference.
     """
     def __init__(self):
         self.victoria = VictoriaMetricsService()
-        self._cache = None
-        self._cache_timestamp = 0.0
+        self._cache = {}
+        self._cache_timestamps = {}
 
-    async def get_forecasts(self) -> dict:
+    async def get_forecasts(self, host: str | None = None) -> dict:
         now = time.time()
-        # Return cached forecast if within 30-second TTL
-        if self._cache is not None and (now - self._cache_timestamp) < CACHE_TTL_SECONDS:
-            return self._cache
+        cache_key = host or "default"
 
-        # Ensure ML artifacts are available even if startup loading
-        # was skipped or the container was started unusually.
+        # Return cached forecast for this host if within 30-second TTL
+        if (
+            cache_key in self._cache
+            and (now - self._cache_timestamps.get(cache_key, 0.0)) < CACHE_TTL_SECONDS
+        ):
+            return self._cache[cache_key]
+
+        # Ensure ML artifacts are loaded
         ml_loader.ensure_loaded()
 
         if not ml_loader.is_forecast_available():
@@ -37,9 +41,9 @@ class ForecastService:
                 detail="Forecast models not available",
             )
 
-        # Fetch current live telemetry metrics using VictoriaMetricsService
+        # Fetch current live telemetry metrics for the requested host
         try:
-            live_metrics = await self.victoria.get_current_metrics()
+            live_metrics = await self.victoria.get_current_metrics(host=host)
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -47,12 +51,14 @@ class ForecastService:
             ) from exc
 
         generated_at = datetime.now(timezone.utc).isoformat()
-        response = {"generated_at": generated_at}
+        response = {
+            "generated_at": generated_at,
+            "host": host or "all",
+        }
 
         for target in TARGET_COLUMNS:
             current_val = float(live_metrics.get(target, 0.0) or 0.0)
 
-            # Determine dominant strategy from metadata (e.g. if 5m is model)
             meta_5m = ml_loader.get_forecast_meta(target, '5m')
             target_strategy = meta_5m.get('strategy', 'persistence') if meta_5m else 'persistence'
 
@@ -67,13 +73,10 @@ class ForecastService:
                     model = ml_loader.get_forecast_model(target, horizon)
                     if model is not None and meta and "feature_columns" in meta:
                         try:
-                            # Construct single observation feature DataFrame matching metadata feature_columns
                             feat_dict = {}
                             feature_cols = meta["feature_columns"]
                             for col in feature_cols:
-                                if col.startswith(f"{target}_lag_"):
-                                    feat_dict[col] = current_val
-                                elif col.startswith(f"{target}_roll_"):
+                                if col.startswith(f"{target}_lag_") or col.startswith(f"{target}_roll_"):
                                     feat_dict[col] = current_val
                                 elif col.startswith("aux_"):
                                     aux_name = col.replace("aux_", "").replace("_t", "")
@@ -85,7 +88,6 @@ class ForecastService:
                             pred_val = float(model.predict(X_df)[0])
                             predictions[horizon] = round(max(0.0, pred_val), 2)
                         except Exception:
-                            # Fall back to current value persistence if feature engineering encounters missing values
                             predictions[horizon] = round(current_val, 2)
                     else:
                         predictions[horizon] = round(current_val, 2)
@@ -95,11 +97,11 @@ class ForecastService:
             response[target] = {
                 "current": round(current_val, 2),
                 "strategy": target_strategy,
-                "predictions": predictions
+                "predictions": predictions,
             }
 
-        # Cache result for 30 seconds
-        self._cache = response
-        self._cache_timestamp = now
+        # Cache per-host result
+        self._cache[cache_key] = response
+        self._cache_timestamps[cache_key] = now
 
         return response

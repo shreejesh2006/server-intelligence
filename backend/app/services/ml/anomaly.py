@@ -1,4 +1,4 @@
-import time
+﻿import time
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 
@@ -11,21 +11,25 @@ CACHE_TTL_SECONDS = 30.0
 class AnomalyService:
     """
     Service for scoring server telemetry anomalies using Isolation Forest.
-    Uses 30-second TTL cache to prevent repeated inference.
+    Uses per-host 30-second TTL cache to prevent repeated inference.
     """
     def __init__(self):
         self.victoria = VictoriaMetricsService()
-        self._cache = None
-        self._cache_timestamp = 0.0
+        self._cache = {}
+        self._cache_timestamps = {}
 
-    async def get_anomaly_score(self) -> dict:
+    async def get_anomaly_score(self, host: str | None = None) -> dict:
         now = time.time()
-        # Return cached anomaly result if within 30-second TTL
-        if self._cache is not None and (now - self._cache_timestamp) < CACHE_TTL_SECONDS:
-            return self._cache
+        cache_key = host or "default"
 
-        # Ensure ML artifacts are available even if startup loading
-        # was skipped or the container was started unusually.
+        # Return cached anomaly result for this host if within 30-second TTL
+        if (
+            cache_key in self._cache
+            and (now - self._cache_timestamps.get(cache_key, 0.0)) < CACHE_TTL_SECONDS
+        ):
+            return self._cache[cache_key]
+
+        # Ensure ML artifacts are loaded
         ml_loader.ensure_loaded()
 
         if not ml_loader.is_anomaly_available():
@@ -41,9 +45,9 @@ class AnomalyService:
                 detail="Anomaly model not available",
             )
 
-        # Fetch current live telemetry metrics using VictoriaMetricsService
+        # Fetch current live telemetry metrics for host
         try:
-            live_metrics = await self.victoria.get_current_metrics()
+            live_metrics = await self.victoria.get_current_metrics(host=host)
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -77,14 +81,15 @@ class AnomalyService:
 
         response = {
             "generated_at": generated_at,
+            "host": host or "all",
             "is_anomaly": result.get("is_anomaly", False),
             "severity": result.get("severity", "NORMAL"),
             "anomaly_score": result.get("anomaly_score", 0.0),
             "features_evaluated": result.get("features_evaluated", 11)
         }
 
-        # Cache result for 30 seconds
-        self._cache = response
-        self._cache_timestamp = now
+        # Cache per-host result
+        self._cache[cache_key] = response
+        self._cache_timestamps[cache_key] = now
 
         return response
