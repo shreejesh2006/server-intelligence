@@ -28,6 +28,13 @@ class VictoriaMetricsService:
     def __init__(self, base_url: str = VICTORIAMETRICS_URL):
         self.base_url = base_url.rstrip("/")
 
+    def build_metric_query(self, metric_name: str, host: str | None = None) -> str:
+        """Formats Prometheus/VictoriaMetrics metric selector with optional host label."""
+        if not host:
+            return metric_name
+        clean_host = host.strip()
+        return f'{metric_name}{{host="{clean_host}"}}'
+
     async def query(self, query: str):
         url = f"{self.base_url}/api/v1/query"
 
@@ -79,10 +86,11 @@ class VictoriaMetricsService:
 
         return payload["data"]["result"]
 
-    async def get_current_metrics(self) -> dict:
-        """Fetches current values for all server telemetry metrics."""
+    async def get_current_metrics(self, host: str | None = None) -> dict:
+        """Fetches current values for all server telemetry metrics for a given host."""
         result = {}
-        for name, query_str in METRICS_MAP.items():
+        for name, base_metric in METRICS_MAP.items():
+            query_str = self.build_metric_query(base_metric, host)
             try:
                 data = await self.query(query_str)
                 if data and len(data) > 0 and "value" in data[0]:
