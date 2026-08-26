@@ -4,9 +4,9 @@ import OfflineBanner from '../../components/common/OfflineBanner';
 import { getForecast } from '../../services/intelligence';
 import { formatNumber } from '../../utils/formatters';
 import { useTimezone } from '../../context/TimezoneContext';
-import { TrendingUp, Cpu, Activity, Zap, ShieldCheck } from 'lucide-react';
+import { Cpu, Activity, Zap } from 'lucide-react';
 
-export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
+export function ForecastsPage({ isOffline, refetch }) {
   const { formatTimestamp } = useTimezone();
   const [loading, setLoading] = useState(true);
   const [forecastData, setForecastData] = useState(null);
@@ -26,7 +26,7 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
         }
       } catch (err) {
         if (!isCancelled) {
-          setErrorMsg('Intelligence models unavailable.');
+          setErrorMsg(err?.response?.data?.detail || 'Intelligence models unavailable.');
         }
       } finally {
         if (!isCancelled) {
@@ -40,17 +40,55 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
     return () => {
       isCancelled = true;
     };
-  }, [lastUpdated]);
+  }, []);
+
+  const calculateExtendedProjection = (val3h, valCurr, factor, isDecimal, isPercentage) => {
+    if (val3h == null || isNaN(val3h)) return null;
+
+    const current = (valCurr != null && !isNaN(valCurr)) ? Number(valCurr) : Number(val3h);
+    const delta = Number(val3h) - current;
+    let projected = Number(val3h) + (delta * factor);
+
+    if (isPercentage) {
+      projected = Math.min(100.0, Math.max(0.0, projected));
+    }
+    if (isDecimal) {
+      projected = Math.max(0.0, projected);
+    }
+
+    return projected;
+  };
 
   const renderMetricForecastCard = (title, keyName, icon, unitStr = '%', isDecimal = false) => {
     const IconComponent = icon;
     const obj = forecastData?.[keyName];
     const predictions = obj?.predictions || {};
-    const horizons = ['5m', '15m', '30m', '1h', '3h'];
-    const currentVal = obj?.current != null
-      ? (isDecimal ? formatNumber(obj.current, 2) : `${formatNumber(obj.current, 1)}${unitStr}`)
+    const currentNumeric = obj?.current;
+
+    const realHorizons = [
+      { id: '5m', isExtended: false },
+      { id: '15m', isExtended: false },
+      { id: '30m', isExtended: false },
+      { id: '1h', isExtended: false },
+      { id: '3h', isExtended: false },
+    ];
+
+    const extendedHorizons = [
+      { id: '6h', factor: 0.15, isExtended: true },
+      { id: '12h', factor: 0.25, isExtended: true },
+      { id: '1d', factor: 0.35, isExtended: true },
+      { id: '7d', factor: 0.40, isExtended: true },
+      { id: '1mo', factor: 0.42, isExtended: true },
+    ];
+
+    const val3h = predictions['3h'];
+
+    const currentVal = currentNumeric != null
+      ? (isDecimal ? formatNumber(currentNumeric, 2) : `${formatNumber(currentNumeric, 1)}${unitStr}`)
       : '—';
     const strategyName = (obj?.strategy || 'persistence').toUpperCase();
+
+    const isPercentage = unitStr === '%';
 
     return (
       <div className="neo-card forecast-card font-mono">
@@ -71,20 +109,58 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
           </div>
         </div>
 
-        <div className="horizons-grid font-mono margin-top-md">
-          {horizons.map((h) => {
-            const rawVal = predictions[h];
-            const displayVal = rawVal != null
-              ? (isDecimal ? formatNumber(rawVal, 2) : `${formatNumber(rawVal, 1)}${unitStr}`)
-              : '—';
+        <div className="horizons-container margin-top-md">
+          {/* REAL ML HORIZONS GRID */}
+          <div className="horizon-section-header">
+            <span className="editorial-tag text-tertiary">REAL ML TRAJECTORIES (5M – 3H)</span>
+          </div>
+          <div className="horizons-grid font-mono margin-top-xs margin-bottom-md">
+            {realHorizons.map((hObj) => {
+              const rawVal = predictions[hObj.id];
+              const displayVal = rawVal != null
+                ? (isDecimal ? formatNumber(rawVal, 2) : `${formatNumber(rawVal, 1)}${unitStr}`)
+                : '—';
 
-            return (
-              <div key={h} className="horizon-neo-box">
-                <span className="horizon-label text-tertiary">+{h} HORIZON</span>
-                <span className="horizon-value text-primary font-bold">{displayVal}</span>
-              </div>
-            );
-          })}
+              return (
+                <div key={hObj.id} className="horizon-neo-box">
+                  <div className="horizon-header">
+                    <span className="horizon-label text-tertiary">+{hObj.id}</span>
+                    <span className="badge-tag tag-ml">ML</span>
+                  </div>
+                  <span className="horizon-value text-primary font-bold">{displayVal}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* EXTENDED DEMO PROJECTIONS GRID */}
+          <div className="horizon-section-header">
+            <span className="editorial-tag text-tertiary">DEMO EXTENDED PROJECTIONS (6H – 1MO)</span>
+          </div>
+          <div className="horizons-grid font-mono margin-top-xs">
+            {extendedHorizons.map((hObj) => {
+              const projVal = calculateExtendedProjection(
+                val3h,
+                currentNumeric,
+                hObj.factor,
+                isDecimal,
+                isPercentage
+              );
+              const displayVal = projVal != null
+                ? (isDecimal ? formatNumber(projVal, 2) : `${formatNumber(projVal, 1)}${unitStr}`)
+                : '—';
+
+              return (
+                <div key={hObj.id} className="horizon-neo-box horizon-extended">
+                  <div className="horizon-header">
+                    <span className="horizon-label text-tertiary">+{hObj.id}</span>
+                    <span className="badge-tag tag-ext">EXTENDED</span>
+                  </div>
+                  <span className="horizon-value text-primary font-bold">{displayVal}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -125,7 +201,7 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
 
       {/* FORECAST CARDS */}
       <div className="section-label-strip font-mono margin-bottom-sm">
-        <span className="editorial-tag">01 / PREDICTIVE METRIC TRAJECTORIES</span>
+        <span className="editorial-tag">01 / PREDICTIVE METRIC TRAJECTORIES (10 HORIZONS)</span>
       </div>
 
       {loading ? (
@@ -162,15 +238,21 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
           </div>
           <div className="spec-row">
             <span className="spec-bullet text-accent">&bull;</span>
-            <span><strong>Multi-Horizon Embargo:</strong> Predictions are generated across +5m, +15m, +30m, +1h, and +3h operational windows without target leakage.</span>
+            <span><strong>Real ML Horizons (5m–3h):</strong> Predictions across +5m, +15m, +30m, +1h, and +3h operational windows are generated directly by host-aware ML inference without target leakage.</span>
+          </div>
+          <div className="spec-row">
+            <span className="spec-bullet text-accent">&bull;</span>
+            <span><strong>Demo Extended Projections (6h–1mo):</strong> Horizons beyond +3h (+6h, +12h, +1d, +7d, +1mo) are demo extended projections derived from recent trend trajectory and +3h model outputs. This is a temporary visual extension that can later be replaced with independently trained long-horizon models.</span>
           </div>
         </div>
       </section>
 
       <style>{`
+        .margin-top-xs { margin-top: 6px; }
         .margin-top-md { margin-top: 20px; }
         .margin-top-sm { margin-top: 12px; }
         .margin-bottom-sm { margin-bottom: 12px; }
+        .margin-bottom-md { margin-bottom: 16px; }
         .margin-bottom-lg { margin-bottom: 28px; }
 
         .hero-meta-card {
@@ -232,10 +314,20 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
           margin-top: 2px;
         }
 
+        .horizons-container {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .horizon-section-header {
+          font-size: 10px;
+          margin-bottom: 4px;
+        }
+
         .horizons-grid {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
-          gap: 14px;
+          gap: 12px;
         }
 
         .horizon-neo-box {
@@ -243,20 +335,55 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
           box-shadow: var(--shadow-inset-sm);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md);
-          padding: 14px 10px;
+          padding: 12px 10px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 6px;
+          gap: 4px;
+          position: relative;
+        }
+
+        .horizon-extended {
+          background: var(--bg-card);
+          border-style: dashed;
+        }
+
+        .horizon-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
         }
 
         .horizon-label {
-          font-size: 9px;
-          letter-spacing: 0.08em;
+          font-size: 10px;
+          letter-spacing: 0.05em;
+          font-weight: 700;
+        }
+
+        .badge-tag {
+          font-size: 8px;
+          font-weight: 800;
+          padding: 1px 4px;
+          border-radius: 3px;
+          line-height: 1;
+        }
+
+        .tag-ml {
+          background: rgba(59, 130, 246, 0.12);
+          color: var(--accent);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .tag-ext {
+          background: rgba(245, 158, 11, 0.12);
+          color: var(--status-warning, #f59e0b);
+          border: 1px solid rgba(245, 158, 11, 0.3);
         }
 
         .horizon-value {
-          font-size: 16px;
+          font-size: 15px;
+          margin-top: 2px;
         }
 
         .forecast-skeleton-grid {
@@ -305,7 +432,13 @@ export function ForecastsPage({ isOffline, lastUpdated, refetch }) {
         .text-tertiary { color: var(--text-tertiary); }
         .text-primary { color: var(--text-primary); }
 
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
+          .horizons-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+
+        @media (max-width: 600px) {
           .horizons-grid {
             grid-template-columns: repeat(2, 1fr);
           }
