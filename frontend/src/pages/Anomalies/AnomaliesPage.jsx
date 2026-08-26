@@ -18,8 +18,9 @@ import {
 
 
 export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
-  const { selectedHost, selectServer } = useServer();
+  const { servers, selectedHost, selectServer } = useServer();
   const { formatTimestamp } = useTimezone();
+
 
   const [loading, setLoading] = useState(true);
   const [anomalyData, setAnomalyData] = useState(null);
@@ -114,21 +115,23 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
             <Server size={14} className="text-accent" />
             <span className="editorial-tag">TARGET NODE SCOPE:</span>
             <div className="neo-segmented-track">
-              <button
-                type="button"
-                className={`neo-segmented-item ${selectedHost === 'ubuntu' ? 'active' : ''}`}
-                onClick={() => selectServer('ubuntu')}
-              >
-                UBUNTU (PRIMARY)
-              </button>
-              <button
-                type="button"
-                className={`neo-segmented-item ${selectedHost === 'kali' ? 'active' : ''}`}
-                onClick={() => selectServer('kali')}
-              >
-                KALI (TARGET VM)
-              </button>
+              {servers.map((srv) => {
+                const h = srv.host.toLowerCase();
+                const isSelected = selectedHost?.toLowerCase() === h;
+                const label = h === 'ubuntu' ? 'UBUNTU (PRIMARY)' : 'KALI (TARGET VM)';
+                return (
+                  <button
+                    key={srv.id}
+                    type="button"
+                    className={`neo-segmented-item ${isSelected ? 'active' : ''}`}
+                    onClick={() => selectServer(h)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
+
           </div>
 
           <div className="bar-right">
@@ -228,39 +231,50 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
           </div>
 
           {/* CONTRIBUTING SIGNAL CARDS */}
-          <div className="signal-cards-grid">
-            {contributingSignals.map((sig) => (
-              <div key={sig.metric} className={`neo-card-inset signal-card status-${sig.status.toLowerCase()}`}>
-                <div className="signal-card-header font-mono">
-                  <span className="sig-name font-sans font-bold text-primary">{sig.display_name}</span>
-                  <span className={`editorial-pill ${getSeverityBadgeClass(sig.status)}`}>
-                    {sig.status}
-                  </span>
-                </div>
-
-                <div className="signal-metrics-row font-mono margin-top-xs">
-                  <div className="sig-metric-item">
-                    <span className="text-tertiary text-xs">CURRENT</span>
-                    <span className="sig-val text-primary font-bold">{formatNumber(sig.current_value, 2)}{sig.unit}</span>
-                  </div>
-                  <div className="sig-metric-item">
-                    <span className="text-tertiary text-xs">BASELINE</span>
-                    <span className="sig-val text-secondary">{formatNumber(sig.baseline_value, 2)}{sig.unit}</span>
-                  </div>
-                  <div className="sig-metric-item">
-                    <span className="text-tertiary text-xs">DEVIATION</span>
-                    <span className="sig-val text-accent font-bold">
-                      {sig.deviation_percent != null ? `+${sig.deviation_percent}%` : `+${sig.absolute_deviation}`}
+          {contributingSignals.length > 0 ? (
+            <div className="signal-cards-grid">
+              {contributingSignals.map((sig) => (
+                <div key={sig.metric} className={`neo-card-inset signal-card status-${sig.status.toLowerCase()}`}>
+                  <div className="signal-card-header font-mono">
+                    <span className="sig-name font-sans font-bold text-primary">{sig.display_name}</span>
+                    <span className={`editorial-pill ${getSeverityBadgeClass(sig.status)}`}>
+                      {sig.status}
                     </span>
                   </div>
-                </div>
 
-                <p className="signal-reason font-sans text-xs text-secondary margin-top-xs">
-                  {sig.reason}
-                </p>
-              </div>
-            ))}
-          </div>
+                  <div className="signal-metrics-row font-mono margin-top-xs">
+                    <div className="sig-metric-item">
+                      <span className="text-tertiary text-xs">CURRENT</span>
+                      <span className="sig-val text-primary font-bold">{formatNumber(sig.current_value, 2)}{sig.unit}</span>
+                    </div>
+                    <div className="sig-metric-item">
+                      <span className="text-tertiary text-xs">BASELINE</span>
+                      <span className="sig-val text-secondary">{formatNumber(sig.baseline_value, 2)}{sig.unit}</span>
+                    </div>
+                    <div className="sig-metric-item">
+                      <span className="text-tertiary text-xs">DEVIATION</span>
+                      <span className="sig-val text-accent font-bold">
+                        {sig.deviation_percent != null ? `+${sig.deviation_percent}%` : `+${sig.absolute_deviation}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="signal-reason font-sans text-xs text-secondary margin-top-xs">
+                    {sig.reason}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="neo-card-inset empty-signals-box text-center font-mono padding-md">
+              <span className="text-secondary text-xs">
+                {isModelUnavailable
+                  ? `No trained anomaly model loaded for host '${selectedHost.toUpperCase()}'. Showing live telemetry values below.`
+                  : `All monitored telemetry signals are operating within nominal baseline bounds.`}
+              </span>
+            </div>
+          )}
+
         </div>
       </section>
 

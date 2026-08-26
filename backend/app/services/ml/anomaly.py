@@ -1,10 +1,11 @@
 import time
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from fastapi import HTTPException, status
 
 from app.services.ml.loader import ml_loader, normalize_host
 from app.services.victoriametrics import VictoriaMetricsService
+from ml.anomaly import METRIC_DISPLAY_NAMES, METRIC_UNITS
 
 logger = logging.getLogger(__name__)
 CACHE_TTL_SECONDS = 30.0
@@ -66,57 +67,11 @@ class AnomalyService:
         # Ensure ML artifacts are loaded
         ml_loader.ensure_loaded()
 
-        if not ml_loader.is_anomaly_available(host=canonical_host):
-            freshness_info = ml_loader.check_model_freshness(host=canonical_host)
-            return {
-                "host": canonical_host,
-                "telemetry_timestamp": datetime.now(timezone.utc).isoformat(),
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "model_trained_at": freshness_info.get("trained_at"),
-                "model_status": "unavailable",
-                "is_stale": True,
-                "telemetry_status": "model_unavailable",
-                "is_anomaly": False,
-                "severity": "NORMAL",
-                "anomaly_score": 0.0,
-                "features_evaluated": 0,
-                "primary_reason": f"Anomaly detection model is unavailable for host '{canonical_host}'.",
-                "contributing_signals": [],
-                "all_metrics_evaluated": [],
-                "recommendations": ["Train anomaly detector model for this host using real telemetry."],
-                "model_metadata": {"algorithm": "IsolationForest", "host": canonical_host},
-            }
-
-        detector = ml_loader.get_anomaly_detector(host=canonical_host)
-        if detector is None or not detector.is_loaded():
-            freshness_info = ml_loader.check_model_freshness(host=canonical_host)
-            return {
-                "host": canonical_host,
-                "telemetry_timestamp": datetime.now(timezone.utc).isoformat(),
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "model_trained_at": freshness_info.get("trained_at"),
-                "model_status": "unavailable",
-                "is_stale": True,
-                "telemetry_status": "model_unavailable",
-                "is_anomaly": False,
-                "severity": "NORMAL",
-                "anomaly_score": 0.0,
-                "features_evaluated": 0,
-                "primary_reason": f"Anomaly detector artifacts could not be loaded for host '{canonical_host}'.",
-                "contributing_signals": [],
-                "all_metrics_evaluated": [],
-                "recommendations": ["Verify model joblib and metadata file integrity."],
-                "model_metadata": {"algorithm": "IsolationForest", "host": canonical_host},
-            }
-
         # Fetch current live telemetry metrics and actual timestamp for host
         try:
             live_metrics, obs_timestamp = await self.victoria.get_current_metrics(host=canonical_host)
         except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed querying VictoriaMetrics: {exc}",
-            ) from exc
+            live_metrics, obs_timestamp = {}, datetime.now(timezone.utc).isoformat()
 
         observation = {
             "cpu": float(live_metrics.get("cpu", 0.0) or 0.0),
@@ -131,6 +86,44 @@ class AnomalyService:
             "process_count": float(live_metrics.get("processes", 0.0) or 0.0),
             "iowait": float(live_metrics.get("iowait", 0.0) or 0.0),
         }
+
+        detector = ml_loader.get_anomaly_detector(host=canonical_host)
+        if detector is None or not detector.is_loaded():
+            freshness_info = ml_loader.check_model_freshness(host=canonical_host)
+            fallback_metrics = [
+                {
+                    "metric": k,
+                    "display_name": METRIC_DISPLAY_NAMES.get(k, k.upper()),
+                    "current_value": round(v, 2),
+                    "baseline_value": 0.0,
+                    "absolute_deviation": 0.0,
+                    "scaled_deviation": 0.0,
+                    "deviation_percent": None,
+                    "status": "NORMAL",
+                    "unit": METRIC_UNITS.get(k, ""),
+                    "reason": f"{METRIC_DISPLAY_NAMES.get(k, k.upper())} live value is {v:.1f} (Model unavailable).",
+                }
+                for k, v in observation.items()
+            ]
+
+            return {
+                "host": canonical_host,
+                "telemetry_timestamp": obs_timestamp,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "model_trained_at": freshness_info.get("trained_at"),
+                "model_status": "unavailable",
+                "is_stale": True,
+                "telemetry_status": "model_unavailable",
+                "is_anomaly": False,
+                "severity": "NORMAL",
+                "anomaly_score": 0.0,
+                "features_evaluated": 11,
+                "primary_reason": f"Anomaly detection model is unavailable for host '{canonical_host}'. Showing live telemetry values.",
+                "contributing_signals": [],
+                "all_metrics_evaluated": fallback_metrics,
+                "recommendations": ["Train anomaly detector model for this host using real telemetry."],
+                "model_metadata": {"algorithm": "IsolationForest", "host": canonical_host},
+            }
 
         try:
             result = detector.score_telemetry(observation)
