@@ -92,10 +92,14 @@ def prepare_forecasting_features(df: pd.DataFrame, target_col: str):
     return data, feature_cols
 
 
-def fetch_telemetry_history(host: str, lookback_days: int = 7, vm_url: str = "http://localhost:8428") -> pd.DataFrame:
+DEFAULT_VM_URL = os.getenv("VICTORIAMETRICS_URL", "http://localhost:8428")
+
+
+def fetch_telemetry_history(host: str, lookback_days: int = 7, vm_url: str = DEFAULT_VM_URL) -> pd.DataFrame:
     """
     Fetches real historical telemetry from VictoriaMetrics query_range for a given host.
     """
+
     canonical_host = normalize_host(host)
     if not canonical_host:
         raise ValueError(f"Invalid host parameter: {host}")
@@ -254,7 +258,8 @@ def train_anomaly_pipeline(df: pd.DataFrame):
     return pipeline, metadata
 
 
-def train_host_models(host: str, lookback_days: int = 7, vm_url: str = "http://localhost:8428") -> dict:
+def train_host_models(host: str, lookback_days: int = 7, vm_url: str = DEFAULT_VM_URL) -> dict:
+
     """
     Executes full production retraining for a host using real telemetry from VictoriaMetrics.
     Uses safe atomic replacement so existing working models are never corrupted on failure.
