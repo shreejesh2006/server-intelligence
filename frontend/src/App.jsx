@@ -100,6 +100,7 @@ function AuthenticatedAppShell() {
             element={
               <ProtectedRoute>
                 <ForecastsPage
+                  metrics={metrics}
                   isOffline={isOffline}
                   lastUpdated={lastUpdated}
                   refetch={refetch}
@@ -107,6 +108,7 @@ function AuthenticatedAppShell() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/anomalies"
             element={

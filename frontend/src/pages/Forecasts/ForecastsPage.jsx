@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import PageHeader from '../../components/common/PageHeader';
 import OfflineBanner from '../../components/common/OfflineBanner';
 import { getForecast } from '../../services/intelligence';
+import { useServer } from '../../context/ServerContext';
 import { formatNumber } from '../../utils/formatters';
 import { useTimezone } from '../../context/TimezoneContext';
 import { Cpu, Activity, Zap } from 'lucide-react';
 
-export function ForecastsPage({ isOffline, refetch }) {
+export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
+  const { selectedHost } = useServer();
   const { formatTimestamp } = useTimezone();
   const [loading, setLoading] = useState(true);
   const [forecastData, setForecastData] = useState(null);
@@ -20,7 +22,7 @@ export function ForecastsPage({ isOffline, refetch }) {
       setErrorMsg(null);
 
       try {
-        const res = await getForecast();
+        const res = await getForecast(selectedHost);
         if (!isCancelled) {
           setForecastData(res);
         }
@@ -40,7 +42,7 @@ export function ForecastsPage({ isOffline, refetch }) {
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [selectedHost, lastUpdated, refetch]);
 
   const calculateExtendedProjection = (val3h, valCurr, factor, isDecimal, isPercentage) => {
     if (val3h == null || isNaN(val3h)) return null;
@@ -63,10 +65,21 @@ export function ForecastsPage({ isOffline, refetch }) {
     const IconComponent = icon;
     const obj = forecastData?.[keyName];
     const predictions = obj?.predictions || {};
-    const currentNumeric = obj?.current;
+
+    let liveValue = null;
+    if (keyName === 'cpu') {
+      liveValue = metrics?.cpu;
+    } else if (keyName === 'memory') {
+      liveValue = metrics?.memory;
+    } else if (keyName === 'load_1m') {
+      liveValue = metrics?.load_1m;
+    }
+
+    const currentNumeric = liveValue != null ? liveValue : obj?.current;
 
     const realHorizons = [
       { id: '5m', isExtended: false },
+
       { id: '15m', isExtended: false },
       { id: '30m', isExtended: false },
       { id: '1h', isExtended: false },

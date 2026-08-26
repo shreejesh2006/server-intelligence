@@ -57,6 +57,14 @@ class ForecastService:
         # Ensure ML loader is initialized
         ml_loader.ensure_loaded()
 
+        # Fetch current live telemetry metrics and actual observation timestamp
+        live_metrics = {}
+        live_obs_ts = None
+        try:
+            live_metrics, live_obs_ts = await self.victoria.get_current_metrics(host=canonical_host)
+        except Exception as exc:
+            logger.warning("Failed retrieving current metrics for host '%s': %s", canonical_host, exc)
+
         # Retrieve real 30-minute historical telemetry window from VictoriaMetrics
         try:
             df_history, obs_timestamp = await self.victoria.get_all_metrics_history(
@@ -72,9 +80,10 @@ class ForecastService:
 
         freshness_info = ml_loader.check_model_freshness(host=canonical_host)
         generated_at = datetime.now(timezone.utc).isoformat()
+        telemetry_timestamp = live_obs_ts or obs_timestamp
 
         response = {
-            "telemetry_timestamp": obs_timestamp,
+            "telemetry_timestamp": telemetry_timestamp,
             "generated_at": generated_at,
             "model_trained_at": freshness_info.get("trained_at"),
             "model_status": freshness_info.get("status", "unavailable"),
@@ -85,13 +94,6 @@ class ForecastService:
         # STRICT PRODUCTION RULE: If historical telemetry is missing or insufficient,
         # DO NOT duplicate current value into lag features or generate fake forecasts.
         if df_history.empty or len(df_history) < MIN_REQUIRED_HISTORICAL_SAMPLES:
-            current_live_metrics = {}
-            try:
-                current_live_metrics, obs_timestamp = await self.victoria.get_current_metrics(host=canonical_host)
-                response["telemetry_timestamp"] = obs_timestamp
-            except Exception:
-                pass
-
             response["model_status"] = "unavailable"
             response["is_stale"] = True
             response["telemetry_status"] = "insufficient_history"
@@ -101,7 +103,7 @@ class ForecastService:
             )
 
             for target in TARGET_COLUMNS:
-                current_val = float(current_live_metrics.get(target, 0.0) or 0.0)
+                current_val = float(live_metrics.get(target, 0.0) or 0.0)
                 response[target] = {
                     "current": round(current_val, 2),
                     "strategy": "unavailable",
@@ -115,7 +117,8 @@ class ForecastService:
 
         # Real historical feature extraction and model inference
         for target in TARGET_COLUMNS:
-            current_val = float(df_history[target].iloc[-1])
+            hist_latest = float(df_history[target].iloc[-1]) if target in df_history.columns else 0.0
+            current_val = float(live_metrics.get(target, hist_latest) if live_metrics.get(target) is not None else hist_latest)
 
             meta_5m = ml_loader.get_forecast_meta(target, "5m", host=canonical_host)
             target_strategy = meta_5m.get("strategy", "persistence") if meta_5m else "persistence"
