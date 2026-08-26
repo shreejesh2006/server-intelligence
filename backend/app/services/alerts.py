@@ -209,19 +209,25 @@ async def evaluate_host_alerts(
                 .first()
             )
             if not existing_anomaly:
+                primary_reason = anomaly_res.get("primary_reason", f"Multivariate anomaly detected on host '{canonical}'.")
+                anomaly_severity = anomaly_res.get("severity", "WARNING").upper()
+                if anomaly_severity not in ("INFO", "WARNING", "CRITICAL"):
+                    anomaly_severity = "WARNING"
+
                 a = create_alert(
                     db=db,
-                    title=f"Isolation Forest Telemetry Anomaly on {canonical}",
+                    title=f"Isolation Forest Anomaly ({anomaly_severity}) on {canonical}",
                     message=(
-                        f"Multivariate anomaly detected on host '{canonical}' with anomaly score {score:.3f}. "
-                        f"Model status: {model_status}, trained at {anomaly_res.get('model_trained_at', 'unknown')}."
+                        f"{primary_reason} "
+                        f"(Anomaly score: {score:.4f}, Model status: {model_status})."
                     ),
-                    severity=AlertSeverity.WARNING.value,
+                    severity=anomaly_severity,
                     source="isolation_forest",
                     metric="anomaly_score",
                     server=canonical,
                 )
                 created_alerts.append(a)
+
         else:
             if not is_usable_model:
                 logger.info(

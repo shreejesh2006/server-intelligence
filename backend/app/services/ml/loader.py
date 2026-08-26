@@ -155,17 +155,18 @@ class MLLoader:
                     except Exception:
                         logger.exception("Failed loading anomaly detector for host '%s'", host)
 
-        # 2. Load legacy root anomaly detector
-        model_path = ANOMALY_MODELS_DIR / "isolation_forest.joblib"
-        meta_path = ANOMALY_MODELS_DIR / "anomaly_metadata.json"
+        # 2. Load legacy root anomaly detector ONLY if no host detectors were found
+        if not self.anomaly_detectors:
+            model_path = ANOMALY_MODELS_DIR / "isolation_forest.joblib"
+            meta_path = ANOMALY_MODELS_DIR / "anomaly_metadata.json"
 
-        if model_path.exists() and meta_path.exists():
-            try:
-                detector = AnomalyDetector(model_path=str(model_path), meta_path=str(meta_path))
-                if detector.is_loaded():
-                    self.anomaly_detector = detector
-            except Exception:
-                pass
+            if model_path.exists() and meta_path.exists():
+                try:
+                    detector = AnomalyDetector(model_path=str(model_path), meta_path=str(meta_path))
+                    if detector.is_loaded():
+                        self.anomaly_detector = detector
+                except Exception:
+                    pass
 
         self.anomaly_loaded = len(self.anomaly_detectors) > 0 or self.anomaly_detector is not None
 
@@ -211,6 +212,7 @@ class MLLoader:
                     detector = AnomalyDetector(model_path=str(model_path), meta_path=str(meta_path))
                     if detector.is_loaded():
                         self.anomaly_detectors[canonical] = detector
+                        logger.warning("Successfully reloaded anomaly detector for host '%s'", canonical)
                 except Exception:
                     pass
 
@@ -233,9 +235,9 @@ class MLLoader:
         if not self.anomaly_loaded:
             return False
         canonical = normalize_host(host)
-        if canonical and canonical in self.anomaly_detectors:
-            return True
-        return self.anomaly_detector is not None
+        if canonical:
+            return canonical in self.anomaly_detectors
+        return len(self.anomaly_detectors) > 0 or self.anomaly_detector is not None
 
     def get_forecast_meta(self, target: str, horizon: str, host: str | None = None):
         canonical = normalize_host(host)
@@ -251,8 +253,8 @@ class MLLoader:
 
     def get_anomaly_detector(self, host: str | None = None):
         canonical = normalize_host(host)
-        if canonical and canonical in self.anomaly_detectors:
-            return self.anomaly_detectors[canonical]
+        if canonical:
+            return self.anomaly_detectors.get(canonical, None)
         return self.anomaly_detector
 
     def check_model_freshness(self, host: str | None = None, target: str = "cpu", horizon: str = "5m", max_age_hours: int = 168) -> dict:
@@ -260,14 +262,18 @@ class MLLoader:
         Evaluates model age against max_age_hours (default 168h / 7 days).
         Returns dict with status ('fresh', 'stale', 'unavailable'), is_stale bool, and trained_at timestamp.
         """
-        meta = self.get_forecast_meta(target, horizon, host=host)
+        canonical = normalize_host(host)
+        meta = None
+        if canonical:
+            detector = self.get_anomaly_detector(host=canonical)
+            if detector and detector.metadata:
+                meta = detector.metadata
         if not meta:
-            # Check anomaly metadata fallback
-            detector = self.get_anomaly_detector(host=host)
-            meta = detector.metadata if detector else None
+            meta = self.get_forecast_meta(target, horizon, host=canonical)
 
         if not meta:
             return {"status": "unavailable", "is_stale": True, "trained_at": None, "age_hours": None}
+
 
         trained_at_str = meta.get("trained_at") or meta.get("created_at")
         if not trained_at_str:

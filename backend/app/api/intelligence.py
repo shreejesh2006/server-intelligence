@@ -100,6 +100,25 @@ async def get_forecast(
     return await forecast_service.get_forecasts(host=clean_host)
 
 
+@router.get("/anomaly/history")
+async def get_anomaly_history(
+    host: str | None = Query(
+        None,
+        description="Target host filter (e.g. ubuntu, kali)",
+    ),
+    lookback: str = Query(
+        "1h",
+        description="Lookback window (5m, 15m, 30m, 1h, 3h, 6h, 12h, 1d, 7d)",
+    ),
+):
+    """
+    Returns continuous historical anomaly evaluation points for a host across the requested lookback window.
+    Evaluates real VictoriaMetrics range telemetry with the host-specific anomaly detector.
+    """
+    clean_host = validate_host(host)
+    return await anomaly_service.get_anomaly_history(host=clean_host, lookback=lookback)
+
+
 @router.get("/anomaly")
 async def get_anomaly(
     host: str | None = Query(
@@ -108,11 +127,12 @@ async def get_anomaly(
     )
 ):
     """
-    Returns server anomaly score, severity, and anomaly classification.
+    Returns server anomaly score, severity, anomaly classification, and multi-metric explainability analysis.
     Supports host-aware filtering and exposes model freshness metadata.
     """
     clean_host = validate_host(host)
     return await anomaly_service.get_anomaly_score(host=clean_host)
+
 
 
 @router.post("/retrain", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(require_operator)])
