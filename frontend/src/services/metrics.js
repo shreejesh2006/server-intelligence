@@ -18,11 +18,18 @@ export async function getAvailableMetrics() {
 
 /**
  * Fetch current system telemetry metrics for a specific host or default
- * @param {string} [host] - Host label (e.g. 'ubuntu' or 'Kali')
+ * @param {string} [host] - Host label (e.g. 'ubuntu' or 'kali')
  */
 export async function getCurrentMetrics(host) {
-  const params = host ? { host } : {};
+  let queryHost = host;
+  if (queryHost && queryHost.toLowerCase() === 'kali') {
+    queryHost = 'Kali';
+  }
+  const params = queryHost ? { host: queryHost } : {};
   const response = await apiClient.get('/api/metrics/current', { params });
+  if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
+    console.log('[getCurrentMetrics]', { requestedHost: host, queryHost, apiResponse: response.data });
+  }
   return response.data;
 }
 
@@ -35,9 +42,13 @@ export async function getCurrentMetrics(host) {
  * @param {string} [host]
  */
 export async function getMetricHistory(metricName, start = '-1h', end = 'now', step = '30s', host = null) {
+  let queryHost = host;
+  if (queryHost && queryHost.toLowerCase() === 'kali') {
+    queryHost = 'Kali';
+  }
   const params = { start, end, step };
-  if (host) {
-    params.host = host;
+  if (queryHost) {
+    params.host = queryHost;
   }
   const response = await apiClient.get(`/api/metrics/${metricName}`, { params });
   const data = response.data;
@@ -62,42 +73,37 @@ export async function getMetricHistory(metricName, start = '-1h', end = 'now', s
  * @param {string} [step]
  * @param {string} [host]
  */
-export async function getMultiMetricHistory(metricNames = [], start = '-1h', end = 'now', step = '30s', host = null) {
+export async function getMultiMetricHistory(metricNames, start = '-1h', end = 'now', step = '30s', host = null) {
   const promises = metricNames.map((name) =>
-    getMetricHistory(name, start, end, step, host).catch((err) => ({
+    getMetricHistory(name, start, end, step, host).catch(() => ({
       metric: name,
+      host,
       values: [],
-      error: err,
     }))
   );
 
   const results = await Promise.all(promises);
 
-  // Map by metric name
-  const metricsMap = {};
-  results.forEach((res) => {
-    metricsMap[res.metric] = res.values || [];
-  });
-
-  // Merge timestamps into a single timeline array
+  // Group by timestamp across all requested metrics
   const timestampMap = new Map();
 
   results.forEach((res) => {
-    (res.values || []).forEach((point) => {
-      const ts = point.timestamp;
+    const mName = res.metric;
+    (res.values || []).forEach((item) => {
+      const ts = item.timestamp;
       if (!timestampMap.has(ts)) {
         timestampMap.set(ts, { timestamp: ts });
       }
-      timestampMap.get(ts)[res.metric] = point.value;
+      timestampMap.get(ts)[mName] = item.value;
     });
   });
 
-  const mergedTimeline = Array.from(timestampMap.values()).sort(
-    (a, b) => a.timestamp - b.timestamp
-  );
+  const mergedData = Array.from(timestampMap.values()).sort((a, b) => a.timestamp - b.timestamp);
 
   return {
-    metrics: metricsMap,
-    timeline: mergedTimeline,
+    metrics: metricNames,
+    host,
+    data: mergedData,
+    timeline: mergedData,
   };
 }

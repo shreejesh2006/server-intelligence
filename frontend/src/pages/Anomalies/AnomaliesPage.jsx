@@ -38,6 +38,21 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
     setErrorMsg(null);
     try {
       const res = await getAnomaly(selectedHost);
+      if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
+        console.log('[ANOMALY DATA PATH]', {
+          selectedHost,
+          requestUrl: `/api/intelligence/anomaly?host=${selectedHost}`,
+          score: res?.anomaly_score,
+          is_anomaly: res?.is_anomaly,
+          severity: res?.severity,
+          first_metric_name: res?.all_metrics_evaluated?.[0]?.display_name,
+          first_metric_baseline: res?.all_metrics_evaluated?.[0]?.baseline_value,
+          first_metric_current: res?.all_metrics_evaluated?.[0]?.current_value,
+          first_metric_status: res?.all_metrics_evaluated?.[0]?.status,
+          model_trained_at: res?.model_trained_at,
+          training_samples: res?.model_metadata?.training_samples,
+        });
+      }
       setAnomalyData(res);
     } catch (err) {
       setErrorMsg(err?.response?.data?.detail || err?.message || 'Failed to connect to anomaly detection service.');
@@ -47,6 +62,7 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
   }, [selectedHost]);
 
   const loadHistory = useCallback(async () => {
+
     setHistoryLoading(true);
     try {
       const res = await getAnomalyHistory(selectedHost, selectedLookback);
@@ -140,7 +156,7 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
             </span>
             <button
               type="button"
-              className="neo-btn-icon"
+              className="neo-icon-btn"
               onClick={() => {
                 loadCurrentAnomaly();
                 loadHistory();

@@ -88,6 +88,11 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // Role switch handler for demo/settings preview
+  const switchRole = useCallback((newRole) => {
+    setUser((prev) => (prev ? { ...prev, role: newRole } : { username: 'admin', role: newRole }));
+  }, []);
+
   // Logout handler
   const logout = useCallback(() => {
     sessionStorage.removeItem('server_intel_token');
@@ -102,6 +107,7 @@ export function AuthProvider({ children }) {
     isLoading,
     login,
     logout,
+    switchRole,
   };
 
   return (

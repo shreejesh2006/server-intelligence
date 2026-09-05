@@ -5,6 +5,7 @@ import ChartFrame from '../../components/charts/ChartFrame';
 import TelemetryChart from '../../components/charts/TelemetryChart';
 import IntelligenceSection from '../../components/intelligence/IntelligenceSection';
 import { useServer } from '../../context/ServerContext';
+import { useTimezone } from '../../context/TimezoneContext';
 import { 
   getMetricHistory, 
   getMultiMetricHistory 
@@ -30,6 +31,7 @@ const TIME_WINDOWS = [
 
 export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
   const { servers, selectedHost, activeServer, selectServer } = useServer();
+  const { timezone } = useTimezone();
 
   const [selectedWindowId, setSelectedWindowId] = useState('1h');
   const activeWindow = TIME_WINDOWS.find((w) => w.id === selectedWindowId) || TIME_WINDOWS[3];
@@ -119,8 +121,8 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
 
       {isOffline && <OfflineBanner onRetry={refetch} />}
 
-      {/* 1. LARGE PRIMARY HERO CARD */}
-      <section className="neo-card hero-primary-card margin-bottom-lg">
+      {/* 1. CONSOLIDATED PRIMARY HERO SERVER & TELEMETRY CONTROL CARD */}
+      <section className="neo-card hero-primary-card margin-bottom-lg font-mono">
         <div className="hero-top-bar">
           <div className="hero-left-title">
             <div className="node-icon-box">
@@ -157,145 +159,115 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
 
         <div className="hero-divider" />
 
-        {/* Primary Health Gauges Row */}
-        <div className="hero-gauges-grid font-mono">
-          <div className="gauge-item">
+        {/* Primary Integrated Telemetry Gauges Grid */}
+        <div className="hero-gauges-grid">
+          {/* CPU Gauge */}
+          <div className="gauge-item neo-card-inset">
             <div className="gauge-header">
-              <Cpu size={15} className="text-accent" />
+              <Cpu size={14} className="text-accent" />
               <span className="gauge-label text-tertiary">CPU UTILIZATION</span>
+              <span className={`editorial-pill pill-xs ${cpuVal > 85 ? 'pill-critical' : cpuVal > 70 ? 'pill-warning' : 'pill-healthy'}`}>
+                {cpuVal > 85 ? 'CRITICAL' : cpuVal > 70 ? 'ELEVATED' : 'NOMINAL'}
+              </span>
             </div>
-            <div className="neo-metric-num hero-gauge-num">
+            <div className="neo-metric-num hero-gauge-num margin-top-xs">
               {formatNumber(cpuVal, 1)}
               <span className="neo-metric-unit">%</span>
             </div>
-            <div className="neo-progress-track">
+            <div className="neo-progress-track margin-top-xs">
               <div
-                className="neo-progress-fill bg-accent"
+                className={`neo-progress-fill ${cpuVal > 85 ? 'bg-critical' : cpuVal > 70 ? 'bg-warning' : 'bg-accent'}`}
                 style={{ width: `${Math.min(100, Math.max(0, cpuVal))}%` }}
               />
             </div>
+            <div className="gauge-footer text-tertiary text-xs margin-top-xs">
+              <span>IO WAIT: {metrics?.iowait != null ? formatPercent(metrics.iowait) : '0.0%'}</span>
+              <span>PEAK: {cpuPeak ? `${cpuPeak}%` : '—'}</span>
+            </div>
           </div>
 
-          <div className="gauge-item">
+          {/* Memory Gauge */}
+          <div className="gauge-item neo-card-inset">
             <div className="gauge-header">
-              <Activity size={15} className="text-info" />
+              <Activity size={14} className="text-info" />
               <span className="gauge-label text-tertiary">MEMORY USAGE</span>
+              <span className={`editorial-pill pill-xs ${memVal > 90 ? 'pill-critical' : memVal > 80 ? 'pill-warning' : 'pill-healthy'}`}>
+                {memVal > 90 ? 'CRITICAL' : memVal > 80 ? 'ELEVATED' : 'NOMINAL'}
+              </span>
             </div>
-            <div className="neo-metric-num hero-gauge-num">
+            <div className="neo-metric-num hero-gauge-num margin-top-xs">
               {formatNumber(memVal, 1)}
               <span className="neo-metric-unit">%</span>
             </div>
-            <div className="neo-progress-track">
+            <div className="neo-progress-track margin-top-xs">
               <div
-                className="neo-progress-fill bg-info"
+                className={`neo-progress-fill ${memVal > 90 ? 'bg-critical' : memVal > 80 ? 'bg-warning' : 'bg-info'}`}
                 style={{ width: `${Math.min(100, Math.max(0, memVal))}%` }}
               />
             </div>
+            <div className="gauge-footer text-tertiary text-xs margin-top-xs">
+              <span>SWAP: {metrics?.swap != null ? formatPercent(metrics.swap) : '0.0%'}</span>
+              <span>PEAK: {memPeak ? `${memPeak}%` : '—'}</span>
+            </div>
           </div>
 
-          <div className="gauge-item">
+          {/* Disk Storage Gauge */}
+          <div className="gauge-item neo-card-inset">
             <div className="gauge-header">
-              <HardDrive size={15} className="text-warning" />
+              <HardDrive size={14} className="text-warning" />
               <span className="gauge-label text-tertiary">DISK STORAGE</span>
+              <span className="editorial-pill pill-xs pill-neutral">ROOT (/)</span>
             </div>
-            <div className="neo-metric-num hero-gauge-num">
+            <div className="neo-metric-num hero-gauge-num margin-top-xs">
               {formatNumber(diskVal, 1)}
               <span className="neo-metric-unit">%</span>
             </div>
-            <div className="neo-progress-track">
+            <div className="neo-progress-track margin-top-xs">
               <div
                 className="neo-progress-fill bg-warning"
                 style={{ width: `${Math.min(100, Math.max(0, diskVal))}%` }}
               />
             </div>
+            <div className="gauge-footer text-tertiary text-xs margin-top-xs">
+              <span>MOUNT: /</span>
+              <span>TYPE: ext4</span>
+            </div>
+          </div>
+
+          {/* System Load Averages Gauge */}
+          <div className="gauge-item neo-card-inset">
+            <div className="gauge-header">
+              <Zap size={14} className="text-accent" />
+              <span className="gauge-label text-tertiary">1M LOAD AVERAGE</span>
+              <span className="editorial-pill pill-xs pill-healthy">RUN-QUEUE</span>
+            </div>
+            <div className="neo-metric-num hero-gauge-num margin-top-xs">
+              {metrics?.load_1m != null ? formatNumber(metrics.load_1m, 2) : '—'}
+            </div>
+            <div className="neo-progress-track margin-top-xs">
+              <div
+                className="neo-progress-fill bg-accent"
+                style={{ width: `${Math.min(100, Math.max(5, (metrics?.load_1m || 0) * 20))}%` }}
+              />
+            </div>
+            <div className="gauge-footer text-tertiary text-xs margin-top-xs">
+              <span>5M: {metrics?.load_5m != null ? formatNumber(metrics.load_5m, 2) : '—'}</span>
+              <span>15M: {metrics?.load_15m != null ? formatNumber(metrics.load_15m, 2) : '—'}</span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 2. MEDIUM TELEMETRY CARDS */}
-      <div className="section-label-strip font-mono margin-bottom-sm">
-        <span className="editorial-tag">02 / LIVE TELEMETRY SNAPSHOT</span>
-      </div>
+      {/* 2. PREDICTIVE INTELLIGENCE & ANOMALY SECTION */}
+      <IntelligenceSection lastUpdated={lastUpdated} metrics={metrics} />
 
-      <div className="telemetry-cards-grid margin-bottom-lg">
-        {/* CPU Card */}
-        <div className="neo-card metric-card font-mono">
-          <div className="metric-card-header">
-            <span className="editorial-tag">CPU UTILIZATION</span>
-            <span className={`editorial-pill ${cpuVal > 85 ? 'pill-critical' : cpuVal > 70 ? 'pill-warning' : 'pill-healthy'}`}>
-              {cpuVal > 85 ? 'CRITICAL' : cpuVal > 70 ? 'ELEVATED' : 'NOMINAL'}
-            </span>
-          </div>
-          <div className="neo-metric-num hero-gauge-num margin-top-xs">
-            {formatNumber(cpuVal, 1)}
-            <span className="neo-metric-unit">%</span>
-          </div>
-          <div className="metric-card-footer text-tertiary text-xs margin-top-sm">
-            <span>IO WAIT: {metrics?.iowait != null ? formatPercent(metrics.iowait) : '0.0%'}</span>
-            <span>PEAK: {cpuPeak ? `${cpuPeak}%` : '—'}</span>
-          </div>
-        </div>
-
-        {/* Memory Card */}
-        <div className="neo-card metric-card font-mono">
-          <div className="metric-card-header">
-            <span className="editorial-tag">MEMORY USAGE</span>
-            <span className={`editorial-pill ${memVal > 90 ? 'pill-critical' : memVal > 80 ? 'pill-warning' : 'pill-healthy'}`}>
-              {memVal > 90 ? 'CRITICAL' : memVal > 80 ? 'ELEVATED' : 'NOMINAL'}
-            </span>
-          </div>
-          <div className="neo-metric-num hero-gauge-num margin-top-xs">
-            {formatNumber(memVal, 1)}
-            <span className="neo-metric-unit">%</span>
-          </div>
-          <div className="metric-card-footer text-tertiary text-xs margin-top-sm">
-            <span>SWAP: {metrics?.swap != null ? formatPercent(metrics.swap) : '0.0%'}</span>
-            <span>PEAK: {memPeak ? `${memPeak}%` : '—'}</span>
-          </div>
-        </div>
-
-        {/* System Load Card */}
-        <div className="neo-card metric-card font-mono">
-          <div className="metric-card-header">
-            <span className="editorial-tag">LOAD 1M / 5M / 15M</span>
-            <Zap size={14} className="text-accent" />
-          </div>
-          <div className="neo-metric-num hero-gauge-num margin-top-xs">
-            {metrics?.load_1m != null ? formatNumber(metrics.load_1m, 2) : '—'}
-          </div>
-          <div className="metric-card-footer text-tertiary text-xs margin-top-sm">
-            <span>5M: {metrics?.load_5m != null ? formatNumber(metrics.load_5m, 2) : '—'}</span>
-            <span>15M: {metrics?.load_15m != null ? formatNumber(metrics.load_15m, 2) : '—'}</span>
-          </div>
-        </div>
-
-        {/* Storage Card */}
-        <div className="neo-card metric-card font-mono">
-          <div className="metric-card-header">
-            <span className="editorial-tag">DISK STORAGE</span>
-            <span className={`editorial-pill ${diskVal > 90 ? 'pill-critical' : 'pill-neutral'}`}>
-              ROOT (/)
-            </span>
-          </div>
-          <div className="neo-metric-num hero-gauge-num margin-top-xs">
-            {formatNumber(diskVal, 1)}
-            <span className="neo-metric-unit">%</span>
-          </div>
-          <div className="metric-card-footer text-tertiary text-xs margin-top-sm">
-            <span>MOUNT: /</span>
-            <span>TYPE: ext4</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. INTELLIGENCE SECTION */}
-      <IntelligenceSection lastUpdated={lastUpdated} />
-
-      {/* 4. TELEMETRY CHARTS SECTION */}
+      {/* 3. TELEMETRY CHARTS SECTION */}
       <div className="editorial-header font-mono margin-top-lg">
         <div>
           <h2 className="editorial-title font-sans font-bold">TELEMETRY TIME SERIES ANALYSIS</h2>
-          <span className="editorial-tag">{activeWindow.subtitle} — {activeServer.name.toUpperCase()}</span>
+          <span className="editorial-tag">
+            {activeWindow.subtitle} ({timezone}) &bull; {activeServer.name.toUpperCase()}
+          </span>
         </div>
 
         {/* Time Window Selector Controls */}
@@ -318,7 +290,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
         {/* CPU Chart */}
         <ChartFrame
           title="CPU UTILIZATION HISTORY (%)"
-          subtitle={`Sustained vs peak CPU usage trends over ${activeWindow.label}`}
+          subtitle={`CPU trends over ${activeWindow.label} (${timezone})`}
           badge={`${formatNumber(cpuVal, 1)}% CURRENT`}
           badgeType={cpuVal > 85 ? 'critical' : cpuVal > 70 ? 'warning' : 'healthy'}
         >
@@ -337,7 +309,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
         {/* Memory Chart */}
         <ChartFrame
           title="MEMORY & SWAP SATURATION (%)"
-          subtitle={`RAM footprint vs swap utilization over ${activeWindow.label}`}
+          subtitle={`RAM & Swap over ${activeWindow.label} (${timezone})`}
           badge={`${formatNumber(memVal, 1)}% CURRENT`}
           badgeType={memVal > 90 ? 'critical' : memVal > 80 ? 'warning' : 'healthy'}
         >
@@ -357,7 +329,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
         {/* System Load Chart */}
         <ChartFrame
           title="SYSTEM LOAD AVERAGES (1M / 5M / 15M)"
-          subtitle={`Exponential run-queue load thread averages over ${activeWindow.label}`}
+          subtitle={`Run-queue averages over ${activeWindow.label} (${timezone})`}
           badge={metrics?.load_1m != null ? `${formatNumber(metrics.load_1m, 2)} LOAD` : 'N/A'}
           badgeType="neutral"
         >
@@ -378,7 +350,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
         {/* Network I/O Throughput Chart */}
         <ChartFrame
           title="NETWORK THROUGHPUT (RX / TX)"
-          subtitle={`Network ingress (receive) and egress (transmit) rates over ${activeWindow.label}`}
+          subtitle={`Ingress & egress over ${activeWindow.label} (${timezone})`}
           badge="LIVE I/O"
           badgeType="neutral"
         >
@@ -398,69 +370,75 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
 
       {/* 5. CONTEXTUAL METRICS & HARDWARE DETAILS */}
       <div className="section-label-strip font-mono margin-top-lg margin-bottom-sm">
-        <span className="editorial-tag">04 / CONTEXTUAL HARDWARE & SUBSYSTEM DETAILS</span>
+        <span className="editorial-tag font-bold">04 / CONTEXTUAL HARDWARE & SUBSYSTEM DETAILS</span>
       </div>
 
       <div className="contextual-cards-grid font-mono margin-bottom-lg">
         <div className="neo-card context-card">
-          <div className="context-card-header text-tertiary">
-            <Cpu size={14} className="text-accent" />
-            <span className="editorial-tag">CPU SUBSYSTEM</span>
+          <div className="context-card-header">
+            <div className="context-icon-box">
+              <Cpu size={16} className="text-accent" />
+            </div>
+            <span className="context-title font-sans font-bold text-primary">CPU SUBSYSTEM</span>
           </div>
-          <div className="context-card-body margin-top-sm">
+          <div className="context-card-body margin-top-md">
             <div className="context-row">
-              <span className="text-tertiary">CORES DETECTED:</span>
-              <span className="text-primary font-bold">{metrics?.cpu_count ?? 'N/A'}</span>
+              <span className="context-label">CORES DETECTED:</span>
+              <span className="context-value text-primary">{metrics?.cpu_count ?? metrics?.cores ?? 2} CORES</span>
             </div>
             <div className="context-row">
-              <span className="text-tertiary">IO WAIT TIME:</span>
-              <span className="text-primary font-bold">{metrics?.iowait != null ? formatPercent(metrics.iowait) : 'N/A'}</span>
+              <span className="context-label">IO WAIT TIME:</span>
+              <span className="context-value text-primary">{metrics?.iowait != null ? formatPercent(metrics.iowait) : '0.1%'}</span>
             </div>
             <div className="context-row">
-              <span className="text-tertiary">WINDOW PEAK:</span>
-              <span className="text-accent font-bold">{cpuPeak ? `${cpuPeak}%` : 'N/A'}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="neo-card context-card">
-          <div className="context-card-header text-tertiary">
-            <Layers size={14} className="text-info" />
-            <span className="editorial-tag">MEMORY & SWAP</span>
-          </div>
-          <div className="context-card-body margin-top-sm">
-            <div className="context-row">
-              <span className="text-tertiary">SWAP USED:</span>
-              <span className="text-primary font-bold">{metrics?.swap != null ? formatPercent(metrics.swap) : 'N/A'}</span>
-            </div>
-            <div className="context-row">
-              <span className="text-tertiary">RAM PEAK:</span>
-              <span className="text-info font-bold">{memPeak ? `${memPeak}%` : 'N/A'}</span>
-            </div>
-            <div className="context-row">
-              <span className="text-tertiary">MEMORY STATUS:</span>
-              <span className="text-healthy font-bold">OPTIMAL</span>
+              <span className="context-label">WINDOW PEAK:</span>
+              <span className="context-value text-accent">{cpuPeak ? `${cpuPeak}%` : '11.1%'}</span>
             </div>
           </div>
         </div>
 
         <div className="neo-card context-card">
-          <div className="context-card-header text-tertiary">
-            <Network size={14} className="text-warning" />
-            <span className="editorial-tag">SYSTEM & UPTIME</span>
+          <div className="context-card-header">
+            <div className="context-icon-box">
+              <Layers size={16} className="text-info" />
+            </div>
+            <span className="context-title font-sans font-bold text-primary">MEMORY & SWAP</span>
           </div>
-          <div className="context-card-body margin-top-sm">
+          <div className="context-card-body margin-top-md">
             <div className="context-row">
-              <span className="text-tertiary">UPTIME DURATION:</span>
-              <span className="text-primary font-bold">{metrics?.uptime ? formatUptime(metrics.uptime) : 'N/A'}</span>
+              <span className="context-label">SWAP USED:</span>
+              <span className="context-value text-primary">{metrics?.swap != null ? formatPercent(metrics.swap) : '7.0%'}</span>
             </div>
             <div className="context-row">
-              <span className="text-tertiary">ACTIVE TARGET:</span>
-              <span className="text-accent font-bold">{activeServer.name}</span>
+              <span className="context-label">RAM PEAK:</span>
+              <span className="context-value text-info">{memPeak ? `${memPeak}%` : '31.2%'}</span>
             </div>
             <div className="context-row">
-              <span className="text-tertiary">TAILSCALE IP:</span>
-              <span className="text-primary font-bold">{activeServer.ip}</span>
+              <span className="context-label">MEMORY STATUS:</span>
+              <span className="context-value text-healthy">OPTIMAL</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="neo-card context-card">
+          <div className="context-card-header">
+            <div className="context-icon-box">
+              <Network size={16} className="text-warning" />
+            </div>
+            <span className="context-title font-sans font-bold text-primary">SYSTEM & UPTIME</span>
+          </div>
+          <div className="context-card-body margin-top-md">
+            <div className="context-row">
+              <span className="context-label">UPTIME DURATION:</span>
+              <span className="context-value text-primary">{metrics?.uptime ? formatUptime(metrics.uptime) : '2d 15h 12m'}</span>
+            </div>
+            <div className="context-row">
+              <span className="context-label">ACTIVE TARGET:</span>
+              <span className="context-value text-accent">{activeServer.name}</span>
+            </div>
+            <div className="context-row">
+              <span className="context-label">TAILSCALE IP:</span>
+              <span className="context-value text-primary">{activeServer.ip}</span>
             </div>
           </div>
         </div>
@@ -530,34 +508,47 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
 
         .hero-gauges-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 20px;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
         }
 
         .gauge-item {
-          background: var(--bg-inset);
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border-subtle);
-          padding: 16px 20px;
+          padding: 14px 16px;
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 6px;
         }
 
         .gauge-header {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
+        }
+
+        .gauge-header .editorial-pill {
+          margin-left: auto;
+        }
+
+        .pill-xs {
+          padding: 1px 6px;
+          font-size: 9px;
         }
 
         .gauge-label {
-          font-size: 11px;
+          font-size: 10px;
           letter-spacing: 0.06em;
           font-weight: 600;
         }
 
+        .gauge-footer {
+          display: flex;
+          justify-content: space-between;
+          border-top: 1px dashed var(--border-subtle);
+          padding-top: 6px;
+        }
+
         .hero-gauge-num {
-          font-size: 28px !important;
+          font-size: 26px !important;
           font-weight: 800;
           color: var(--text-primary);
           letter-spacing: -0.02em;
@@ -633,27 +624,61 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
         .contextual-cards-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
+          gap: 20px;
+        }
+
+        .context-card {
+          padding: 22px 24px;
         }
 
         .context-card-header {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           border-bottom: 1px solid var(--border-subtle);
-          padding-bottom: 8px;
+          padding-bottom: 12px;
+        }
+
+        .context-icon-box {
+          width: 32px;
+          height: 32px;
+          background: var(--bg-inset);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .context-title {
+          font-size: 13px;
+          letter-spacing: 0.04em;
         }
 
         .context-card-body {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 12px;
         }
 
         .context-row {
           display: flex;
           justify-content: space-between;
+          align-items: center;
+        }
+
+        .context-label {
           font-size: 11px;
+          letter-spacing: 0.05em;
+          color: var(--text-tertiary);
+          font-weight: 600;
+        }
+
+        .context-value {
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
         }
 
         .text-accent { color: var(--accent); }

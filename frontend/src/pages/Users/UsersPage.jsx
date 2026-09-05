@@ -13,8 +13,17 @@ import {
   CheckCircle2, 
   AlertCircle, 
   ShieldAlert,
+  ShieldCheck,
   UserCheck, 
-  UserX
+  UserX,
+  Crown,
+  Terminal,
+  Eye,
+  Shield,
+  Lock,
+  User,
+  KeyRound,
+  X
 } from 'lucide-react';
 
 export function UsersPage() {
@@ -25,7 +34,7 @@ export function UsersPage() {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
 
-  // Create User Form
+  // Create User Form state
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -33,7 +42,7 @@ export function UsersPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
 
-  // Confirmation Modal
+  // Confirmation Modal state
   const [confirmDisableTarget, setConfirmDisableTarget] = useState(null);
   const [pendingUserId, setPendingUserId] = useState(null);
 
@@ -91,7 +100,7 @@ export function UsersPage() {
       setShowCreateForm(false);
       fetchUsers();
     } catch (err) {
-      setCreateError(err?.response?.data?.detail || 'Failed to register user.');
+      setCreateError(err?.response?.data?.detail || 'Failed to register user account.');
     } finally {
       setIsCreating(false);
     }
@@ -151,12 +160,64 @@ export function UsersPage() {
     }
   };
 
+  const renderRoleBadge = (role) => {
+    switch (role) {
+      case 'ADMIN':
+        return (
+          <span className="role-pill pill-admin font-mono">
+            <Crown size={12} className="text-warning" /> ADMIN
+          </span>
+        );
+      case 'OPERATOR':
+        return (
+          <span className="role-pill pill-operator font-mono">
+            <Terminal size={12} className="text-accent" /> OPERATOR
+          </span>
+        );
+      case 'VIEWER':
+      default:
+        return (
+          <span className="role-pill pill-viewer font-mono">
+            <Eye size={12} className="text-info" /> VIEWER
+          </span>
+        );
+    }
+  };
+
+  const renderUserAvatar = (role) => {
+    switch (role) {
+      case 'ADMIN':
+        return (
+          <div className="user-avatar-circle avatar-admin">
+            <Crown size={15} className="text-warning" />
+          </div>
+        );
+      case 'OPERATOR':
+        return (
+          <div className="user-avatar-circle avatar-operator">
+            <Terminal size={15} className="text-accent" />
+          </div>
+        );
+      case 'VIEWER':
+      default:
+        return (
+          <div className="user-avatar-circle avatar-viewer">
+            <Eye size={15} className="text-info" />
+          </div>
+        );
+    }
+  };
+
+  const adminCount = users.filter((u) => u.role === 'ADMIN').length;
+  const operatorCount = users.filter((u) => u.role === 'OPERATOR').length;
+  const viewerCount = users.filter((u) => u.role === 'VIEWER').length;
+
   return (
     <div className="users-page font-sans">
       <PageHeader
         index="07"
         title="USER & ACCESS CONTROL"
-        subtitle="Role-Based Access Control (RBAC) administrative account management."
+        subtitle="Role-Based Access Control (RBAC) user account management and security policy matrix."
         tag="SECURITY REGISTRY"
       >
         <button
@@ -164,14 +225,14 @@ export function UsersPage() {
           onClick={() => setShowCreateForm((prev) => !prev)}
           className={`neo-btn ${showCreateForm ? 'neo-btn-active' : 'neo-btn-primary'}`}
         >
-          <UserPlus size={13} />
+          <UserPlus size={14} />
           <span>{showCreateForm ? 'CLOSE REGISTRATION' : '+ PROVISION USER'}</span>
         </button>
       </PageHeader>
 
       {/* Global Alerts */}
       {notice && (
-        <div className="editorial-notice-banner notice-success font-mono margin-bottom-md">
+        <div className="editorial-notice-banner notice-success font-mono margin-top-md margin-bottom-md">
           <CheckCircle2 size={14} />
           <span>{notice}</span>
           <button type="button" onClick={() => setNotice(null)} className="notice-close">✕</button>
@@ -179,12 +240,67 @@ export function UsersPage() {
       )}
 
       {error && (
-        <div className="editorial-notice-banner notice-error font-mono margin-bottom-md">
+        <div className="editorial-notice-banner notice-error font-mono margin-top-md margin-bottom-md">
           <AlertCircle size={14} />
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} className="notice-close">✕</button>
         </div>
       )}
+
+      {/* SUMMARY STATISTICAL TILES */}
+      <div className="users-summary-strip grid-4 font-mono margin-top-md margin-bottom-lg">
+        <div className="neo-card-inset summary-stat-tile">
+          <div className="stat-top text-tertiary text-xs flex-center gap-xs">
+            <User size={14} className="text-accent" />
+            <span>TOTAL ACCOUNTS</span>
+          </div>
+          <div className="stat-num font-bold text-primary margin-top-xs">
+            {users.length} <span className="text-xs text-tertiary font-normal">USERS</span>
+          </div>
+          <div className="stat-sub text-healthy text-xs margin-top-xs">
+            {users.filter((u) => u.is_active).length} ACTIVE SESSIONS
+          </div>
+        </div>
+
+        <div className="neo-card-inset summary-stat-tile">
+          <div className="stat-top text-tertiary text-xs flex-center gap-xs">
+            <Crown size={14} className="text-warning" />
+            <span>ADMINISTRATORS</span>
+          </div>
+          <div className="stat-num font-bold text-warning margin-top-xs">
+            {adminCount} <span className="text-xs text-tertiary font-normal">ADMINS</span>
+          </div>
+          <div className="stat-sub text-tertiary text-xs margin-top-xs">
+            FULL CONTROL PRIVILEGE
+          </div>
+        </div>
+
+        <div className="neo-card-inset summary-stat-tile">
+          <div className="stat-top text-tertiary text-xs flex-center gap-xs">
+            <Terminal size={14} className="text-accent" />
+            <span>SYSTEM OPERATORS</span>
+          </div>
+          <div className="stat-num font-bold text-accent margin-top-xs">
+            {operatorCount} <span className="text-xs text-tertiary font-normal">OPERATORS</span>
+          </div>
+          <div className="stat-sub text-tertiary text-xs margin-top-xs">
+            MONITORING & ALERT CONTROL
+          </div>
+        </div>
+
+        <div className="neo-card-inset summary-stat-tile">
+          <div className="stat-top text-tertiary text-xs flex-center gap-xs">
+            <Eye size={14} className="text-info" />
+            <span>READ-ONLY VIEWERS</span>
+          </div>
+          <div className="stat-num font-bold text-info margin-top-xs">
+            {viewerCount} <span className="text-xs text-tertiary font-normal">VIEWERS</span>
+          </div>
+          <div className="stat-sub text-tertiary text-xs margin-top-xs">
+            AUDIT & READ-ONLY ACCESS
+          </div>
+        </div>
+      </div>
 
       {/* Deactivation Confirmation Modal */}
       {confirmDisableTarget && (
@@ -217,133 +333,169 @@ export function UsersPage() {
         </div>
       )}
 
-      {/* User Creation Form */}
+      {/* User Creation Modal Popup */}
       {showCreateForm && (
-        <section className="neo-card neo-card-raised form-section font-mono margin-bottom-lg">
-          <div className="form-header border-bottom padding-bottom-xs">
-            <div className="title-box">
-              <UserPlus size={16} className="text-accent" />
-              <span className="editorial-tag">PROVISION NEW USER ACCOUNT</span>
-            </div>
-            <span className="editorial-pill pill-neutral">ADMINISTRATIVE ACTION</span>
-          </div>
-
-          {createError && (
-            <div className="editorial-notice-banner notice-error margin-top-sm">
-              <AlertCircle size={13} />
-              <span>{createError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleCreateUser} className="margin-top-md">
-            <div className="form-grid">
-              <div className="field-box">
-                <label htmlFor="new-username" className="field-label text-tertiary">USERNAME (MIN 3 CHARS):</label>
-                <input
-                  id="new-username"
-                  type="text"
-                  required
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  placeholder="e.g. operator_john"
-                  disabled={isCreating}
-                  className="neo-input"
-                />
+        <div 
+          className="provision-modal-backdrop font-mono"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateForm(false); }}
+        >
+          <div className="neo-card provision-modal-card">
+            <div className="modal-header border-bottom padding-bottom-xs flex-between">
+              <div className="title-box flex-center gap-xs">
+                <div className="modal-icon-box">
+                  <UserPlus size={18} className="text-accent" />
+                </div>
+                <div>
+                  <h3 className="modal-title font-sans font-bold text-primary">PROVISION NEW USER ACCOUNT</h3>
+                  <p className="modal-subtitle font-sans text-xs text-secondary margin-top-xs">
+                    Register new user credentials and assign Role-Based Access Control privileges.
+                  </p>
+                </div>
               </div>
-
-              <div className="field-box">
-                <label htmlFor="new-password" className="field-label text-tertiary">PASSWORD (MIN 8 CHARS):</label>
-                <input
-                  id="new-password"
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  disabled={isCreating}
-                  className="neo-input"
-                />
-              </div>
-
-              <div className="field-box">
-                <label htmlFor="new-role" className="field-label text-tertiary">ROLE ASSIGNMENT:</label>
-                <select
-                  id="new-role"
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                  disabled={isCreating}
-                  className="neo-select"
-                >
-                  <option value="VIEWER">VIEWER (Read-Only Telemetry)</option>
-                  <option value="OPERATOR">OPERATOR (Alert & Node Control)</option>
-                  <option value="ADMIN">ADMIN (Full Administrative Control)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="form-footer margin-top-md">
-              <button
-                type="submit"
-                disabled={isCreating || !newUsername.trim() || !newPassword.trim()}
-                className="neo-btn neo-btn-primary"
+              <button 
+                type="button"
+                onClick={() => setShowCreateForm(false)}
+                className="neo-icon-btn close-btn"
+                title="Close window"
               >
-                {isCreating ? (
-                  <>
-                    <RefreshCw size={12} className="spinning" />
-                    <span>PROVISIONING...</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus size={12} />
-                    <span>REGISTER ACCOUNT</span>
-                  </>
-                )}
+                <X size={15} />
               </button>
             </div>
-          </form>
-        </section>
+
+            {createError && (
+              <div className="editorial-notice-banner notice-error margin-top-sm">
+                <AlertCircle size={13} />
+                <span>{createError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateUser} className="margin-top-md">
+              <div className="form-fields-stack">
+                <div className="field-box">
+                  <label htmlFor="new-username" className="field-label text-tertiary">
+                    USERNAME (MIN 3 CHARS):
+                  </label>
+                  <div className="input-with-icon">
+                    <User size={14} className="input-icon text-tertiary" />
+                    <input
+                      id="new-username"
+                      type="text"
+                      required
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      placeholder="e.g. operator_john"
+                      disabled={isCreating}
+                      className="neo-input input-padded"
+                    />
+                  </div>
+                </div>
+
+                <div className="field-box margin-top-md">
+                  <label htmlFor="new-password" className="field-label text-tertiary">
+                    PASSWORD (MIN 8 CHARS):
+                  </label>
+                  <div className="input-with-icon">
+                    <KeyRound size={14} className="input-icon text-tertiary" />
+                    <input
+                      id="new-password"
+                      type="password"
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      disabled={isCreating}
+                      className="neo-input input-padded"
+                    />
+                  </div>
+                </div>
+
+                <div className="field-box margin-top-md">
+                  <label htmlFor="new-role" className="field-label text-tertiary">ROLE ASSIGNMENT:</label>
+                  <select
+                    id="new-role"
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value)}
+                    disabled={isCreating}
+                    className="neo-select select-role-modal"
+                  >
+                    <option value="VIEWER">VIEWER (Read-Only Telemetry)</option>
+                    <option value="OPERATOR">OPERATOR (Alert & Node Control)</option>
+                    <option value="ADMIN">ADMIN (Full Administrative Control)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-footer margin-top-lg padding-top-sm border-top flex-between">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateForm(false)}
+                  className="neo-btn"
+                >
+                  CANCEL
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isCreating || !newUsername.trim() || !newPassword.trim()}
+                  className="neo-btn neo-btn-primary"
+                >
+                  {isCreating ? (
+                    <>
+                      <RefreshCw size={14} className="spin" />
+                      <span>PROVISIONING ACCOUNT...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus size={14} />
+                      <span>PROVISION ACCOUNT</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Users Registry Table Card */}
-      <section className="neo-card registry-card font-mono">
-        <div className="registry-header border-bottom padding-bottom-xs">
+      <section className="neo-card registry-card font-mono margin-bottom-lg">
+        <div className="registry-header border-bottom padding-bottom-xs flex-between">
           <div>
-            <span className="editorial-tag">AUTHENTICATED USERS REGISTRY</span>
+            <span className="editorial-tag font-bold">01 / AUTHENTICATED USER ACCOUNTS REGISTRY</span>
             <p className="editorial-subtitle font-sans text-xs text-secondary margin-top-xs">
-              Provisioned user accounts and Role-Based Access Control privileges.
+              Provisioned accounts and Role-Based Access Control privilege levels.
             </p>
           </div>
-          <div className="header-actions">
+          <div className="header-actions flex-center gap-xs">
             <span className="editorial-pill pill-neutral">
               {users.length} REGISTERED {users.length === 1 ? 'ACCOUNT' : 'ACCOUNTS'}
             </span>
             <button
               type="button"
               onClick={fetchUsers}
-              className={`neo-icon-btn ${loading ? 'spinning' : ''}`}
-              title="Refresh users"
+              className={`neo-icon-btn ${loading ? 'spin' : ''}`}
+              title="Refresh users list"
             >
-              <RefreshCw size={12} />
+              <RefreshCw size={14} />
             </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="users-loading-state font-mono">
-            <RefreshCw size={14} className="spinning text-accent" />
-            <span>FETCHING USER ACCOUNTS...</span>
+          <div className="users-loading-state font-mono padding-lg text-center">
+            <RefreshCw size={18} className="spin text-accent margin-bottom-xs" />
+            <p className="text-secondary text-xs">Querying security user registry...</p>
           </div>
         ) : (
           <div className="table-wrapper margin-top-md">
             <table className="user-table font-mono">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>USERNAME</th>
+                  <th>ACCOUNT USER</th>
                   <th>ROLE ASSIGNMENT</th>
-                  <th>STATUS</th>
+                  <th>ACCOUNT STATUS</th>
                   <th>CREATED AT</th>
-                  <th>ACTION</th>
+                  <th className="text-right">SECURITY ACTION</th>
                 </tr>
               </thead>
               <tbody>
@@ -356,53 +508,89 @@ export function UsersPage() {
 
                   return (
                     <tr key={u.id} className={isSelf ? 'row-self' : ''}>
-                      <td className="text-tertiary">#{u.id}</td>
                       <td>
                         <div className="user-name-cell font-sans">
-                          <span className="user-name font-bold">{u.username}</span>
-                          {isSelf && <span className="editorial-pill pill-healthy self-tag">YOU (ACTIVE SESSION)</span>}
+                          {renderUserAvatar(u.role)}
+                          <div>
+                            <div className="user-name font-bold text-primary flex-center gap-xs">
+                              <span>{u.username}</span>
+                              {isSelf && (
+                                <span className="editorial-pill pill-healthy self-tag">
+                                  <ShieldCheck size={10} /> YOU
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-tertiary font-mono">ID: #{u.id}</div>
+                          </div>
                         </div>
                       </td>
+
                       <td>
-                        <select
-                          value={u.role}
-                          disabled={isSelf || isPending}
-                          onChange={(e) => handleRoleChange(u.id, u.username, e.target.value)}
-                          className="neo-select select-role"
-                          aria-label={`Role for user ${u.username}`}
-                        >
-                          <option value="ADMIN">ADMIN</option>
-                          <option value="OPERATOR">OPERATOR</option>
-                          <option value="VIEWER">VIEWER</option>
-                        </select>
+                        <div className="role-cell-wrap font-mono">
+                          {isSelf ? (
+                            renderRoleBadge(u.role)
+                          ) : (
+                            <div className="interactive-role-picker">
+                              <select
+                                value={u.role}
+                                disabled={isPending}
+                                onChange={(e) => handleRoleChange(u.id, u.username, e.target.value)}
+                                className={`neo-select role-select-pill role-pill-${u.role.toLowerCase()}`}
+                                aria-label={`Change role assignment for user ${u.username}`}
+                              >
+                                <option value="ADMIN">ADMIN (Full Control)</option>
+                                <option value="OPERATOR">OPERATOR (Alert & Node Control)</option>
+                                <option value="VIEWER">VIEWER (Read-Only Audit)</option>
+                              </select>
+                            </div>
+                          )}
+                        </div>
                       </td>
+
                       <td>
                         {u.is_active ? (
-                          <span className="editorial-pill pill-healthy">
+                          <span className="editorial-pill pill-healthy font-mono">
                             <UserCheck size={11} /> ACTIVE
                           </span>
                         ) : (
-                          <span className="editorial-pill pill-critical">
+                          <span className="editorial-pill pill-critical font-mono">
                             <UserX size={11} /> DISABLED
                           </span>
                         )}
                       </td>
-                      <td className="text-tertiary text-xs">{formattedDate}</td>
-                      <td>
-                        <button
-                          type="button"
-                          disabled={isSelf || isPending}
-                          onClick={() => onRequestStatusToggle(u)}
-                          className={`neo-btn text-xs ${u.is_active ? 'btn-toggle-disable' : 'btn-toggle-enable'}`}
-                        >
-                          {isPending ? (
-                            <RefreshCw size={11} className="spinning" />
-                          ) : u.is_active ? (
-                            'DISABLE'
-                          ) : (
-                            'ENABLE'
-                          )}
-                        </button>
+
+                      <td className="text-tertiary text-xs font-mono">{formattedDate}</td>
+
+                      <td className="text-right">
+                        {isSelf ? (
+                          <span className="editorial-pill pill-healthy font-mono">
+                            <ShieldCheck size={12} /> ACTIVE SESSION
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => onRequestStatusToggle(u)}
+                            className={`neo-btn text-xs ${u.is_active ? 'btn-action-revoke' : 'btn-action-restore'}`}
+                          >
+                            {isPending ? (
+                              <>
+                                <RefreshCw size={12} className="spin" />
+                                <span>UPDATING...</span>
+                              </>
+                            ) : u.is_active ? (
+                              <>
+                                <UserX size={12} />
+                                <span>REVOKE ACCESS</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck size={12} />
+                                <span>RESTORE ACCESS</span>
+                              </>
+                            )}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -410,8 +598,8 @@ export function UsersPage() {
 
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="empty-row text-tertiary">
-                      NO USER ACCOUNTS REGISTERED
+                    <td colSpan="5" className="empty-row text-tertiary text-center padding-md">
+                      NO USER ACCOUNTS REGISTERED IN DATABASE
                     </td>
                   </tr>
                 )}
@@ -421,17 +609,242 @@ export function UsersPage() {
         )}
       </section>
 
+      {/* RBAC ROLE PRIVILEGE CAPABILITY MATRIX */}
+      <section className="neo-card-dashed font-mono">
+        <div className="specs-header border-bottom padding-bottom-sm flex-between">
+          <span className="editorial-tag font-bold">02 / ROLE-BASED ACCESS CONTROL (RBAC) CAPABILITY MATRIX</span>
+          <span className="editorial-pill pill-healthy">ENFORCED BY FASTAPI JWT GATEWAY</span>
+        </div>
+
+        <div className="specs-grid margin-top-md">
+          <div className="neo-card-inset spec-card">
+            <div className="flex-center gap-xs margin-bottom-xs">
+              <Crown size={16} className="text-warning" />
+              <span className="spec-card-title text-warning font-bold">ADMINISTRATOR</span>
+            </div>
+            <p className="spec-desc text-secondary text-xs">
+              Full system control. Access user provisioning, AI model retraining, alert threshold updates, and configuration parameters.
+            </p>
+          </div>
+
+          <div className="neo-card-inset spec-card">
+            <div className="flex-center gap-xs margin-bottom-xs">
+              <Terminal size={16} className="text-accent" />
+              <span className="spec-card-title text-accent font-bold">SYSTEM OPERATOR</span>
+            </div>
+            <p className="spec-desc text-secondary text-xs">
+              Infrastructure monitoring. Acknowledge alert triggers, inspect capacity forecasts, and run diagnostic queries.
+            </p>
+          </div>
+
+          <div className="neo-card-inset spec-card">
+            <div className="flex-center gap-xs margin-bottom-xs">
+              <Eye size={16} className="text-info" />
+              <span className="spec-card-title text-info font-bold">READ-ONLY VIEWER</span>
+            </div>
+            <p className="spec-desc text-secondary text-xs">
+              Audit and read-only access. Inspect telemetry time-series charts, historical analytics, and anomaly scores.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <style>{`
-        .margin-top-xs { margin-top: 4px; }
-        .margin-top-sm { margin-top: 8px; }
-        .margin-top-md { margin-top: 16px; }
+        .margin-top-xs { margin-top: 6px; }
+        .margin-top-sm { margin-top: 10px; }
+        .margin-top-md { margin-top: 20px; }
+        .margin-bottom-xs { margin-bottom: 6px; }
         .margin-bottom-md { margin-bottom: 16px; }
-        .margin-bottom-lg { margin-bottom: 24px; }
+        .margin-bottom-lg { margin-bottom: 28px; }
         .padding-bottom-xs { padding-bottom: 8px; }
+        .padding-bottom-sm { padding-bottom: 12px; }
         .border-bottom { border-bottom: 1px solid var(--border-subtle); }
+        .flex-center { display: flex; align-items: center; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .flex-end { display: flex; justify-content: flex-end; }
+        .gap-xs { gap: 6px; }
+        .text-right { text-align: right; }
+
+        .users-summary-strip {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+
+        .summary-stat-tile {
+          padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+
+        .stat-num {
+          font-size: 20px;
+          line-height: 1.2;
+        }
+
+        .user-avatar-circle {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .avatar-admin {
+          background: rgba(245, 158, 11, 0.15);
+          border: 1px solid rgba(245, 158, 11, 0.35);
+        }
+
+        .avatar-operator {
+          background: var(--accent-muted);
+          border: 1px solid var(--accent-border);
+        }
+
+        .avatar-viewer {
+          background: rgba(56, 189, 248, 0.15);
+          border: 1px solid rgba(56, 189, 248, 0.35);
+        }
+
+        .role-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 8px;
+          border-radius: var(--radius-pill);
+          font-size: 10px;
+          font-weight: 700;
+        }
+
+        .pill-admin {
+          background: rgba(245, 158, 11, 0.12);
+          color: var(--status-warning, #f59e0b);
+          border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .pill-operator {
+          background: var(--accent-muted);
+          color: var(--accent);
+          border: 1px solid var(--accent-border);
+        }
+
+        .pill-viewer {
+          background: rgba(56, 189, 248, 0.12);
+          color: var(--status-info, #38bdf8);
+          border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .role-cell-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .select-role-compact {
+          height: 26px;
+          font-size: 10px;
+          padding: 0 6px;
+        }
+
+        .input-with-icon {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .input-icon {
+          position: absolute;
+          left: 10px;
+          pointer-events: none;
+        }
+
+        .input-padded {
+          padding-left: 32px !important;
+          width: 100%;
+        }
+
+        .form-section {
+          padding: 22px 24px;
+        }
+
+        .form-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+        }
+
+        .field-box {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .field-label {
+          font-size: 10px;
+          letter-spacing: 0.06em;
+        }
+
+        .registry-card {
+          padding: 22px 24px;
+        }
+
+        .table-wrapper {
+          overflow-x: auto;
+        }
+
+        .user-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 11px;
+        }
+
+        .user-table th {
+          font-size: 10px;
+          letter-spacing: 0.08em;
+          color: var(--text-tertiary);
+          border-bottom: 1px solid var(--border-strong);
+          padding: 10px 12px;
+        }
+
+        .user-table td {
+          padding: 12px;
+          border-bottom: 1px solid var(--border-subtle);
+          vertical-align: middle;
+        }
+
+        .row-self {
+          background-color: var(--accent-muted);
+        }
+
+        .user-name-cell {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .user-name {
+          font-size: 13px;
+        }
+
+        .self-tag {
+          font-size: 9px;
+        }
+
+        .specs-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+        }
+
+        .spec-card {
+          padding: 16px;
+          border-radius: var(--radius-md);
+        }
 
         .editorial-notice-banner {
-          padding: 8px 14px;
+          padding: 10px 14px;
           font-size: 11px;
           display: flex;
           align-items: center;
@@ -465,18 +878,159 @@ export function UsersPage() {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(15, 23, 42, 0.5);
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 100;
+          z-index: 1000;
           padding: 20px;
+        }
+
+        .provision-modal-backdrop {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+          animation: fadeIn 0.15s ease-out;
+        }
+
+        .provision-modal-card {
+          width: 100%;
+          max-width: 520px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-strong);
+          border-radius: var(--radius-lg);
+          box-shadow: var(--shadow-raised-lg);
+          padding: 24px 28px;
+          position: relative;
+        }
+
+        .modal-icon-box {
+          width: 36px;
+          height: 36px;
+          background: var(--bg-inset);
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-subtle);
+          box-shadow: var(--shadow-inset-sm);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .select-role-modal {
+          width: 100%;
+          height: 38px;
+          padding: 0 12px;
+          font-size: 12px;
+          font-family: var(--font-mono);
+          background: var(--bg-inset);
+          border: 1px solid var(--border-strong);
+          border-radius: var(--radius-md);
+          color: var(--text-primary);
+          box-shadow: var(--shadow-inset-sm);
+          outline: none;
+        }
+
+        .select-role-modal:focus {
+          border-color: var(--accent);
+        }
+
+        .modal-footer {
+          margin-top: 28px !important;
+          padding-top: 16px !important;
+          border-top: 1px solid var(--border-subtle);
+        }
+
+        .role-select-pill {
+          height: 28px;
+          padding: 0 10px;
+          font-size: 10px;
+          font-weight: 700;
+          font-family: var(--font-mono);
+          border-radius: var(--radius-pill);
+          cursor: pointer;
+          transition: all 0.15s ease;
+          outline: none;
+        }
+
+        .role-pill-admin {
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.4);
+          color: var(--status-warning, #f59e0b);
+        }
+
+        .role-pill-operator {
+          background: var(--accent-muted);
+          border: 1px solid var(--accent-border);
+          color: var(--accent);
+        }
+
+        .role-pill-viewer {
+          background: rgba(56, 189, 248, 0.12);
+          border: 1px solid rgba(56, 189, 248, 0.4);
+          color: var(--status-info, #38bdf8);
+        }
+
+        .btn-action-revoke {
+          background: rgba(220, 38, 38, 0.08);
+          border: 1px solid rgba(220, 38, 38, 0.3);
+          color: var(--status-critical);
+          height: 28px;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 0 10px;
+          gap: 6px;
+          display: inline-flex;
+          align-items: center;
+          border-radius: var(--radius-md);
+          transition: all 0.15s ease;
+        }
+
+        .btn-action-revoke:hover:not(:disabled) {
+          background: rgba(220, 38, 38, 0.18);
+          border-color: rgba(220, 38, 38, 0.6);
+        }
+
+        .btn-action-restore {
+          background: var(--accent-muted);
+          border: 1px solid var(--accent-border);
+          color: var(--status-healthy);
+          height: 28px;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 0 10px;
+          gap: 6px;
+          display: inline-flex;
+          align-items: center;
+          border-radius: var(--radius-md);
+          transition: all 0.15s ease;
+        }
+
+        .btn-action-restore:hover:not(:disabled) {
+          background: rgba(22, 163, 74, 0.18);
+          border-color: var(--accent);
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.98); }
+          to { opacity: 1; transform: scale(1); }
         }
 
         .confirm-modal-card {
           max-width: 440px;
           width: 100%;
-          border-left: 3px solid var(--status-critical);
+          border-left: 4px solid var(--status-critical);
+          padding: 22px 24px;
         }
 
         .modal-header {
@@ -507,122 +1061,6 @@ export function UsersPage() {
           background: #b91c1c;
         }
 
-        .form-section {
-          padding: 20px 24px;
-        }
-
-        .form-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .title-box {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .form-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 16px;
-        }
-
-        .field-box {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .field-label {
-          font-size: 10px;
-          letter-spacing: 0.05em;
-        }
-
-        .form-footer {
-          display: flex;
-          justify-content: flex-end;
-        }
-
-        .registry-card {
-          padding: 20px 24px;
-        }
-
-        .registry-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .header-actions {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .users-loading-state {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          padding: 36px 0;
-          color: var(--text-tertiary);
-          font-size: 11px;
-        }
-
-        .table-wrapper {
-          overflow-x: auto;
-        }
-
-        .user-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 11px;
-          text-align: left;
-        }
-
-        .user-table th {
-          font-size: 10px;
-          letter-spacing: 0.08em;
-          color: var(--text-tertiary);
-          border-bottom: 1px solid var(--border-strong);
-          padding: 8px 12px;
-        }
-
-        .user-table td {
-          padding: 10px 12px;
-          border-bottom: 1px solid var(--border-subtle);
-          color: var(--text-primary);
-          vertical-align: middle;
-        }
-
-        .row-self {
-          background-color: var(--accent-muted);
-        }
-
-        .user-name-cell {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .user-name {
-          font-size: 12px;
-        }
-
-        .self-tag {
-          font-size: 9px;
-        }
-
-        .select-role {
-          height: 28px;
-          font-size: 10px;
-          padding: 2px 6px;
-        }
-
         .btn-toggle-disable:hover:not(:disabled) {
           border-color: rgba(220, 38, 38, 0.4);
           color: var(--status-critical);
@@ -633,17 +1071,41 @@ export function UsersPage() {
           color: var(--status-healthy);
         }
 
-        .empty-row {
-          text-align: center;
-          padding: 24px 0;
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
 
         .text-accent { color: var(--accent); }
+        .text-warning { color: var(--status-warning, #f59e0b); }
         .text-critical { color: var(--status-critical); }
         .text-healthy { color: var(--status-healthy); }
+        .text-info { color: var(--status-info, #38bdf8); }
         .text-tertiary { color: var(--text-tertiary); }
         .text-secondary { color: var(--text-secondary); }
         .text-primary { color: var(--text-primary); }
+
+        @media (max-width: 1100px) {
+          .users-summary-strip {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .form-grid {
+            grid-template-columns: 1fr;
+          }
+          .specs-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .users-summary-strip {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
     </div>
   );

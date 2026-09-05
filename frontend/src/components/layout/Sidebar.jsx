@@ -10,9 +10,9 @@ import {
   BarChart2, 
   Users, 
   Sliders,
-  Bot,
   ChevronLeft,
   ChevronRight
+
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -23,11 +23,10 @@ const NAV_ITEMS = [
   { name: 'ALERTS', path: '/alerts', icon: Bell, adminOnly: false },
   { name: 'ANALYTICS', path: '/analytics', icon: BarChart2, adminOnly: false },
   { name: 'USERS', path: '/users', icon: Users, adminOnly: true },
-  { name: 'ASSISTANT', path: '/assistant', icon: Bot, adminOnly: false },
-  { name: 'SETTINGS', path: '/settings', icon: Sliders, adminOnly: true },
 ];
 
-export function Sidebar() {
+
+export function Sidebar({ onOpenSettings }) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 

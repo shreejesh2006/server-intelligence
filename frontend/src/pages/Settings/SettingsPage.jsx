@@ -280,7 +280,7 @@ export function SettingsPage() {
                     onChange={(e) => setAiProvider(e.target.value)}
                     className="neo-select"
                   >
-                    <option value="ollama">Ollama (Local Server Endpoint)</option>
+                    <option value="ollama">Ollama (Mac-Local Endpoint)</option>
                     <option value="openai">OpenAI (API Endpoint)</option>
                     <option value="anthropic">Anthropic Claude (API Endpoint)</option>
                   </select>
@@ -291,7 +291,7 @@ export function SettingsPage() {
                 <div className="row-info">
                   <div className="setting-title font-sans">MODEL ARCHITECTURE</div>
                   <div className="setting-desc font-sans text-xs text-secondary">
-                    Selected LLM model for operational telemetry analysis.
+                    Selected LLM model for operational telemetry analysis (Configurable via VITE_OLLAMA_URL or http://localhost:11434).
                   </div>
                 </div>
                 <div className="row-control">
@@ -302,11 +302,13 @@ export function SettingsPage() {
                   >
                     {aiProvider === 'ollama' && (
                       <>
+                        <option value="qwen3:1.7b">Qwen 3 (1.7B - Mac-Local Fast)</option>
                         <option value="llama3">Llama 3 (8B Instruct)</option>
                         <option value="mistral">Mistral (7B Instruct)</option>
-                        <option value="qwen">Qwen 2.5 (Coder)</option>
                       </>
                     )}
+
+
                     {aiProvider === 'openai' && (
                       <>
                         <option value="gpt-4o-mini">GPT-4o Mini (Fast Observability)</option>

@@ -371,7 +371,7 @@ button, input, select, textarea {
   border-color: var(--accent);
 }
 
-.neo-icon-btn, .icon-btn {
+.neo-icon-btn, .icon-btn, .neo-btn-icon {
   width: 32px;
   height: 32px;
   display: inline-flex;
@@ -381,13 +381,15 @@ button, input, select, textarea {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
+  box-shadow: var(--shadow-raised-sm);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.neo-icon-btn:hover, .icon-btn:hover {
+.neo-icon-btn:hover, .icon-btn:hover, .neo-btn-icon:hover:not(:disabled) {
   color: var(--accent);
   border-color: var(--accent-border);
+  background: var(--bg-surface-hover);
 }
 
 /* Segmented Control Track & Items */

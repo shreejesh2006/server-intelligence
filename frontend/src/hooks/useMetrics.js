@@ -26,6 +26,9 @@ export function useMetrics(targetHost = null, pollIntervalMs = 30000) {
 
       if (metricsRes && metricsRes.status === 'success') {
         const fetchedMetrics = metricsRes.metrics || {};
+        if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
+          console.log('[useMetrics]', { targetHost, metricsRes, fetchedMetrics });
+        }
         setMetrics(fetchedMetrics);
         setIsOffline(false);
         setError(null);
@@ -98,11 +101,10 @@ export function useMetrics(targetHost = null, pollIntervalMs = 30000) {
     loading,
     isOffline,
     lastUpdated,
-    latestMetricTimestamp,
     freshnessState,
     freshnessLabel,
     error,
-    refetch: () => fetchTelemetry(false),
+    refetch: () => fetchTelemetry(true),
   };
 }
 

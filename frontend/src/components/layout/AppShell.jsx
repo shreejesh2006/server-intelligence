@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import TopBar from './TopBar';
 import Sidebar from './Sidebar';
+import { FloatingChatbot } from '../chat/FloatingChatbot';
+import { SettingsModal } from '../common/SettingsModal';
 
 export function AppShell({ children, isOffline, lastUpdated, onRefresh, loading, freshnessState, freshnessLabel }) {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   return (
     <div className="app-grid font-sans">
       <div className="app-outer-shell">
@@ -13,13 +17,20 @@ export function AppShell({ children, isOffline, lastUpdated, onRefresh, loading,
           loading={loading}
           freshnessState={freshnessState}
           freshnessLabel={freshnessLabel}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
         <div className="app-body">
-          <Sidebar />
+          <Sidebar onOpenSettings={() => setIsSettingsOpen(true)} />
           <main className="main-content">
             {children}
           </main>
         </div>
+        <FloatingChatbot />
+        <SettingsModal 
+          isOpen={isSettingsOpen} 
+          onClose={() => setIsSettingsOpen(false)} 
+        />
+
         {/* STATIC BOTTOM BAR */}
         <footer className="neo-footer font-mono">
           <div className="footer-left">

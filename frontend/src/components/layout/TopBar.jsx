@@ -1,15 +1,44 @@
-import React from 'react';
-import { Activity, Server, RefreshCw, WifiOff, Sun, Moon, LogOut, Shield } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Activity, 
+  Server, 
+  RefreshCw, 
+  WifiOff, 
+  Sun, 
+  Moon, 
+  LogOut, 
+  ShieldCheck, 
+  Crown, 
+  Terminal, 
+  Eye, 
+  Settings, 
+  User, 
+  ChevronDown 
+} from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTimezone } from '../../context/TimezoneContext';
 import { useServer } from '../../context/ServerContext';
 
-export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessState = 'FRESH', freshnessLabel = 'TELEMETRY FRESH' }) {
+export function TopBar({ 
+  isOffline, 
+  lastUpdated, 
+  onRefresh, 
+  loading, 
+  freshnessState = 'FRESH', 
+  freshnessLabel = 'TELEMETRY FRESH',
+  onOpenSettings 
+}) {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const { formatTimestamp } = useTimezone();
   const { servers = [], selectedHost, selectServer } = useServer();
+
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  const currentRole = user?.role || 'ADMIN';
+  const isDarkMode = theme === 'dark';
 
   const formattedTime = lastUpdated
     ? formatTimestamp(Math.floor(lastUpdated.getTime() / 1000), true)
@@ -22,7 +51,40 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
     pillClass = 'pill-warning';
   }
 
-  const isDarkMode = theme === 'dark';
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const renderRoleLogo = (roleName) => {
+    switch (roleName) {
+      case 'ADMIN':
+        return (
+          <div className="profile-logo-avatar avatar-admin" title="Admin Logo">
+            <Crown size={14} className="text-warning" />
+          </div>
+        );
+      case 'OPERATOR':
+        return (
+          <div className="profile-logo-avatar avatar-operator" title="Operator Logo">
+            <Terminal size={14} className="text-accent" />
+          </div>
+        );
+      case 'VIEWER':
+      default:
+        return (
+          <div className="profile-logo-avatar avatar-viewer" title="Viewer Logo">
+            <Eye size={14} className="text-info" />
+          </div>
+        );
+    }
+  };
 
   return (
     <header className="neo-topbar font-mono">
@@ -39,26 +101,6 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
       </div>
 
       <div className="topbar-right">
-        {/* Prominent Multi-Server Selector Control */}
-        <div className="neo-server-selector">
-          <Server size={13} className="text-accent" />
-          <span className="selector-label text-tertiary">NODE:</span>
-          <select
-            value={selectedHost || 'ubuntu'}
-            onChange={(e) => selectServer && selectServer(e.target.value)}
-            aria-label="Select target server"
-            className="neo-server-select"
-          >
-            {servers.map((srv) => (
-              <option key={srv.host} value={srv.host}>
-                {String(srv.name || srv.host).toUpperCase()} ({srv.ip})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="topbar-divider" />
-
         {/* Live / Stale / Offline Freshness Status */}
         <div>
           {isOffline || freshnessState === 'OFFLINE' ? (
@@ -91,40 +133,80 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
 
         <div className="topbar-divider" />
 
-        {/* Light & Dark Theme Mode Toggle Button */}
-        <div>
+        {/* PROFILE ICON & POPUP MENU WRAPPER */}
+        <div className="user-profile-menu-container" ref={menuRef}>
           <button
             type="button"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${isDarkMode ? 'Light' : 'Dark'} mode`}
-            className="neo-btn theme-toggle-btn"
-            title={`Switch to ${isDarkMode ? 'Light' : 'Dark'} mode`}
+            className={`profile-trigger-btn ${isProfileMenuOpen ? 'active' : ''}`}
+            onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+            title="User Profile & Settings Menu"
           >
-            {isDarkMode ? <Moon size={12} /> : <Sun size={12} />}
-            <span>{isDarkMode ? 'DARK' : 'LIGHT'}</span>
-          </button>
-        </div>
-
-        <div className="topbar-divider" />
-
-        {/* User Profile & Sign Out */}
-        <div className="user-profile-box">
-          <Shield size={13} className="text-secondary" />
-          <span className="user-name-text text-xs">{user?.username || 'GUEST'}</span>
-          {user?.role && (
-            <span className={`editorial-pill ${user.role === 'ADMIN' ? 'pill-healthy' : 'pill-neutral'}`}>
-              {user.role}
+            {renderRoleLogo(currentRole)}
+            <span className="user-name-text text-xs">{user?.username || 'ADMIN'}</span>
+            <span className={`editorial-pill pill-role ${currentRole === 'ADMIN' ? 'pill-warning' : currentRole === 'OPERATOR' ? 'pill-healthy' : 'pill-info'}`}>
+              {currentRole}
             </span>
-          )}
-          <button
-            type="button"
-            onClick={logout}
-            aria-label="Sign Out and terminate session"
-            className="neo-icon-btn logout-btn"
-            title="Sign Out / Terminate Session"
-          >
-            <LogOut size={12} />
+            <ChevronDown size={12} className={`chevron-icon ${isProfileMenuOpen ? 'rotate' : ''}`} />
           </button>
+
+          {/* PROFILE POPUP MENU CARD */}
+          {isProfileMenuOpen && (
+            <div className="profile-popup-menu neo-card font-mono">
+              {/* Header Info */}
+              <div className="popup-user-header border-bottom padding-bottom-xs">
+                <div className="flex-center gap-xs">
+                  {renderRoleLogo(currentRole)}
+                  <div>
+                    <div className="font-bold text-primary font-sans">{user?.username || 'ADMIN USER'}</div>
+                    <div className="text-xs text-tertiary">ROLE: {currentRole}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Popup Action List */}
+              <div className="popup-actions-list margin-top-xs">
+                {/* 1. Settings Button */}
+                <button
+                  type="button"
+                  className="popup-action-item"
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    if (onOpenSettings) onOpenSettings();
+                  }}
+                >
+                  <Settings size={14} className="text-accent" />
+                  <span>SETTINGS & PREFERENCES</span>
+                </button>
+
+
+
+                {/* 3. Light / Dark Mode Toggle */}
+                <button
+                  type="button"
+                  className="popup-action-item"
+                  onClick={toggleTheme}
+                >
+                  {isDarkMode ? <Sun size={14} className="text-warning" /> : <Moon size={14} className="text-info" />}
+                  <span>{isDarkMode ? 'SWITCH TO LIGHT MODE' : 'SWITCH TO DARK MODE'}</span>
+                </button>
+
+                <div className="popup-divider" />
+
+                {/* 4. Logout Button */}
+                <button
+                  type="button"
+                  className="popup-action-item text-critical"
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    logout();
+                  }}
+                >
+                  <LogOut size={14} />
+                  <span>SIGN OUT / LOGOUT</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -138,7 +220,8 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
           justify-content: space-between;
           padding: 0 20px;
           flex-shrink: 0;
-          z-index: 10;
+          z-index: 100;
+          position: relative;
         }
 
         .topbar-left, .topbar-right {
@@ -237,56 +320,140 @@ export function TopBar({ isOffline, lastUpdated, onRefresh, loading, freshnessSt
           font-size: 10px;
         }
 
-        .user-profile-box {
+        .user-profile-menu-container {
+          position: relative;
+        }
+
+        .profile-trigger-btn {
           display: flex;
           align-items: center;
           gap: 8px;
-        }
-
-        .user-name-text {
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-
-        .neo-icon-btn {
+          height: 34px;
+          padding: 0 10px;
           background: var(--bg-inset);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md);
-          color: var(--text-tertiary);
           cursor: pointer;
-          width: 28px;
-          height: 28px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
           transition: all 0.15s ease;
+          box-shadow: var(--shadow-inset-sm);
         }
 
-        .neo-icon-btn:hover {
-          color: var(--accent);
+        .profile-trigger-btn:hover, .profile-trigger-btn.active {
           border-color: var(--accent-border);
           background: var(--bg-surface-hover);
         }
 
-        .logout-btn:hover {
-          color: var(--status-critical);
-          border-color: rgba(220, 38, 38, 0.3);
-        }
-
-        .live-dot {
-          width: 6px;
-          height: 6px;
+        .profile-logo-avatar {
+          width: 22px;
+          height: 22px;
           border-radius: 50%;
-          background-color: var(--status-healthy);
-          display: inline-block;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
-        .dot-stale {
-          background-color: var(--status-warning);
+        .avatar-admin {
+          background: rgba(245, 158, 11, 0.18);
+          border: 1px solid rgba(245, 158, 11, 0.4);
         }
 
-        .text-xs {
+        .avatar-operator {
+          background: var(--accent-muted);
+          border: 1px solid var(--accent-border);
+        }
+
+        .avatar-viewer {
+          background: rgba(56, 189, 248, 0.18);
+          border: 1px solid rgba(56, 189, 248, 0.4);
+        }
+
+        .user-name-text {
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .chevron-icon {
+          color: var(--text-tertiary);
+          transition: transform 0.2s ease;
+        }
+
+        .chevron-icon.rotate {
+          transform: rotate(180deg);
+        }
+
+        /* PROFILE POPUP CARD */
+        .profile-popup-menu {
+          position: absolute;
+          top: calc(100% + 8px);
+          right: 0;
+          width: 240px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-strong);
+          box-shadow: var(--shadow-raised-lg);
+          border-radius: var(--radius-md);
+          padding: 12px;
+          z-index: 500;
+          animation: popupFade 0.15s ease-out;
+        }
+
+        .popup-user-header {
+          padding-bottom: 8px;
+        }
+
+        .popup-actions-list {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .popup-action-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          padding: 8px 10px;
+          font-family: inherit;
           font-size: 11px;
+          font-weight: 600;
+          color: var(--text-primary);
+          background: transparent;
+          border: 1px solid transparent;
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-align: left;
+        }
+
+        .popup-action-item:hover {
+          background: var(--bg-inset);
+          border-color: var(--border-subtle);
+          color: var(--accent);
+        }
+
+        .popup-divider {
+          height: 1px;
+          background: var(--border-subtle);
+          margin: 6px 0;
+        }
+
+        .flex-center { display: flex; align-items: center; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .gap-xs { gap: 6px; }
+        .border-bottom { border-bottom: 1px solid var(--border-subtle); }
+        .padding-bottom-xs { padding-bottom: 6px; }
+        .margin-top-xs { margin-top: 6px; }
+
+        .text-accent { color: var(--accent); }
+        .text-warning { color: var(--status-warning, #f59e0b); }
+        .text-critical { color: var(--status-critical, #ef4444); }
+        .text-info { color: var(--status-info, #38bdf8); }
+        .text-tertiary { color: var(--text-tertiary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-primary { color: var(--text-primary); }
+
+        @keyframes popupFade {
+          from { opacity: 0; transform: translateY(-6px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </header>

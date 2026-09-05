@@ -11,8 +11,8 @@ export const MONITORED_SERVERS = [
     tag: 'PRIMARY NODE',
   },
   {
-    id: 'Kali',
-    host: 'Kali',
+    id: 'kali',
+    host: 'kali',
     name: 'Kali Linux Server',
     ip: '100.115.122.92',
     os: 'Kali Linux Rolling (x86_64)',
@@ -27,10 +27,14 @@ export function ServerProvider({ children }) {
   const [selectedHost, setSelectedHost] = useState('ubuntu');
 
   const activeServer =
-    MONITORED_SERVERS.find((s) => s.host === selectedHost) || MONITORED_SERVERS[0];
+    MONITORED_SERVERS.find((s) => s.host === selectedHost.toLowerCase()) || MONITORED_SERVERS[0];
 
   const selectServer = (hostId) => {
-    const found = MONITORED_SERVERS.find((s) => s.host === hostId || s.id === hostId);
+    if (!hostId) return;
+    const target = hostId.toLowerCase();
+    const found = MONITORED_SERVERS.find(
+      (s) => s.host.toLowerCase() === target || s.id.toLowerCase() === target
+    );
     if (found) {
       setSelectedHost(found.host);
     }

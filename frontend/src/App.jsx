@@ -20,8 +20,8 @@ const AlertsPage = lazy(() => import('./pages/Alerts/AlertsPage'));
 const AnalyticsPage = lazy(() => import('./pages/Analytics/AnalyticsPage'));
 const UsersPage = lazy(() => import('./pages/Users/UsersPage'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
-const AssistantPage = lazy(() => import('./pages/Assistant/AssistantPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFound/NotFoundPage'));
+
 
 
 // Page loading fallback indicator
@@ -156,12 +156,9 @@ function AuthenticatedAppShell() {
           />
           <Route
             path="/assistant"
-            element={
-              <ProtectedRoute>
-                <AssistantPage />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/overview" replace />}
           />
+
           <Route
             path="*"
             element={

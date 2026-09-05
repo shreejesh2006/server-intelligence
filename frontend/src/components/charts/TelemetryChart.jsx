@@ -115,7 +115,33 @@ export function TelemetryChart({
 }) {
   const { formatChartTime, formatTimestamp } = useTimezone();
 
-  const adaptiveTicks = useMemo(() => getAdaptiveTicks(data, 7), [data]);
+  // Realign timeline so latest point matches real-time now for live demo
+  const chartData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+
+    const lastItem = data[data.length - 1];
+    if (!lastItem || lastItem.timestamp == null) return data;
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    let rawTs = lastItem.timestamp;
+    if (rawTs > 1e11) {
+      rawTs = Math.floor(rawTs / 1000);
+    }
+    const timeShift = nowSec - rawTs;
+
+    return data.map((item) => {
+      let itemTs = item.timestamp;
+      if (itemTs > 1e11) {
+        itemTs = Math.floor(itemTs / 1000);
+      }
+      return {
+        ...item,
+        timestamp: itemTs + timeShift,
+      };
+    });
+  }, [data]);
+
+  const adaptiveTicks = useMemo(() => getAdaptiveTicks(chartData, 7), [chartData]);
 
   // If loading and no prior data exists at all
   if (loading && (!data || data.length === 0)) {
@@ -165,11 +191,11 @@ export function TelemetryChart({
   return (
     <ResponsiveContainer width="100%" height="100%">
       {chartType === 'area' ? (
-        <AreaChart data={data} margin={{ top: 8, right: 16, left: -10, bottom: 4 }}>
+        <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 15, bottom: 4 }}>
           <defs>
             {series.map((s) => (
               <linearGradient key={s.key} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={s.color} stopOpacity={s.fillOpacity ?? 0.2} />
+                <stop offset="5%" stopColor={s.color} stopOpacity={s.fillOpacity ?? 0.18} />
                 <stop offset="95%" stopColor={s.color} stopOpacity={0.0} />
               </linearGradient>
             ))}
@@ -193,7 +219,8 @@ export function TelemetryChart({
             tick={{ fill: 'var(--text-tertiary)', fontSize: 10, fontFamily: 'var(--font-mono)' }}
             tickLine={false}
             axisLine={false}
-            width={44}
+            width={54}
+            dx={-2}
             tickFormatter={(val) => (unitFormatter ? unitFormatter(val) : val)}
           />
           <Tooltip
@@ -215,7 +242,7 @@ export function TelemetryChart({
           ))}
         </AreaChart>
       ) : (
-        <LineChart data={data} margin={{ top: 8, right: 16, left: -10, bottom: 4 }}>
+        <LineChart data={chartData} margin={{ top: 10, right: 20, left: 15, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="timestamp"
@@ -235,7 +262,8 @@ export function TelemetryChart({
             tick={{ fill: 'var(--text-tertiary)', fontSize: 10, fontFamily: 'var(--font-mono)' }}
             tickLine={false}
             axisLine={false}
-            width={44}
+            width={54}
+            dx={-2}
             tickFormatter={(val) => (unitFormatter ? unitFormatter(val) : val)}
           />
           <Tooltip

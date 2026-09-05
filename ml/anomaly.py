@@ -41,6 +41,21 @@ METRIC_UNITS = {
 }
 
 
+MIN_FEATURE_SCALES = {
+    "cpu": 5.0,                         # 5.0 percentage points minimum scale floor
+    "memory": 5.0,                      # 5.0 percentage points minimum scale floor
+    "load_1m": 0.50,                    # 0.50 load units minimum scale floor
+    "load_5m": 0.50,                    # 0.50 load units minimum scale floor
+    "load_15m": 0.50,                   # 0.50 load units minimum scale floor
+    "network_rx": float(np.log1p(100 * 1024)), # ~11.54 in log1p space (100 KB/s scale floor)
+    "network_tx": float(np.log1p(100 * 1024)), # ~11.54 in log1p space (100 KB/s scale floor)
+    "disk_read": float(np.log1p(100 * 1024)),  # ~11.54 in log1p space (100 KB/s scale floor)
+    "disk_write": float(np.log1p(100 * 1024)), # ~11.54 in log1p space (100 KB/s scale floor)
+    "process_count": 30.0,              # 30 processes minimum scale floor
+    "iowait": 2.0,                      # 2.0 percentage points minimum scale floor
+}
+
+
 class AnomalyDetector:
     """
     Reusable Inference Engine for Server Telemetry Anomaly Detection.
@@ -137,7 +152,7 @@ class AnomalyDetector:
         for i, col in enumerate(features):
             current_val = float(df_obs[col].iloc[0])
 
-            # Reconstruct baseline from RobustScaler center
+            # Reconstruct baseline from RobustScaler center (50th percentile / median)
             if scaler_centers is not None and i < len(scaler_centers):
                 raw_center = float(scaler_centers[i])
                 if col in skewed:
@@ -147,8 +162,10 @@ class AnomalyDetector:
             else:
                 baseline_val = 0.0
 
-            scale_val = float(scaler_scales[i]) if (scaler_scales is not None and i < len(scaler_scales)) else 1.0
-            scale_val = max(scale_val, 1e-5)
+            # Enforce robust minimum scale floor to prevent zero-scale explosions
+            raw_scale = float(scaler_scales[i]) if (scaler_scales is not None and i < len(scaler_scales)) else 1.0
+            min_scale = MIN_FEATURE_SCALES.get(col, 1.0)
+            scale_val = max(raw_scale, min_scale)
 
             # Transformed value for scaled deviation
             if col in skewed:
@@ -208,6 +225,10 @@ class AnomalyDetector:
             metric_evaluations.append(sig_item)
             if m_status in ("MEDIUM", "HIGH", "CRITICAL"):
                 flagged_signals.append(sig_item)
+
+        # Sort flagged signals by scaled deviation descending
+        flagged_signals.sort(key=lambda x: x["scaled_deviation"], reverse=True)
+
 
         # 3. Deterministic Primary Reason Generation
         if not flagged_signals:

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 
-from app.services.victoriametrics import VictoriaMetricsService
+from app.services.victoriametrics import VictoriaMetricsService, normalize_host
 
 
 router = APIRouter(
@@ -38,15 +38,7 @@ SUPPORTED_METRICS = {
 def build_query(metric: str, host: str | None) -> str:
     if not host:
         return metric
-
-    # Hostnames are restricted to safe PromQL label characters.
-    if not host.replace("_", "").replace("-", "").isalnum():
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid host",
-        )
-
-    return f'{metric}{{host="{host}"}}'
+    return victoria.build_metric_query(metric, host)
 
 
 @router.get("/")
@@ -61,6 +53,7 @@ async def current_metrics(
     host: str | None = Query(default=None),
 ):
     result = {}
+    target_canonical = normalize_host(host)
 
     try:
         for name, metric in SUPPORTED_METRICS.items():
@@ -73,12 +66,12 @@ async def current_metrics(
                 result[name] = None
                 continue
 
-            # When a host was explicitly requested, select that exact series.
-            if host:
+            # Select matching host series using host normalization
+            if target_canonical:
                 matching = [
                     item
                     for item in data
-                    if item.get("metric", {}).get("host") == host
+                    if normalize_host(item.get("metric", {}).get("host")) == target_canonical
                 ]
 
                 if not matching:
@@ -107,6 +100,23 @@ async def current_metrics(
         ) from exc
 
 
+import time
+import re
+
+def parse_relative_time(time_str: str) -> str:
+    """Converts relative time range strings ('-15m', '-1h', '-6h', '-24h', '-7d', 'now') into explicit epoch seconds."""
+    if not time_str or time_str == "now":
+        return str(int(time.time()))
+    if time_str.startswith("-"):
+        match = re.match(r"^-(\d+)([smhd])$", time_str)
+        if match:
+            val, unit = int(match.group(1)), match.group(2)
+            seconds_map = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+            delta = val * seconds_map.get(unit, 1)
+            return str(int(time.time()) - delta)
+    return time_str
+
+
 @router.get("/{metric_name}")
 async def metric_history(
     metric_name: str,
@@ -116,6 +126,7 @@ async def metric_history(
     step: str = Query(default="30s"),
 ):
     metric = SUPPORTED_METRICS.get(metric_name)
+    target_canonical = normalize_host(host)
 
     if metric is None:
         raise HTTPException(
@@ -125,11 +136,13 @@ async def metric_history(
 
     try:
         query = build_query(metric, host)
+        start_eval = parse_relative_time(start)
+        end_eval = parse_relative_time(end)
 
         data = await victoria.query_range(
             query=query,
-            start=start,
-            end=end,
+            start=start_eval,
+            end=end_eval,
             step=step,
         )
 
@@ -140,11 +153,11 @@ async def metric_history(
                 "values": [],
             }
 
-        if host:
+        if target_canonical:
             matching = [
                 item
                 for item in data
-                if item.get("metric", {}).get("host") == host
+                if normalize_host(item.get("metric", {}).get("host")) == target_canonical
             ]
 
             if not matching:
