@@ -4,20 +4,11 @@ export const MONITORED_SERVERS = [
   {
     id: 'ubuntu',
     host: 'ubuntu',
-    name: 'Ubuntu Server',
-    ip: '100.108.160.2',
+    name: 'Ubuntu Monitored Server',
+    ip: '192.168.64.22',
     os: 'Ubuntu 24.04 LTS (x86_64)',
-    role: 'Primary Telemetry Node & Backend Host',
-    tag: 'PRIMARY NODE',
-  },
-  {
-    id: 'kali',
-    host: 'kali',
-    name: 'Kali Linux Server',
-    ip: '100.115.122.92',
-    os: 'Kali Linux Rolling (x86_64)',
-    role: 'Monitored Target VM',
-    tag: 'SECONDARY NODE',
+    role: 'Monitored Target Node',
+    tag: 'ACTIVE TARGET',
   },
 ];
 

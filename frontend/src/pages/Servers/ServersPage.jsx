@@ -27,36 +27,32 @@ import {
 export function ServersPage({ isOffline, refetch }) {
   const { servers, selectedHost, selectServer } = useServer();
   const [loading, setLoading] = useState(true);
-  const [nodesData, setNodesData] = useState({
-    ubuntu: { metrics: null, loading: true, error: null },
-    kali: { metrics: null, loading: true, error: null },
-  });
+  const [nodesData, setNodesData] = useState({});
 
   const loadAllNodesTelemetry = async () => {
     setLoading(true);
     try {
-      const [uRes, kRes] = await Promise.all([
-        getCurrentMetrics('ubuntu').catch(() => null),
-        getCurrentMetrics('kali').catch(() => null),
-      ]);
+      const results = await Promise.all(
+        servers.map((srv) =>
+          getCurrentMetrics(srv.host)
+            .then((res) => ({ host: srv.host, data: res }))
+            .catch((err) => ({ host: srv.host, error: err.message }))
+        )
+      );
 
-      setNodesData({
-        ubuntu: {
-          metrics: uRes?.metrics || null,
+      const nextData = {};
+      results.forEach((item) => {
+        const res = item.data;
+        nextData[item.host] = {
+          metrics: res?.metrics || null,
           loading: false,
-          error: uRes?.status === 'success' ? null : 'Telemetry offline',
-        },
-        kali: {
-          metrics: kRes?.metrics || null,
-          loading: false,
-          error: kRes?.status === 'success' ? null : 'Telemetry offline',
-        },
+          error: res?.status === 'success' ? null : item.error || 'Telemetry offline',
+        };
       });
+
+      setNodesData(nextData);
     } catch (err) {
-      setNodesData({
-        ubuntu: { metrics: null, loading: false, error: err.message },
-        kali: { metrics: null, loading: false, error: err.message },
-      });
+      console.warn('Error loading server telemetry:', err);
     } finally {
       setLoading(false);
     }
@@ -111,13 +107,13 @@ export function ServersPage({ isOffline, refetch }) {
         <div className="neo-card-inset summary-stat-tile">
           <div className="stat-top text-tertiary text-xs flex-center gap-xs">
             <Network size={14} className="text-info" />
-            <span>TAILSCALE MESH OVERLAY</span>
+            <span>CENTRAL TELEMETRY ENGINE</span>
           </div>
           <div className="stat-num font-bold text-info margin-top-xs">
-            2 ENDPOINTS
+            LOCAL PIPELINE
           </div>
           <div className="stat-sub text-tertiary text-xs margin-top-xs">
-            100.108.160.2 / 100.83.170.83
+            UBUNTU → MAC (5-MIN GZIP BATCH)
           </div>
         </div>
 

@@ -403,8 +403,8 @@ export function SettingsPage() {
               </div>
             </div>
             <div className="row-control">
-              <input type="text" readOnly value="http://192.168.64.22:8000 /api" className="neo-input input-readonly" />
-              <span className="control-subtext text-tertiary text-xs">VITE REVERSE PROXY ACTIVE</span>
+              <input type="text" readOnly value="http://localhost:8000 /api" className="neo-input input-readonly" />
+              <span className="control-subtext text-tertiary text-xs">LOCAL CENTRAL GATEWAY</span>
             </div>
           </div>
         </section>
