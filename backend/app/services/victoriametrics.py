@@ -1,7 +1,10 @@
 import os
+import logging
 import httpx
 import pandas as pd
 from datetime import datetime, timezone, timedelta
+
+logger = logging.getLogger(__name__)
 
 VICTORIAMETRICS_URL = os.getenv(
     "VICTORIAMETRICS_URL",
@@ -46,6 +49,11 @@ def normalize_host(host: str | None) -> str | None:
     elif clean in ("kali", "100.115.122.92"):
         return "kali"
     return clean
+
+
+from sqlalchemy import select
+from app.database.database import SessionLocal
+from app.database.models import TelemetrySample
 
 
 class VictoriaMetricsService:
@@ -110,15 +118,14 @@ class VictoriaMetricsService:
     async def get_current_metrics(self, host: str | None = None) -> tuple[dict, str | None]:
         """
         Fetches current values for all server telemetry metrics for a given host.
-        Returns tuple of (metrics_dict, observation_timestamp_iso).
+        Falls back to relational database (Supabase/SQLite) if VictoriaMetrics is uncontactable.
         """
-        canonical = normalize_host(host)
-        if not canonical:
-            raise ValueError("Host parameter is required for intelligence metric queries.")
+        canonical = normalize_host(host) or "ubuntu"
 
         result = {}
         latest_ts = None
 
+        # 1. Try querying VictoriaMetrics
         for name, base_metric in METRICS_MAP.items():
             query_str = self.build_metric_query(base_metric, canonical)
             try:
@@ -134,13 +141,46 @@ class VictoriaMetricsService:
             except Exception:
                 result[name] = 0.0
 
-        obs_timestamp = (
-            datetime.fromtimestamp(float(latest_ts), tz=timezone.utc).isoformat()
-            if latest_ts is not None
-            else datetime.now(timezone.utc).isoformat()
-        )
+        if latest_ts is not None and any(v > 0.0 for v in result.values()):
+            obs_timestamp = datetime.fromtimestamp(float(latest_ts), tz=timezone.utc).isoformat()
+            return result, obs_timestamp
 
-        return result, obs_timestamp
+        # 2. Fall back to database query (Render / Supabase environment)
+        db = SessionLocal()
+        try:
+            stmt = (
+                select(TelemetrySample)
+                .where(TelemetrySample.host == canonical)
+                .order_by(TelemetrySample.timestamp.desc())
+                .limit(1)
+            )
+            sample = db.scalar(stmt)
+            if sample:
+                result = {
+                    "cpu": float(sample.cpu_usage_percent or 0.0),
+                    "memory": float(sample.memory_usage_percent or 0.0),
+                    "disk": float(sample.disk_usage_percent or 0.0),
+                    "swap": float(sample.swap_usage_percent or 0.0),
+                    "load_1m": float(sample.load_1m or 0.0),
+                    "load_5m": float(sample.load_5m or 0.0),
+                    "load_15m": float(sample.load_15m or 0.0),
+                    "network_rx": float(sample.network_rx_bytes_sec or 0.0),
+                    "network_tx": float(sample.network_tx_bytes_sec or 0.0),
+                    "disk_read": float(sample.disk_read_bytes_sec or 0.0),
+                    "disk_write": float(sample.disk_write_bytes_sec or 0.0),
+                    "processes": float(sample.process_count or 0.0),
+                    "iowait": float(sample.cpu_iowait_percent or 0.0),
+                    "uptime": float(sample.uptime_seconds or 0.0),
+                }
+                ts_iso = sample.timestamp.isoformat() if hasattr(sample.timestamp, "isoformat") else str(sample.timestamp)
+                return result, ts_iso
+        except Exception as exc:
+            logger.warning("Database fallback for current_metrics error: %s", exc)
+        finally:
+            db.close()
+
+        obs_timestamp = datetime.now(timezone.utc).isoformat()
+        return {name: 0.0 for name in METRICS_MAP.keys()}, obs_timestamp
 
     async def get_all_metrics_history(
         self,
@@ -149,14 +189,13 @@ class VictoriaMetricsService:
         step: str = "30s",
     ) -> tuple[pd.DataFrame, str | None]:
         """
-        Fetches continuous historical telemetry for the requested host using query_range.
-        Returns (df_history, latest_observation_timestamp_iso).
+        Fetches continuous historical telemetry for the requested host.
+        Falls back to relational database (Supabase/SQLite) if VictoriaMetrics is uncontactable.
         """
-        canonical = normalize_host(host)
-        if not canonical:
-            raise ValueError("Host parameter is required for historical telemetry queries.")
+        canonical = normalize_host(host) or "ubuntu"
 
         now_dt = datetime.now(timezone.utc)
+        end_dt = now_dt
         start_dt = now_dt - timedelta(minutes=lookback_minutes)
 
         start_str = start_dt.isoformat()
@@ -165,12 +204,13 @@ class VictoriaMetricsService:
         metric_series = {}
         latest_ts = None
 
+        # 1. Try querying VictoriaMetrics
         for name, base_metric in METRICS_MAP.items():
             query_str = self.build_metric_query(base_metric, canonical)
             try:
                 data = await self.query_range(query_str, start=start_str, end=end_str, step=step)
                 if data and len(data) > 0 and "values" in data[0]:
-                    values = data[0]["values"]  # list of [ts, val_str]
+                    values = data[0]["values"]
                     s = pd.Series(
                         data=[float(v[1]) for v in values],
                         index=[pd.to_datetime(float(v[0]), unit="s", utc=True) for v in values],
@@ -184,17 +224,58 @@ class VictoriaMetricsService:
             except Exception:
                 pass
 
-        if not metric_series:
-            df = pd.DataFrame()
-            obs_ts = now_dt.isoformat()
-            return df, obs_ts
+        if metric_series:
+            df_history = pd.DataFrame(metric_series).sort_index().ffill().bfill()
+            obs_ts = (
+                datetime.fromtimestamp(float(latest_ts), tz=timezone.utc).isoformat()
+                if latest_ts is not None
+                else now_dt.isoformat()
+            )
+            return df_history, obs_ts
 
-        df_history = pd.DataFrame(metric_series).sort_index().ffill().bfill()
+        # 2. Fall back to database query (Render / Supabase environment)
+        db = SessionLocal()
+        try:
+            stmt = (
+                select(TelemetrySample)
+                .where(TelemetrySample.host == canonical)
+                .order_by(TelemetrySample.timestamp.desc())
+                .limit(100)
+            )
+            db_samples = list(reversed(db.scalars(stmt).all()))
 
-        obs_ts = (
-            datetime.fromtimestamp(float(latest_ts), tz=timezone.utc).isoformat()
-            if latest_ts is not None
-            else now_dt.isoformat()
-        )
+            if db_samples:
+                data_rows = []
+                timestamps = []
+                for s in db_samples:
+                    ts_val = pd.to_datetime(s.timestamp, utc=True)
+                    timestamps.append(ts_val)
+                    data_rows.append({
+                        "cpu": float(s.cpu_usage_percent or 0.0),
+                        "memory": float(s.memory_usage_percent or 0.0),
+                        "disk": float(s.disk_usage_percent or 0.0),
+                        "swap": float(s.swap_usage_percent or 0.0),
+                        "load_1m": float(s.load_1m or 0.0),
+                        "load_5m": float(s.load_5m or 0.0),
+                        "load_15m": float(s.load_15m or 0.0),
+                        "network_rx": float(s.network_rx_bytes_sec or 0.0),
+                        "network_tx": float(s.network_tx_bytes_sec or 0.0),
+                        "disk_read": float(s.disk_read_bytes_sec or 0.0),
+                        "disk_write": float(s.disk_write_bytes_sec or 0.0),
+                        "processes": float(s.process_count or 0.0),
+                        "iowait": float(s.cpu_iowait_percent or 0.0),
+                        "uptime": float(s.uptime_seconds or 0.0),
+                    })
 
-        return df_history, obs_ts
+                df_history = pd.DataFrame(data_rows, index=timestamps).sort_index().ffill().bfill()
+                latest_ts_iso = db_samples[-1].timestamp.isoformat() if hasattr(db_samples[-1].timestamp, "isoformat") else str(db_samples[-1].timestamp)
+                return df_history, latest_ts_iso
+
+        except Exception as exc:
+            logger.warning("Database fallback for get_all_metrics_history error: %s", exc)
+        finally:
+            db.close()
+
+        df = pd.DataFrame()
+        obs_ts = now_dt.isoformat()
+        return df, obs_ts
