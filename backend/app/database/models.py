@@ -181,3 +181,44 @@ class Alert(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+
+class TelemetrySample(Base):
+    __tablename__ = "telemetry_samples"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+    )
+
+    host: Mapped[str] = mapped_column(
+        String(50),
+        index=True,
+        nullable=False,
+    )
+
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+        nullable=False,
+    )
+
+    cpu_usage_percent: Mapped[float | None] = mapped_column(nullable=True)
+    memory_usage_percent: Mapped[float | None] = mapped_column(nullable=True)
+    disk_usage_percent: Mapped[float | None] = mapped_column(nullable=True)
+    swap_usage_percent: Mapped[float | None] = mapped_column(nullable=True)
+
+    load_1m: Mapped[float | None] = mapped_column(nullable=True)
+    load_5m: Mapped[float | None] = mapped_column(nullable=True)
+    load_15m: Mapped[float | None] = mapped_column(nullable=True)
+
+    network_rx_bytes_sec: Mapped[float | None] = mapped_column(nullable=True)
+    network_tx_bytes_sec: Mapped[float | None] = mapped_column(nullable=True)
+
+    disk_read_bytes_sec: Mapped[float | None] = mapped_column(nullable=True)
+    disk_write_bytes_sec: Mapped[float | None] = mapped_column(nullable=True)
+
+    process_count: Mapped[float | None] = mapped_column(nullable=True)
+    cpu_iowait_percent: Mapped[float | None] = mapped_column(nullable=True)
+    uptime_seconds: Mapped[float | None] = mapped_column(nullable=True)
+
