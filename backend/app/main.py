@@ -13,6 +13,7 @@ from app.api.intelligence import router as intelligence_router
 from app.api.alerts import router as alerts_router
 from app.api.telemetry import router as telemetry_router
 from app.services.ml.loader import ml_loader
+from app.mcp.server import router as mcp_router
 
 
 @asynccontextmanager
@@ -100,6 +101,10 @@ app.include_router(
 app.include_router(
     telemetry_router,
     prefix="/api",
+)
+app.include_router(
+    mcp_router,
+     prefix="/api"
 )
 
 
