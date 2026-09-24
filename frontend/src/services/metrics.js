@@ -18,13 +18,10 @@ export async function getAvailableMetrics() {
 
 /**
  * Fetch current system telemetry metrics for a specific host or default
- * @param {string} [host] - Host label (e.g. 'ubuntu' or 'kali')
+ * @param {string} [host] - Host label (e.g. 'ubuntu')
  */
 export async function getCurrentMetrics(host) {
-  let queryHost = host;
-  if (queryHost && queryHost.toLowerCase() === 'kali') {
-    queryHost = 'Kali';
-  }
+  const queryHost = host;
   const params = queryHost ? { host: queryHost } : {};
   const response = await apiClient.get('/api/metrics/current', { params });
   if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
@@ -42,10 +39,7 @@ export async function getCurrentMetrics(host) {
  * @param {string} [host]
  */
 export async function getMetricHistory(metricName, start = '-1h', end = 'now', step = '30s', host = null) {
-  let queryHost = host;
-  if (queryHost && queryHost.toLowerCase() === 'kali') {
-    queryHost = 'Kali';
-  }
+  const queryHost = host;
   const params = { start, end, step };
   if (queryHost) {
     params.host = queryHost;

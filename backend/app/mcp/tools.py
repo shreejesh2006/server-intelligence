@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 # Input Schemas
 class HostInput(BaseModel):
-    host: str = Field(default="ubuntu", description="Target host name (e.g. 'ubuntu', 'kali')")
+    host: str = Field(default="ubuntu", description="Target host name (e.g. 'ubuntu')")
 
 class MetricQueryInput(BaseModel):
     host: str = Field(default="ubuntu", description="Target host name")

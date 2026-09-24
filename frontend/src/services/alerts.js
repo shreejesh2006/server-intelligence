@@ -47,7 +47,7 @@ export async function resolveAlertApi(alertId) {
 
 /**
  * Trigger rule & ML anomaly evaluation for a server host
- * @param {string} host - Host name (e.g. 'ubuntu', 'kali')
+ * @param {string} host - Host name (e.g. 'ubuntu')
  */
 export async function evaluateAlertsApi(host) {
   const response = await apiClient.post('/api/alerts/evaluate', null, {

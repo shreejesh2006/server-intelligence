@@ -1,4 +1,22 @@
-import pytest
+try:
+    import pytest
+except ImportError:
+    class MockPytest:
+        class raises:
+            def __init__(self, expected_exception):
+                self.expected_exception = expected_exception
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                if exc_type is None:
+                    raise AssertionError(f"Expected {self.expected_exception} but nothing was raised")
+                if issubclass(exc_type, self.expected_exception):
+                    self.value = exc_val
+                    return True
+                return False
+    pytest = MockPytest()
+
+import unittest
 from fastapi import HTTPException
 from app.mcp.auth import authorize_tool_call
 from app.mcp.tools import AVAILABLE_TOOLS, TOOL_REGISTRY
@@ -48,8 +66,8 @@ def test_conversation_memory_entity_tracking():
     assert mem.get_tracked_host(session_id) == "ubuntu"
 
     # User switches host target
-    mem.track_host(session_id, "kali")
-    assert mem.get_tracked_host(session_id) == "kali"
+    mem.track_host(session_id, "node-2")
+    assert mem.get_tracked_host(session_id) == "node-2"
 
     # Message trimming check
     for i in range(10):
@@ -58,3 +76,24 @@ def test_conversation_memory_entity_tracking():
     messages = mem.get_messages(session_id)
     assert len(messages) <= 5
     assert messages[-1]["content"] == "query 9"
+
+
+class TestAgentMCP(unittest.TestCase):
+    def test_mcp_auth_read_tools_allowed(self):
+        test_mcp_auth_read_tools_allowed()
+
+    def test_mcp_auth_execute_tools_denied_for_viewers(self):
+        test_mcp_auth_execute_tools_denied_for_viewers()
+
+    def test_mcp_auth_execute_tools_allowed_for_confirmed_admin(self):
+        test_mcp_auth_execute_tools_allowed_for_confirmed_admin()
+
+    def test_tool_manifest_registered(self):
+        test_tool_manifest_registered()
+
+    def test_conversation_memory_entity_tracking(self):
+        test_conversation_memory_entity_tracking()
+
+
+if __name__ == "__main__":
+    unittest.main()

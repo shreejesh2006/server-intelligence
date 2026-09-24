@@ -13,6 +13,7 @@ from app.services.forwarder import (
     get_forward_url,
     get_forward_token,
 )
+from app.services.victoriametrics import normalize_host
 
 VICTORIAMETRICS_URL = os.getenv("VICTORIAMETRICS_URL", "http://localhost:8428").rstrip("/")
 TELEMETRY_SECRET_TOKEN = os.getenv("TELEMETRY_SECRET_TOKEN", "")
@@ -62,7 +63,10 @@ def verify_authentication(auth_header: str | None, token_header: str | None):
 def parse_timestamp_ms(ts_str: str) -> int:
     """Converts an ISO timestamp string into epoch milliseconds."""
     try:
-        dt = datetime.fromisoformat(ts_str)
+        clean_ts = ts_str.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(clean_ts)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
         return int(dt.timestamp() * 1000)
     except Exception:
         return int(time.time() * 1000)
@@ -121,17 +125,31 @@ async def ingest_batch(
     # 1. Save samples to relational Database (Supabase PostgreSQL / SQLite)
     db = SessionLocal()
     try:
+        now_dt = datetime.now(timezone.utc)
         for sample in samples:
-            sample_hostname = sample.get("hostname", batch_hostname)
+            raw_sample_hostname = sample.get("hostname", batch_hostname)
+            canonical_host = normalize_host(raw_sample_hostname) or raw_sample_hostname.strip().lower()
             ts_str = sample.get("timestamp")
 
             try:
-                dt_ts = datetime.fromisoformat(ts_str) if ts_str else datetime.now(timezone.utc)
+                if ts_str:
+                    clean_ts = ts_str.replace("Z", "+00:00")
+                    dt_ts = datetime.fromisoformat(clean_ts)
+                    if dt_ts.tzinfo is None:
+                        dt_ts = dt_ts.replace(tzinfo=timezone.utc)
+                else:
+                    dt_ts = now_dt
             except Exception:
-                dt_ts = datetime.now(timezone.utc)
+                dt_ts = now_dt
+
+            # If sample timestamp is >5m drifted from server time, align VM timestamp to server time
+            if abs((now_dt - dt_ts).total_seconds()) > 300:
+                vm_dt = now_dt
+            else:
+                vm_dt = dt_ts
 
             ts_record = TelemetrySample(
-                host=sample_hostname,
+                host=canonical_host,
                 timestamp=dt_ts,
                 cpu_usage_percent=sample.get("cpu_usage_percent"),
                 memory_usage_percent=sample.get("memory_usage_percent"),
@@ -150,11 +168,11 @@ async def ingest_batch(
             )
             db.add(ts_record)
 
-            ts_ms = int(dt_ts.timestamp() * 1000)
+            ts_ms = int(vm_dt.timestamp() * 1000)
             for json_key, prom_name in METRIC_NAME_MAP.items():
                 if json_key in sample and sample[json_key] is not None:
                     val = sample[json_key]
-                    line = f'{prom_name}{{host="{sample_hostname}"}} {val} {ts_ms}'
+                    line = f'{prom_name}{{host="{canonical_host}"}} {val} {ts_ms}'
                     prom_lines.append(line)
 
         db.commit()
@@ -165,9 +183,10 @@ async def ingest_batch(
         db.close()
 
     # 2. Ingest to VictoriaMetrics if available locally
+    vm_target_url = os.getenv("VICTORIAMETRICS_URL", VICTORIAMETRICS_URL).rstrip("/")
     if prom_lines:
         prometheus_payload = "\n".join(prom_lines).encode("utf-8")
-        import_url = f"{VICTORIAMETRICS_URL}/api/v1/import/prometheus"
+        import_url = f"{vm_target_url}/api/v1/import/prometheus"
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -177,7 +196,7 @@ async def ingest_batch(
                     headers={"Content-Type": "text/plain"},
                 )
                 if resp.status_code not in (200, 204):
-                    print(f"[VM INGEST WARNING] VictoriaMetrics status HTTP {resp.status_code}", flush=True)
+                    print(f"[VM INGEST WARNING] VictoriaMetrics status HTTP {resp.status_code}: {resp.text}", flush=True)
         except Exception as exc:
             print(f"[VM INGEST NOTICE] VictoriaMetrics uncontactable at {import_url}: {exc}", flush=True)
 
@@ -203,10 +222,11 @@ async def telemetry_health(
     authorization: str | None = Header(default=None),
     x_telemetry_token: str | None = Header(default=None),
 ):
+    vm_target_url = os.getenv("VICTORIAMETRICS_URL", VICTORIAMETRICS_URL).rstrip("/")
     vm_status = "unknown"
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{VICTORIAMETRICS_URL}/health")
+            resp = await client.get(f"{vm_target_url}/health")
             if resp.status_code == 200:
                 vm_status = "healthy"
             else:
@@ -217,7 +237,7 @@ async def telemetry_health(
     return {
         "status": "healthy",
         "receiver": "online",
-        "victoriametrics_url": VICTORIAMETRICS_URL,
+        "victoriametrics_url": vm_target_url,
         "victoriametrics_status": vm_status,
         "forwarding_url": get_forward_url() or None,
         "spooled_forward_batches": len(forward_spool_manager.get_spooled_files()),
