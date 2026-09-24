@@ -3,7 +3,13 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.database.models import Alert, AlertSeverity, AlertStatus
+from app.database.models import (
+    Alert,
+    AlertRule,
+    AlertSeverity,
+    AlertStatus,
+    TelemetrySample,
+)
 from app.services.victoriametrics import normalize_host, VictoriaMetricsService
 from app.services.ml.anomaly import AnomalyService
 
@@ -236,5 +242,148 @@ async def evaluate_host_alerts(
                 )
     except Exception as exc:
         logger.warning("ML Anomaly evaluation skipped during alert evaluation for host '%s': %s", canonical, exc)
+
+    return created_alerts
+def _compare_value(
+    value: float,
+    operator: str,
+    threshold: float,
+) -> bool:
+    if operator == ">":
+        return value > threshold
+
+    if operator == ">=":
+        return value >= threshold
+
+    if operator == "<":
+        return value < threshold
+
+    if operator == "<=":
+        return value <= threshold
+
+    if operator == "==":
+        return value == threshold
+
+    if operator == "!=":
+        return value != threshold
+
+    return False
+
+
+def _get_metric_value(
+    sample: TelemetrySample,
+    metric: str,
+) -> float | None:
+    metric_map = {
+        "cpu": sample.cpu_usage_percent,
+        "cpu_usage_percent": sample.cpu_usage_percent,
+        "memory": sample.memory_usage_percent,
+        "memory_usage_percent": sample.memory_usage_percent,
+        "disk": sample.disk_usage_percent,
+        "disk_usage_percent": sample.disk_usage_percent,
+        "swap": sample.swap_usage_percent,
+        "swap_usage_percent": sample.swap_usage_percent,
+        "load_1m": sample.load_1m,
+        "load_5m": sample.load_5m,
+        "load_15m": sample.load_15m,
+    }
+
+    return metric_map.get(metric)
+
+
+def evaluate_alert_rules(
+    db: Session,
+    host: str | None = None,
+) -> list[Alert]:
+    """
+    Evaluate enabled AlertRule records against the latest telemetry samples.
+
+    Creates an Alert when a rule condition is satisfied.
+    """
+
+    query = db.query(AlertRule).filter(
+        AlertRule.enabled.is_(True)
+    )
+
+    if host:
+        canonical_host = normalize_host(host)
+
+        query = query.filter(
+            (AlertRule.host.is_(None))
+            | (AlertRule.host == canonical_host)
+            | (AlertRule.host == host)
+        )
+
+    rules = query.all()
+
+    created_alerts: list[Alert] = []
+
+    for rule in rules:
+        if rule.host:
+            sample_query = (
+                db.query(TelemetrySample)
+                .filter(TelemetrySample.host == rule.host)
+                .order_by(TelemetrySample.timestamp.desc())
+            )
+        elif host:
+            sample_query = (
+                db.query(TelemetrySample)
+                .filter(TelemetrySample.host == host)
+                .order_by(TelemetrySample.timestamp.desc())
+            )
+        else:
+            sample_query = (
+                db.query(TelemetrySample)
+                .order_by(TelemetrySample.timestamp.desc())
+            )
+
+        sample = sample_query.first()
+
+        if sample is None:
+            continue
+
+        value = _get_metric_value(
+            sample=sample,
+            metric=rule.metric,
+        )
+
+        if value is None:
+            continue
+
+        if not _compare_value(
+            value=value,
+            operator=rule.operator,
+            threshold=rule.threshold,
+        ):
+            continue
+
+        existing = (
+            db.query(Alert)
+            .filter(
+                Alert.server == sample.host,
+                Alert.metric == rule.metric,
+                Alert.status == AlertStatus.ACTIVE.value,
+            )
+            .first()
+        )
+
+        if existing:
+            continue
+
+        alert = create_alert(
+            db=db,
+            title=f"{rule.name} on {sample.host}",
+            message=(
+                f"{rule.metric} is {value:.2f}, "
+                f"which matches rule condition "
+                f"{rule.operator} {rule.threshold}."
+            ),
+            severity=rule.severity,
+            source="alert_rule",
+            metric=rule.metric,
+            server=sample.host,
+        )
+
+        created_alerts.append(alert)
 
     return created_alerts

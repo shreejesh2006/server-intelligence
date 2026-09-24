@@ -15,3 +15,5 @@ ml/data/
 ml/models/
 ml/**/__pycache__/
 .env
+
+desktop.ini

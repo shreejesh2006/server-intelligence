@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.database import Base
@@ -181,7 +181,210 @@ class Alert(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    
+class AlertRule(Base):
+    __tablename__ = "alert_rules"
 
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+    )
+
+    host: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+
+    metric: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    operator: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+    )
+
+    threshold: Mapped[float] = mapped_column(
+        nullable=False,
+    )
+
+    duration_seconds: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0,
+    )
+
+    severity: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=AlertSeverity.WARNING.value,
+    )
+
+    cooldown_seconds: Mapped[int] = mapped_column(
+        nullable=False,
+        default=300,
+    )
+
+    enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+
+    action: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    notification_target: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    
+class IncidentStatus(str, Enum):
+    OPEN = "OPEN"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    RESOLVED = "RESOLVED"
+
+
+class Incident(Base):
+    __tablename__ = "incidents"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+    )
+
+    description: Mapped[str] = mapped_column(
+        String(2000),
+        nullable=False,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default=IncidentStatus.OPEN.value,
+    )
+
+    severity: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=AlertSeverity.WARNING.value,
+    )
+
+    server: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+
+    alert_id: Mapped[int | None] = mapped_column(
+        ForeignKey("alerts.id"),
+        nullable=True,
+        index=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    acknowledged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+    )
+
+    incident_id: Mapped[int | None] = mapped_column(
+        nullable=True,
+        index=True,
+    )
+
+    action: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    actor: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    
+class AutomationStatus(str, Enum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
+class Automation(Base):
+    __tablename__ = "automations"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+    )
+
+    trigger_type: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    action_type: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default=AutomationStatus.ENABLED.value,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
 
 class TelemetrySample(Base):
     __tablename__ = "telemetry_samples"

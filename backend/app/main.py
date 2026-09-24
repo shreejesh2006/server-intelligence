@@ -13,6 +13,10 @@ from app.api.intelligence import router as intelligence_router
 from app.api.alerts import router as alerts_router
 from app.api.telemetry import router as telemetry_router
 from app.services.ml.loader import ml_loader
+from app.api.incidents import router as incidents_router
+from app.api.automations import router as automations_router
+from app.api.alert_rules import router as alert_rules_router
+
 
 
 @asynccontextmanager
@@ -96,6 +100,17 @@ app.include_router(
     alerts_router,
     prefix="/api",
 )
+
+app.include_router(
+    incidents_router,
+    prefix="/api",
+)
+app.include_router(
+    automations_router,
+    prefix="/api",
+)
+
+app.include_router(alert_rules_router, prefix="/api")
 
 app.include_router(
     telemetry_router,
