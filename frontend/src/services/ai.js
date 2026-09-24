@@ -195,21 +195,26 @@ export async function sendOllamaDirectChatApi(messages, options = {}) {
 }
 
 /**
- * Send message history to AI Assistant (Fetch context for host, query Ollama)
+ * Send message history to AI Assistant via backend Agent Orchestrator endpoint
  * @param {Array<{role: string, content: string}>} messages
  * @param {Object} [options]
  */
 export async function sendChatMessageApi(messages, options = {}) {
   const targetHost = options.host || 'ubuntu';
-  const hostContext = await buildHostContextPayload(targetHost);
+  const sanitizedMessages = (messages || [])
+    .filter((m) => m && m.content)
+    .map((m) => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: String(m.content).trim(),
+    }));
 
-  try {
-    return await sendOllamaDirectChatApi(messages, { ...options, hostContext });
-  } catch (localErr) {
-    if (import.meta.env.DEV) {
-      console.warn('[AI Service] Direct Mac-local Ollama unavailable, trying backend fallback:', localErr.message);
-    }
-    const response = await apiClient.post('/api/assistant/chat', { messages, host: targetHost }, { timeout: 60000 });
-    return response.data;
-  }
+  const response = await apiClient.post(
+    '/api/assistant/chat',
+    {
+      messages: sanitizedMessages,
+      host: targetHost,
+    },
+    { timeout: 60000 }
+  );
+  return response.data;
 }

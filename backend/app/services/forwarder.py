@@ -5,10 +5,27 @@ import time
 import uuid
 import httpx
 
-FORWARD_TELEMETRY_URL = os.getenv("FORWARD_TELEMETRY_URL", os.getenv("RENDER_TELEMETRY_URL", "")).rstrip("/")
-TELEMETRY_SECRET_TOKEN = os.getenv("TELEMETRY_SECRET_TOKEN", "")
 FORWARD_SPOOL_DIR = os.getenv("FORWARD_SPOOL_DIR", "./forward_spool")
 MAX_FORWARD_SPOOL_FILES = int(os.getenv("MAX_FORWARD_SPOOL_FILES", "288"))
+
+
+def get_forward_url() -> str:
+    url = (
+        os.getenv("FORWARD_TELEMETRY_URL")
+        or os.getenv("RENDER_TELEMETRY_URL")
+        or os.getenv("FORWARD_URL")
+        or ""
+    )
+    return url.rstrip("/")
+
+
+def get_forward_token() -> str:
+    return (
+        os.getenv("FORWARD_TELEMETRY_TOKEN")
+        or os.getenv("TELEMETRY_SECRET_TOKEN")
+        or os.getenv("FORWARD_TOKEN")
+        or ""
+    )
 
 
 class ForwardSpoolManager:
@@ -39,11 +56,15 @@ class ForwardSpoolManager:
         try:
             with open(filepath, "wb") as f:
                 f.write(compressed_bytes)
-            print(f"[FORWARD QUEUE] Enqueued batch {filename} (spooled total: {len(self.get_spooled_files())}/{self.max_files})", flush=True)
+            print(
+                f"[FORWARD QUEUED] Enqueued batch {filename} to {self.spool_dir} "
+                f"(spooled total: {len(self.get_spooled_files())}/{self.max_files})",
+                flush=True,
+            )
             self.enforce_bounds()
             return filepath
         except Exception as exc:
-            print(f"[FORWARD QUEUE ERROR] Failed to write spool file: {exc}", flush=True)
+            print(f"[FORWARD QUEUED ERROR] Failed to write spool file: {exc}", flush=True)
             return None
 
     def enforce_bounds(self):
@@ -51,7 +72,7 @@ class ForwardSpoolManager:
         spooled = self.get_spooled_files()
         if len(spooled) > self.max_files:
             excess = len(spooled) - self.max_files
-            print(f"[FORWARD QUEUE WARNING] Limit exceeded. Pruning {excess} oldest file(s)...", flush=True)
+            print(f"[FORWARD QUEUED WARNING] Limit exceeded. Pruning {excess} oldest file(s)...", flush=True)
             for filepath in spooled[:excess]:
                 try:
                     os.remove(filepath)
@@ -63,15 +84,16 @@ class ForwardSpoolManager:
         Flushes spooled batches to Render in FIFO order.
         Stops on first failure to maintain chronological order and avoid duplicate out-of-order sends.
         """
-        target_url = os.getenv("FORWARD_TELEMETRY_URL", FORWARD_TELEMETRY_URL).rstrip("/")
+        target_url = get_forward_url()
         if not target_url:
+            print("[FORWARD RETRY] No FORWARD_TELEMETRY_URL configured. Forwarding skipped.", flush=True)
             return 0
 
         spooled = self.get_spooled_files()
         if not spooled:
             return 0
 
-        secret_token = os.getenv("TELEMETRY_SECRET_TOKEN", TELEMETRY_SECRET_TOKEN)
+        secret_token = get_forward_token()
         headers = {
             "Content-Type": "application/json",
             "Content-Encoding": "gzip",
@@ -82,11 +104,12 @@ class ForwardSpoolManager:
         flushed_count = 0
 
         for filepath in spooled:
+            filename = os.path.basename(filepath)
             try:
                 with open(filepath, "rb") as f:
                     compressed_bytes = f.read()
 
-                print(f"[FORWARD RETRY] Sending {os.path.basename(filepath)} to {target_url}...", flush=True)
+                print(f"[FORWARD RETRY] Attempting to send {filename} to {target_url}...", flush=True)
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     resp = await client.post(
                         target_url,
@@ -97,11 +120,11 @@ class ForwardSpoolManager:
                 if resp.status_code in (200, 204):
                     os.remove(filepath)
                     flushed_count += 1
-                    print(f"[FORWARD SUCCESS] Flushed {os.path.basename(filepath)} -> HTTP {resp.status_code}", flush=True)
+                    print(f"[FORWARD SUCCESS] Successfully forwarded {filename} to {target_url} (HTTP {resp.status_code})", flush=True)
                 else:
                     print(
                         f"[FORWARD RETRY PAUSED] {target_url} returned HTTP {resp.status_code}: {resp.text[:100]}. "
-                        "Retaining batch for next retry.",
+                        f"Retaining {filename} for next retry.",
                         flush=True,
                     )
                     break
@@ -109,7 +132,7 @@ class ForwardSpoolManager:
             except Exception as exc:
                 print(
                     f"[FORWARD RETRY PAUSED] Network error contacting {target_url}: {exc}. "
-                    "Retaining batch for next retry.",
+                    f"Retaining {filename} for next retry.",
                     flush=True,
                 )
                 break

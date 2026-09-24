@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import TopBar from './TopBar';
 import Sidebar from './Sidebar';
-import { FloatingChatbot } from '../chat/FloatingChatbot';
 import { SettingsModal } from '../common/SettingsModal';
+import { FloatingChatbot } from '../chat/FloatingChatbot';
 
 export function AppShell({ children, isOffline, lastUpdated, onRefresh, loading, freshnessState, freshnessLabel }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
-    <div className="app-grid font-sans">
-      <div className="app-outer-shell">
+    <div className="shell-container font-sans">
+      <Sidebar onOpenSettings={() => setIsSettingsOpen(true)} />
+
+      <div className="shell-right-column">
         <TopBar
           isOffline={isOffline}
           lastUpdated={lastUpdated}
@@ -19,57 +21,61 @@ export function AppShell({ children, isOffline, lastUpdated, onRefresh, loading,
           freshnessLabel={freshnessLabel}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
-        <div className="app-body">
-          <Sidebar onOpenSettings={() => setIsSettingsOpen(true)} />
-          <main className="main-content">
-            {children}
-          </main>
-        </div>
-        <FloatingChatbot />
-        <SettingsModal 
-          isOpen={isSettingsOpen} 
-          onClose={() => setIsSettingsOpen(false)} 
-        />
 
-        {/* STATIC BOTTOM BAR */}
-        <footer className="neo-footer font-mono">
-          <div className="footer-left">
-            <span className="text-accent font-bold">SERVER INTELLIGENCE</span>
-            <span className="footer-sep">/</span>
-            <span>SYSTEM STATUS: OPERATIONAL</span>
-            <span className="footer-sep">/</span>
-            <span>VICTORIAMETRICS & ML ENGINE</span>
+        <main className="shell-main">
+          <div className="shell-content">
+            {children}
           </div>
-          <div className="footer-right">
-            <span className="editorial-pill pill-neutral">v0.1.0 INDUSTRIAL</span>
-          </div>
-        </footer>
+        </main>
       </div>
 
+      <FloatingChatbot />
+
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
+
       <style>{`
-        .neo-footer {
-          position: static;
-          height: var(--footer-height);
-          background-color: var(--bg-surface);
-          border-top: 1px solid var(--border-subtle);
+        .shell-container {
+          height: 100vh;
+          width: 100vw;
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 20px;
-          font-size: 10px;
-          color: var(--text-tertiary);
-          letter-spacing: 0.05em;
-          flex-shrink: 0;
+          flex-direction: row;
+          overflow: hidden;
+          background-color: var(--bg-canvas);
         }
 
-        .footer-left, .footer-right {
+        .shell-right-column {
           display: flex;
-          align-items: center;
-          gap: 12px;
+          flex-direction: column;
+          flex: 1;
+          height: 100vh;
+          overflow: hidden;
+          position: relative;
         }
 
-        .footer-sep {
-          color: var(--border-strong);
+        .shell-main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow-y: auto;
+          overflow-x: hidden;
+          background-color: var(--bg-canvas);
+        }
+
+        .shell-content {
+          flex: 1;
+          padding: 32px 40px;
+          max-width: 1280px;
+          width: 100%;
+          margin: 0 auto;
+        }
+
+        @media (max-width: 1024px) {
+          .shell-content {
+            padding: 24px 20px;
+          }
         }
       `}</style>
     </div>

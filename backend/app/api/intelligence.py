@@ -47,7 +47,7 @@ async def run_retraining_background_job(job_id: str, host_input: str, lookback_d
         retrain_jobs[job_id]["status"] = "running"
         retrain_jobs[job_id]["started_at"] = datetime.now(timezone.utc).isoformat()
 
-        target_hosts = ["ubuntu", "kali"] if host_input.lower() == "all" else [normalize_host(host_input)]
+        target_hosts = ["ubuntu"] if host_input.lower() == "all" else [normalize_host(host_input)]
 
         errors = []
         completed_hosts = []
@@ -89,7 +89,7 @@ async def run_retraining_background_job(job_id: str, host_input: str, lookback_d
 async def get_forecast(
     host: str | None = Query(
         None,
-        description="Optional target hostname filter (e.g. ubuntu, kali, 100.108.160.2)",
+        description="Optional target hostname filter (e.g. ubuntu, 100.108.160.2)",
     )
 ):
     """
@@ -104,7 +104,7 @@ async def get_forecast(
 async def get_anomaly_history(
     host: str | None = Query(
         None,
-        description="Target host filter (e.g. ubuntu, kali)",
+        description="Target host filter (e.g. ubuntu)",
     ),
     lookback: str = Query(
         "1h",
@@ -123,7 +123,7 @@ async def get_anomaly_history(
 async def get_anomaly(
     host: str | None = Query(
         None,
-        description="Optional target hostname filter (e.g. ubuntu, kali, 100.108.160.2)",
+        description="Optional target hostname filter (e.g. ubuntu, 100.108.160.2)",
     )
 ):
     """
@@ -138,7 +138,7 @@ async def get_anomaly(
 @router.post("/retrain", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(require_operator)])
 async def trigger_retraining(
     background_tasks: BackgroundTasks,
-    host: str = Query("all", description="Target host to retrain ('ubuntu', 'kali', or 'all')"),
+    host: str = Query("all", description="Target host to retrain ('ubuntu' or 'all')"),
     lookback_days: int = Query(7, ge=1, le=90, description="Rolling lookback window in days"),
 ):
     """

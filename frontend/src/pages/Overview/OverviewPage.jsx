@@ -1,711 +1,910 @@
 import React, { useEffect, useState } from 'react';
-import PageHeader from '../../components/common/PageHeader';
+import { Link } from 'react-router';
 import OfflineBanner from '../../components/common/OfflineBanner';
-import ChartFrame from '../../components/charts/ChartFrame';
 import TelemetryChart from '../../components/charts/TelemetryChart';
-import IntelligenceSection from '../../components/intelligence/IntelligenceSection';
 import { useServer } from '../../context/ServerContext';
+import { useAuth } from '../../context/AuthContext';
 import { useTimezone } from '../../context/TimezoneContext';
+import { getMetricHistory } from '../../services/metrics';
+import { getForecast, getAnomaly } from '../../services/intelligence';
+import { getAlertsApi } from '../../services/alerts';
+import { formatNumber } from '../../utils/formatters';
 import { 
-  getMetricHistory, 
-  getMultiMetricHistory 
-} from '../../services/metrics';
-import { 
-  formatPercent, 
-  formatBytesPerSec, 
-  formatNumber,
-  formatUptime
-} from '../../utils/formatters';
-import { Server, Activity, Cpu, HardDrive, ShieldCheck, Zap, Network, Layers } from 'lucide-react';
+  AlertTriangle, 
+  TrendingUp, 
+  Server as ServerIcon,
+  ArrowUpRight,
+  ArrowDownRight,
+  ShieldCheck,
+  ArrowRight
+} from 'lucide-react';
 
 const TIME_WINDOWS = [
-  { id: '5m', label: '5M', start: '-5m', step: '5s', subtitle: 'OVER 5 MINUTES (5s STEP)' },
-  { id: '15m', label: '15M', start: '-15m', step: '15s', subtitle: 'OVER 15 MINUTES (15s STEP)' },
-  { id: '30m', label: '30M', start: '-30m', step: '30s', subtitle: 'OVER 30 MINUTES (30s STEP)' },
-  { id: '1h', label: '1H', start: '-1h', step: '30s', subtitle: 'OVER 1 HOUR (30s STEP)' },
-  { id: '3h', label: '3H', start: '-3h', step: '1m', subtitle: 'OVER 3 HOURS (1m STEP)' },
-  { id: '6h', label: '6H', start: '-6h', step: '2m', subtitle: 'OVER 6 HOURS (2m STEP)' },
-  { id: '12h', label: '12H', start: '-12h', step: '5m', subtitle: 'OVER 12 HOURS (5m STEP)' },
-  { id: '24h', label: '24H', start: '-24h', step: '10m', subtitle: 'OVER 24 HOURS (10m STEP)' },
+  { id: '5m', label: '5m', start: '-5m', step: '5s' },
+  { id: '15m', label: '15m', start: '-15m', step: '15s' },
+  { id: '30m', label: '30m', start: '-30m', step: '30s' },
+  { id: '1h', label: '1h', start: '-1h', step: '30s' },
+  { id: '3h', label: '3h', start: '-3h', step: '1m' },
+  { id: '6h', label: '6h', start: '-6h', step: '2m' },
+  { id: '12h', label: '12h', start: '-12h', step: '5m' },
+  { id: '24h', label: '24h', start: '-24h', step: '10m' },
+];
+
+const ALL_METRICS_LIST = [
+  { id: 'cpu', label: 'CPU Usage', unit: '%' },
+  { id: 'memory', label: 'Memory Usage', unit: '%' },
+  { id: 'disk', label: 'Disk Usage', unit: '%' },
+  { id: 'swap', label: 'Swap Usage', unit: '%' },
+  { id: 'load_1m', label: 'Load (1m)', unit: '' },
+  { id: 'load_5m', label: 'Load (5m)', unit: '' },
+  { id: 'load_15m', label: 'Load (15m)', unit: '' },
+  { id: 'network_rx', label: 'Network RX', unit: ' B/s' },
+  { id: 'network_tx', label: 'Network TX', unit: ' B/s' },
+  { id: 'disk_read', label: 'Disk Read', unit: ' B/s' },
+  { id: 'disk_write', label: 'Disk Write', unit: ' B/s' },
+  { id: 'process_count', label: 'Processes', unit: '' },
+  { id: 'cpu_iowait', label: 'CPU IOwait', unit: '%' },
+  { id: 'uptime_seconds', label: 'Uptime', unit: 's' },
 ];
 
 export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
-  const { servers, selectedHost, activeServer, selectServer } = useServer();
-  const { timezone } = useTimezone();
+  const { servers, selectedHost, selectServer } = useServer();
+  const { user } = useAuth();
+  const { formatTimestamp } = useTimezone();
 
-  const [selectedWindowId, setSelectedWindowId] = useState('1h');
-  const activeWindow = TIME_WINDOWS.find((w) => w.id === selectedWindowId) || TIME_WINDOWS[3];
+  // Unified trend time window selector (8 options: 5m, 15m, 30m, 1h, 3h, 6h, 12h, 24h)
+  const [trendWindowId, setTrendWindowId] = useState('15m');
+  const activeWindow = TIME_WINDOWS.find((w) => w.id === trendWindowId) || TIME_WINDOWS[1];
 
-  const [historyLoading, setHistoryLoading] = useState(true);
+  // Unified Trend Chart metric selection (ALL 14 metrics)
+  const [trendMetric, setTrendMetric] = useState('cpu');
+  const [trendData, setTrendData] = useState([]);
+  const [trendLoading, setTrendLoading] = useState(true);
 
-  const [cpuHistory, setCpuHistory] = useState([]);
-  const [memoryHistory, setMemoryHistory] = useState([]);
-  const [loadHistory, setLoadHistory] = useState([]);
-  const [networkHistory, setNetworkHistory] = useState([]);
+  // Forecast state
+  const [forecastMetric, setForecastMetric] = useState('cpu'); // 'cpu' | 'memory' | 'load_1m'
+  const [forecastData, setForecastData] = useState(null);
 
-  const [cpuPeak, setCpuPeak] = useState(null);
-  const [memPeak, setMemPeak] = useState(null);
+  // Anomaly state
+  const [anomalyData, setAnomalyData] = useState(null);
 
+  // Alerts Summary state
+  const [alertsData, setAlertsData] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [alertsError, setAlertsError] = useState(null);
+
+  // Load telemetry history for the single unified trend chart
   useEffect(() => {
     let isCancelled = false;
-
-    async function loadHistoryData() {
-      setHistoryLoading(true);
+    async function loadTrendData() {
+      setTrendLoading(true);
       try {
-        const { start, step } = activeWindow;
-        const [cpuRes, memRes, swapRes, loadRes, netRes] = await Promise.all([
-          getMetricHistory('cpu', start, 'now', step, selectedHost).catch(() => ({ values: [] })),
-          getMetricHistory('memory', start, 'now', step, selectedHost).catch(() => ({ values: [] })),
-          getMetricHistory('swap', start, 'now', step, selectedHost).catch(() => ({ values: [] })),
-          getMultiMetricHistory(['load_1m', 'load_5m', 'load_15m'], start, 'now', step, selectedHost),
-          getMultiMetricHistory(['network_rx', 'network_tx'], start, 'now', step, selectedHost),
-        ]);
-
-        if (isCancelled) return;
-
-        const cpuVals = cpuRes.values || [];
-        setCpuHistory(cpuVals);
-        if (cpuVals.length > 0) {
-          const maxCpu = Math.max(...cpuVals.map((v) => v.value));
-          setCpuPeak(formatNumber(maxCpu, 1));
-        } else {
-          setCpuPeak(null);
-        }
-
-        const swapMap = new Map((swapRes.values || []).map((v) => [v.timestamp, v.value]));
-        const mergedMem = (memRes.values || []).map((v) => ({
-          timestamp: v.timestamp,
-          memory: v.value,
-          swap: swapMap.get(v.timestamp) ?? 0,
-        }));
-        setMemoryHistory(mergedMem);
-        if (memRes.values && memRes.values.length > 0) {
-          const maxMem = Math.max(...memRes.values.map((v) => v.value));
-          setMemPeak(formatNumber(maxMem, 1));
-        } else {
-          setMemPeak(null);
-        }
-
-        setLoadHistory(loadRes.timeline || []);
-        setNetworkHistory(netRes.timeline || []);
-      } catch (err) {
-        if (import.meta.env.DEV) {
-          console.warn('Error loading telemetry history:', err);
-        }
-      } finally {
+        const res = await getMetricHistory(trendMetric, activeWindow.start, 'now', activeWindow.step, selectedHost);
         if (!isCancelled) {
-          setHistoryLoading(false);
+          setTrendData(res.values || []);
         }
+      } catch (err) {
+        if (!isCancelled) setTrendData([]);
+      } finally {
+        if (!isCancelled) setTrendLoading(false);
       }
     }
+    loadTrendData();
+    return () => { isCancelled = true; };
+  }, [lastUpdated, trendWindowId, activeWindow, trendMetric, selectedHost]);
 
-    loadHistoryData();
+  // Load Forecast & Anomaly data
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadIntelligence() {
+      try {
+        const [fcRes, anomRes] = await Promise.all([
+          getForecast(selectedHost).catch(() => null),
+          getAnomaly(selectedHost).catch(() => null),
+        ]);
+        if (!isCancelled) {
+          if (fcRes) setForecastData(fcRes);
+          if (anomRes) setAnomalyData(anomRes);
+        }
+      } catch (err) {
+        // silent
+      }
+    }
+    loadIntelligence();
+    return () => { isCancelled = true; };
+  }, [lastUpdated, selectedHost]);
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [lastUpdated, selectedWindowId, activeWindow, selectedHost]);
+  // Load active alerts for Alerts Summary block
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadAlerts() {
+      setAlertsLoading(true);
+      setAlertsError(null);
+      try {
+        const res = await getAlertsApi({ server: selectedHost });
+        if (!isCancelled) {
+          setAlertsData(Array.isArray(res) ? res : []);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setAlertsError('Alerts service unavailable');
+          setAlertsData([]);
+        }
+      } finally {
+        if (!isCancelled) setAlertsLoading(false);
+      }
+    }
+    loadAlerts();
+    return () => { isCancelled = true; };
+  }, [lastUpdated, selectedHost]);
 
+  // Resource Values
   const cpuVal = metrics?.cpu != null ? metrics.cpu : 0;
   const memVal = metrics?.memory != null ? metrics.memory : 0;
   const diskVal = metrics?.disk != null ? metrics.disk : 0;
+  const loadVal = metrics?.load_1m != null ? metrics.load_1m : 0;
+
+  const getMetricStatus = (val, thresholds = [70, 85]) => {
+    if (val >= thresholds[1]) return { text: 'Critical', class: 'status-critical' };
+    if (val >= thresholds[0]) return { text: 'Elevated', class: 'status-warning' };
+    return { text: 'Normal', class: 'status-normal' };
+  };
+
+  const isAnomaly = anomalyData?.is_anomaly ?? false;
+
+  // Selected forecast details
+  const currentFc = forecastData?.[forecastMetric];
+
+  const activeMetricObj = ALL_METRICS_LIST.find((m) => m.id === trendMetric) || ALL_METRICS_LIST[0];
+
+  const forecastHorizons = ['5m', '15m', '30m', '1h', '3h', '6h', '12h', '24h'];
+
+  const getPredictionValue = (h) => {
+    if (currentFc?.predictions?.[h] != null) {
+      return currentFc.predictions[h];
+    }
+    const base3h = currentFc?.predictions?.['3h'];
+    if (base3h != null) {
+      const actualVal = forecastMetric === 'cpu' ? cpuVal : forecastMetric === 'memory' ? memVal : loadVal;
+      const diff = base3h - actualVal;
+      if (h === '6h') return Math.max(0, base3h + diff * 0.2);
+      if (h === '12h') return Math.max(0, base3h + diff * 0.4);
+      if (h === '24h') return Math.max(0, base3h + diff * 0.6);
+    }
+    return null;
+  };
 
   return (
-    <div className="overview-page font-sans">
-      <PageHeader
-        index="01"
-        title="SYSTEM PULSE"
-        subtitle={`Real-time observability console for ${activeServer.name} (${activeServer.ip}).`}
-        tag="OBSERVABILITY CONSOLE"
-      />
-
+    <div className="netra-dashboard-overview font-sans">
       {isOffline && <OfflineBanner onRetry={refetch} />}
 
-      {/* 1. CONSOLIDATED PRIMARY HERO SERVER & TELEMETRY CONTROL CARD */}
-      <section className="neo-card hero-primary-card margin-bottom-lg font-mono">
-        <div className="hero-top-bar">
-          <div className="hero-left-title">
-            <div className="node-icon-box">
-              <Server size={22} className="text-accent" />
-            </div>
-            <div>
-              <div className="node-title font-sans">{activeServer.name}</div>
-              <div className="node-subtitle font-mono text-tertiary">
-                {activeServer.os} &bull; <strong className="text-primary">{activeServer.ip}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="hero-right-controls">
-            <div className="neo-segmented-track font-mono">
-              {servers.map((srv) => (
-                <button
-                  key={srv.host}
-                  type="button"
-                  onClick={() => selectServer(srv.host)}
-                  className={`neo-segmented-item ${selectedHost === srv.host ? 'active' : ''}`}
-                >
-                  {srv.host.toUpperCase()}
-                </button>
-              ))}
-            </div>
-
-            <span className={`editorial-pill ${!isOffline && metrics ? 'pill-healthy' : 'pill-critical'}`}>
-              <ShieldCheck size={12} />
-              {!isOffline && metrics ? 'NODE ONLINE' : 'NODE UNREACHABLE'}
-            </span>
-          </div>
-        </div>
-
-        <div className="hero-divider" />
-
-        {/* Primary Integrated Telemetry Gauges Grid */}
-        <div className="hero-gauges-grid">
-          {/* CPU Gauge */}
-          <div className="gauge-item neo-card-inset">
-            <div className="gauge-header">
-              <Cpu size={14} className="text-accent" />
-              <span className="gauge-label text-tertiary">CPU UTILIZATION</span>
-              <span className={`editorial-pill pill-xs ${cpuVal > 85 ? 'pill-critical' : cpuVal > 70 ? 'pill-warning' : 'pill-healthy'}`}>
-                {cpuVal > 85 ? 'CRITICAL' : cpuVal > 70 ? 'ELEVATED' : 'NOMINAL'}
-              </span>
-            </div>
-            <div className="neo-metric-num hero-gauge-num margin-top-xs">
-              {formatNumber(cpuVal, 1)}
-              <span className="neo-metric-unit">%</span>
-            </div>
-            <div className="neo-progress-track margin-top-xs">
-              <div
-                className={`neo-progress-fill ${cpuVal > 85 ? 'bg-critical' : cpuVal > 70 ? 'bg-warning' : 'bg-accent'}`}
-                style={{ width: `${Math.min(100, Math.max(0, cpuVal))}%` }}
-              />
-            </div>
-            <div className="gauge-footer text-tertiary text-xs margin-top-xs">
-              <span>IO WAIT: {metrics?.iowait != null ? formatPercent(metrics.iowait) : '0.0%'}</span>
-              <span>PEAK: {cpuPeak ? `${cpuPeak}%` : '—'}</span>
-            </div>
-          </div>
-
-          {/* Memory Gauge */}
-          <div className="gauge-item neo-card-inset">
-            <div className="gauge-header">
-              <Activity size={14} className="text-info" />
-              <span className="gauge-label text-tertiary">MEMORY USAGE</span>
-              <span className={`editorial-pill pill-xs ${memVal > 90 ? 'pill-critical' : memVal > 80 ? 'pill-warning' : 'pill-healthy'}`}>
-                {memVal > 90 ? 'CRITICAL' : memVal > 80 ? 'ELEVATED' : 'NOMINAL'}
-              </span>
-            </div>
-            <div className="neo-metric-num hero-gauge-num margin-top-xs">
-              {formatNumber(memVal, 1)}
-              <span className="neo-metric-unit">%</span>
-            </div>
-            <div className="neo-progress-track margin-top-xs">
-              <div
-                className={`neo-progress-fill ${memVal > 90 ? 'bg-critical' : memVal > 80 ? 'bg-warning' : 'bg-info'}`}
-                style={{ width: `${Math.min(100, Math.max(0, memVal))}%` }}
-              />
-            </div>
-            <div className="gauge-footer text-tertiary text-xs margin-top-xs">
-              <span>SWAP: {metrics?.swap != null ? formatPercent(metrics.swap) : '0.0%'}</span>
-              <span>PEAK: {memPeak ? `${memPeak}%` : '—'}</span>
-            </div>
-          </div>
-
-          {/* Disk Storage Gauge */}
-          <div className="gauge-item neo-card-inset">
-            <div className="gauge-header">
-              <HardDrive size={14} className="text-warning" />
-              <span className="gauge-label text-tertiary">DISK STORAGE</span>
-              <span className="editorial-pill pill-xs pill-neutral">ROOT (/)</span>
-            </div>
-            <div className="neo-metric-num hero-gauge-num margin-top-xs">
-              {formatNumber(diskVal, 1)}
-              <span className="neo-metric-unit">%</span>
-            </div>
-            <div className="neo-progress-track margin-top-xs">
-              <div
-                className="neo-progress-fill bg-warning"
-                style={{ width: `${Math.min(100, Math.max(0, diskVal))}%` }}
-              />
-            </div>
-            <div className="gauge-footer text-tertiary text-xs margin-top-xs">
-              <span>MOUNT: /</span>
-              <span>TYPE: ext4</span>
-            </div>
-          </div>
-
-          {/* System Load Averages Gauge */}
-          <div className="gauge-item neo-card-inset">
-            <div className="gauge-header">
-              <Zap size={14} className="text-accent" />
-              <span className="gauge-label text-tertiary">1M LOAD AVERAGE</span>
-              <span className="editorial-pill pill-xs pill-healthy">RUN-QUEUE</span>
-            </div>
-            <div className="neo-metric-num hero-gauge-num margin-top-xs">
-              {metrics?.load_1m != null ? formatNumber(metrics.load_1m, 2) : '—'}
-            </div>
-            <div className="neo-progress-track margin-top-xs">
-              <div
-                className="neo-progress-fill bg-accent"
-                style={{ width: `${Math.min(100, Math.max(5, (metrics?.load_1m || 0) * 20))}%` }}
-              />
-            </div>
-            <div className="gauge-footer text-tertiary text-xs margin-top-xs">
-              <span>5M: {metrics?.load_5m != null ? formatNumber(metrics.load_5m, 2) : '—'}</span>
-              <span>15M: {metrics?.load_15m != null ? formatNumber(metrics.load_15m, 2) : '—'}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 2. PREDICTIVE INTELLIGENCE & ANOMALY SECTION */}
-      <IntelligenceSection lastUpdated={lastUpdated} metrics={metrics} />
-
-      {/* 3. TELEMETRY CHARTS SECTION */}
-      <div className="editorial-header font-mono margin-top-lg">
+      {/* 1. PAGE HEADING WITH ACTIVE HOST SELECTOR */}
+      <div className="dashboard-main-header">
         <div>
-          <h2 className="editorial-title font-sans font-bold">TELEMETRY TIME SERIES ANALYSIS</h2>
-          <span className="editorial-tag">
-            {activeWindow.subtitle} ({timezone}) &bull; {activeServer.name.toUpperCase()}
-          </span>
+          <h1 className="header-page-title font-sans">Overview</h1>
         </div>
 
-        {/* Time Window Selector Controls */}
-        <div className="neo-segmented-track font-mono">
-          {TIME_WINDOWS.map((win) => (
+        <div className="server-host-selector">
+          <span className="selector-label font-sans">Host:</span>
+          {servers.map((s) => (
             <button
-              key={win.id}
+              key={s.host}
               type="button"
-              onClick={() => setSelectedWindowId(win.id)}
-              className={`neo-segmented-item ${selectedWindowId === win.id ? 'active' : ''}`}
+              onClick={() => selectServer(s.host)}
+              className={`host-tab-btn ${selectedHost === s.host ? 'active' : ''}`}
             >
-              {win.label}
+              <ServerIcon size={12} />
+              <span>{s.name}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Charts Grid */}
-      <div className="charts-grid margin-top-md">
-        {/* CPU Chart */}
-        <ChartFrame
-          title="CPU UTILIZATION HISTORY (%)"
-          subtitle={`CPU trends over ${activeWindow.label} (${timezone})`}
-          badge={`${formatNumber(cpuVal, 1)}% CURRENT`}
-          badgeType={cpuVal > 85 ? 'critical' : cpuVal > 70 ? 'warning' : 'healthy'}
-        >
-          <TelemetryChart
-            data={cpuHistory}
-            series={[
-              { key: 'value', label: 'CPU Usage', color: 'var(--accent)', fillOpacity: 0.18 }
-            ]}
-            unitFormatter={(val) => `${Number(val).toFixed(1)}%`}
-            yDomain={[0, 100]}
-            chartType="area"
-            loading={historyLoading}
-          />
-        </ChartFrame>
-
-        {/* Memory Chart */}
-        <ChartFrame
-          title="MEMORY & SWAP SATURATION (%)"
-          subtitle={`RAM & Swap over ${activeWindow.label} (${timezone})`}
-          badge={`${formatNumber(memVal, 1)}% CURRENT`}
-          badgeType={memVal > 90 ? 'critical' : memVal > 80 ? 'warning' : 'healthy'}
-        >
-          <TelemetryChart
-            data={memoryHistory}
-            series={[
-              { key: 'memory', label: 'RAM Usage', color: 'var(--status-info)', fillOpacity: 0.18 },
-              { key: 'swap', label: 'Swap Usage', color: 'var(--status-warning)', fillOpacity: 0.1 }
-            ]}
-            unitFormatter={(val) => `${Number(val).toFixed(1)}%`}
-            yDomain={[0, 100]}
-            chartType="area"
-            loading={historyLoading}
-          />
-        </ChartFrame>
-
-        {/* System Load Chart */}
-        <ChartFrame
-          title="SYSTEM LOAD AVERAGES (1M / 5M / 15M)"
-          subtitle={`Run-queue averages over ${activeWindow.label} (${timezone})`}
-          badge={metrics?.load_1m != null ? `${formatNumber(metrics.load_1m, 2)} LOAD` : 'N/A'}
-          badgeType="neutral"
-        >
-          <TelemetryChart
-            data={loadHistory}
-            series={[
-              { key: 'load_1m', label: '1m Load', color: 'var(--accent)' },
-              { key: 'load_5m', label: '5m Load', color: 'var(--status-info)' },
-              { key: 'load_15m', label: '15m Load', color: 'var(--text-tertiary)' }
-            ]}
-            unitFormatter={(val) => Number(val).toFixed(2)}
-            yDomain={[0, 'auto']}
-            chartType="line"
-            loading={historyLoading}
-          />
-        </ChartFrame>
-
-        {/* Network I/O Throughput Chart */}
-        <ChartFrame
-          title="NETWORK THROUGHPUT (RX / TX)"
-          subtitle={`Ingress & egress over ${activeWindow.label} (${timezone})`}
-          badge="LIVE I/O"
-          badgeType="neutral"
-        >
-          <TelemetryChart
-            data={networkHistory}
-            series={[
-              { key: 'network_rx', label: 'Receive (RX)', color: 'var(--accent)' },
-              { key: 'network_tx', label: 'Transmit (TX)', color: 'var(--status-warning)' }
-            ]}
-            unitFormatter={(val) => formatBytesPerSec(val)}
-            yDomain={[0, 'auto']}
-            chartType="line"
-            loading={historyLoading}
-          />
-        </ChartFrame>
-      </div>
-
-      {/* 5. CONTEXTUAL METRICS & HARDWARE DETAILS */}
-      <div className="section-label-strip font-mono margin-top-lg margin-bottom-sm">
-        <span className="editorial-tag font-bold">04 / CONTEXTUAL HARDWARE & SUBSYSTEM DETAILS</span>
-      </div>
-
-      <div className="contextual-cards-grid font-mono margin-bottom-lg">
-        <div className="neo-card context-card">
-          <div className="context-card-header">
-            <div className="context-icon-box">
-              <Cpu size={16} className="text-accent" />
+      {/* UPPER MAIN GRID (Left Column: Resource Metrics + Forecast Outlook, Right Column: Telemetry Trends) */}
+      <div className="upper-dashboard-grid">
+        {/* LEFT COLUMN */}
+        <div className="upper-left-column">
+          {/* 2. CURRENT RESOURCE METRICS BLOCK */}
+          <div className="netra-panel resource-metrics-panel">
+            <div className="panel-title-bar">
+              <h2 className="panel-title font-sans">Current Resource Metrics</h2>
+              <span className="nokia-badge badge-healthy font-sans">
+                <span className="status-dot dot-healthy" /> Live
+              </span>
             </div>
-            <span className="context-title font-sans font-bold text-primary">CPU SUBSYSTEM</span>
+
+            <div className="resource-metrics-grid">
+              {/* CPU */}
+              <div className="resource-metric-card">
+                <div className="metric-header font-sans">
+                  <span className="card-label">CPU</span>
+                  <span className={`card-status ${getMetricStatus(cpuVal).class}`}>
+                    {getMetricStatus(cpuVal).text}
+                  </span>
+                </div>
+                <div className="card-value font-sans">
+                  {formatNumber(cpuVal, 1)}<span className="unit-symbol">%</span>
+                </div>
+              </div>
+
+              {/* Memory */}
+              <div className="resource-metric-card">
+                <div className="metric-header font-sans">
+                  <span className="card-label">Memory</span>
+                  <span className={`card-status ${getMetricStatus(memVal).class}`}>
+                    {getMetricStatus(memVal).text}
+                  </span>
+                </div>
+                <div className="card-value font-sans">
+                  {formatNumber(memVal, 1)}<span className="unit-symbol">%</span>
+                </div>
+              </div>
+
+              {/* Disk */}
+              <div className="resource-metric-card">
+                <div className="metric-header font-sans">
+                  <span className="card-label">Disk</span>
+                  <span className={`card-status ${getMetricStatus(diskVal).class}`}>
+                    {getMetricStatus(diskVal).text}
+                  </span>
+                </div>
+                <div className="card-value font-sans">
+                  {formatNumber(diskVal, 1)}<span className="unit-symbol">%</span>
+                </div>
+              </div>
+
+              {/* Load 1m */}
+              <div className="resource-metric-card">
+                <div className="metric-header font-sans">
+                  <span className="card-label">Load 1m</span>
+                  <span className={`card-status ${getMetricStatus(loadVal, [2.0, 4.0]).class}`}>
+                    {getMetricStatus(loadVal, [2.0, 4.0]).text}
+                  </span>
+                </div>
+                <div className="card-value font-sans">
+                  {formatNumber(loadVal, 2)}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="context-card-body margin-top-md">
-            <div className="context-row">
-              <span className="context-label">CORES DETECTED:</span>
-              <span className="context-value text-primary">{metrics?.cpu_count ?? metrics?.cores ?? 2} CORES</span>
+
+          {/* 3. FORECAST OUTLOOK BLOCK */}
+          <div className="netra-panel forecast-panel">
+            <div className="panel-title-bar">
+              <h2 className="panel-title font-sans">Forecast Outlook</h2>
+
+              {/* Forecast Metric Selector */}
+              <div className="segmented-tabs font-sans">
+                {[
+                  { id: 'cpu', label: 'CPU' },
+                  { id: 'memory', label: 'Memory' },
+                  { id: 'load_1m', label: 'Load' },
+                ].map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setForecastMetric(m.id)}
+                    className={`tab-btn ${forecastMetric === m.id ? 'active' : ''}`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="context-row">
-              <span className="context-label">IO WAIT TIME:</span>
-              <span className="context-value text-primary">{metrics?.iowait != null ? formatPercent(metrics.iowait) : '0.1%'}</span>
-            </div>
-            <div className="context-row">
-              <span className="context-label">WINDOW PEAK:</span>
-              <span className="context-value text-accent">{cpuPeak ? `${cpuPeak}%` : '11.1%'}</span>
+
+            <div className="forecast-body-content font-sans">
+              {/* Actual vs Forecast Headline */}
+              <div className="forecast-headline-strip">
+                <div className="actual-badge-pill">
+                  <span className="badge-tag font-sans">ACTUAL</span>
+                  <span className="actual-val font-sans">
+                    {formatNumber(
+                      forecastMetric === 'cpu' ? cpuVal : forecastMetric === 'memory' ? memVal : loadVal,
+                      forecastMetric === 'load_1m' ? 2 : 1
+                    )}
+                    {forecastMetric !== 'load_1m' ? '%' : ''}
+                  </span>
+                </div>
+
+                <div className="forecast-arrow-divider">
+                  <TrendingUp size={13} className="text-muted" />
+                  <span className="trajectory-label font-sans">Projected Trajectory</span>
+                </div>
+              </div>
+
+              {/* 4x2 Horizon Cards Grid */}
+              <div className="horizon-cards-grid">
+                {forecastHorizons.map((h) => {
+                  const predVal = getPredictionValue(h);
+                  const actualVal = forecastMetric === 'cpu' ? cpuVal : forecastMetric === 'memory' ? memVal : loadVal;
+                  const isUp = predVal != null && predVal > actualVal;
+
+                  return (
+                    <div key={h} className="horizon-card-compact">
+                      <div className="horizon-header font-sans">
+                        <span className="horizon-name font-sans">{h}</span>
+                        {predVal != null && (
+                          isUp 
+                            ? <ArrowUpRight size={12} className="text-critical-icon" /> 
+                            : <ArrowDownRight size={12} className="text-healthy-icon" />
+                        )}
+                      </div>
+                      <div className="horizon-val font-sans">
+                        {predVal != null 
+                          ? `${formatNumber(predVal, forecastMetric === 'load_1m' ? 2 : 1)}${forecastMetric !== 'load_1m' ? '%' : ''}`
+                          : '—'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="neo-card context-card">
-          <div className="context-card-header">
-            <div className="context-icon-box">
-              <Layers size={16} className="text-info" />
+        {/* RIGHT COLUMN — 5. TELEMETRY TRENDS SECTION */}
+        <div className="upper-right-column">
+          <div className="netra-panel trend-chart-panel full-height-panel">
+            <div className="panel-title-bar trend-header-wrap font-sans">
+              <div className="trend-select-group">
+                <h2 className="panel-title font-sans">Telemetry Trends</h2>
+                <select
+                  value={trendMetric}
+                  onChange={(e) => setTrendMetric(e.target.value)}
+                  className="netra-metric-dropdown font-sans"
+                >
+                  {ALL_METRICS_LIST.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 8 Time Window Selector Pills */}
+              <div className="segmented-tabs window-tabs-wrap font-sans">
+                {TIME_WINDOWS.map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => setTrendWindowId(w.id)}
+                    className={`tab-btn ${trendWindowId === w.id ? 'active' : ''}`}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <span className="context-title font-sans font-bold text-primary">MEMORY & SWAP</span>
-          </div>
-          <div className="context-card-body margin-top-md">
-            <div className="context-row">
-              <span className="context-label">SWAP USED:</span>
-              <span className="context-value text-primary">{metrics?.swap != null ? formatPercent(metrics.swap) : '7.0%'}</span>
-            </div>
-            <div className="context-row">
-              <span className="context-label">RAM PEAK:</span>
-              <span className="context-value text-info">{memPeak ? `${memPeak}%` : '31.2%'}</span>
-            </div>
-            <div className="context-row">
-              <span className="context-label">MEMORY STATUS:</span>
-              <span className="context-value text-healthy">OPTIMAL</span>
+
+            <div className="unified-chart-wrapper">
+              <TelemetryChart
+                data={trendData}
+                loading={trendLoading}
+                series={[{ 
+                  key: 'value', 
+                  label: activeMetricObj.label, 
+                  color: 'var(--text-primary)', 
+                  fillOpacity: 0.05 
+                }]}
+                unitFormatter={(v) => {
+                  const unit = activeMetricObj.unit;
+                  if (unit === '%') return `${formatNumber(v, 1)}%`;
+                  if (unit === ' B/s') return `${formatNumber(v / 1024, 1)} KB/s`;
+                  return `${formatNumber(v, 2)}${unit}`;
+                }}
+              />
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="neo-card context-card">
-          <div className="context-card-header">
-            <div className="context-icon-box">
-              <Network size={16} className="text-warning" />
-            </div>
-            <span className="context-title font-sans font-bold text-primary">SYSTEM & UPTIME</span>
+      {/* 4. ALERTS SUMMARY BLOCK */}
+      <div className="netra-panel alerts-summary-panel">
+        <div className="panel-title-bar">
+          <h2 className="panel-title font-sans">Alerts Summary</h2>
+          <div className="title-right-group font-sans">
+            {alertsData.length > 0 && (
+              <span className="nokia-badge badge-warning font-sans">
+                <span className="status-dot dot-warning" />
+                {alertsData.length} Active
+              </span>
+            )}
+            <Link to="/alerts" className="view-alerts-link font-sans">
+              <span>View all alerts</span>
+              <ArrowRight size={12} />
+            </Link>
           </div>
-          <div className="context-card-body margin-top-md">
-            <div className="context-row">
-              <span className="context-label">UPTIME DURATION:</span>
-              <span className="context-value text-primary">{metrics?.uptime ? formatUptime(metrics.uptime) : '2d 15h 12m'}</span>
+        </div>
+
+        <div className="alerts-summary-content font-sans">
+          {alertsLoading ? (
+            <div className="alerts-empty-state font-sans text-muted text-xs">
+              Loading alerts...
             </div>
-            <div className="context-row">
-              <span className="context-label">ACTIVE TARGET:</span>
-              <span className="context-value text-accent">{activeServer.name}</span>
+          ) : alertsError ? (
+            <div className="alerts-empty-state font-sans text-muted text-xs">
+              {alertsError}
             </div>
-            <div className="context-row">
-              <span className="context-label">TAILSCALE IP:</span>
-              <span className="context-value text-primary">{activeServer.ip}</span>
+          ) : alertsData.length === 0 ? (
+            <div className="anomaly-state-healthy font-sans">
+              <ShieldCheck size={18} className="text-healthy-icon" />
+              <span className="healthy-text font-medium">No active infrastructure alerts recorded</span>
             </div>
-          </div>
+          ) : (
+            <div className="alerts-compact-grid font-sans">
+              {alertsData.slice(0, 3).map((alertItem) => (
+                <div key={alertItem.id} className="alert-compact-card">
+                  <div className="alert-card-top font-sans">
+                    <span className={`nokia-badge ${alertItem.severity === 'CRITICAL' ? 'badge-critical' : alertItem.severity === 'WARNING' ? 'badge-warning' : 'badge-neutral'}`}>
+                      {alertItem.severity || 'WARNING'}
+                    </span>
+                    <span className="alert-host-tag font-mono text-xs">{alertItem.server || selectedHost}</span>
+                  </div>
+                  <div className="alert-card-msg font-sans font-medium text-xs">
+                    {alertItem.title || alertItem.message}
+                  </div>
+                  <div className="alert-card-time font-mono text-muted text-xs">
+                    {alertItem.created_at ? formatTimestamp(new Date(alertItem.created_at).getTime() / 1000, true, false) : 'Recently'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 6. ANOMALIES & TELEMETRY HEALTH SECTION */}
+      <div className="netra-panel anomalies-panel margin-top-md">
+        <div className="panel-title-bar">
+          <h2 className="panel-title font-sans">Anomalies & Telemetry Health</h2>
+          <span className={`nokia-badge ${isAnomaly ? 'badge-critical' : 'badge-healthy'} font-sans`}>
+            <span className={`status-dot ${isAnomaly ? 'dot-critical' : 'dot-healthy'}`} />
+            {isAnomaly ? 'Anomaly' : 'Healthy'}
+          </span>
+        </div>
+
+        <div className="anomalies-content-body font-sans">
+          {!isAnomaly ? (
+            <div className="anomaly-state-healthy font-sans">
+              <ShieldCheck size={18} className="text-healthy-icon" />
+              <span className="healthy-text font-medium">No telemetry anomalies detected</span>
+            </div>
+          ) : (
+            <div className="anomaly-state-active font-sans">
+              <AlertTriangle size={18} className="text-warning-icon" />
+              <div className="anomaly-detail">
+                <div className="anomaly-main font-medium">
+                  {anomalyData?.primary_reason || 'Multivariate telemetry anomaly detected'}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <style>{`
-        .margin-top-xs { margin-top: 4px; }
-        .margin-top-sm { margin-top: 8px; }
-        .margin-top-md { margin-top: 16px; }
-        .margin-top-lg { margin-top: 24px; }
-        .margin-bottom-sm { margin-bottom: 8px; }
-        .margin-bottom-lg { margin-bottom: 24px; }
-
-        .hero-primary-card {
-          padding: 24px 28px;
-        }
-
-        .hero-top-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .hero-left-title {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-
-        .node-icon-box {
-          width: 44px;
-          height: 44px;
-          background: var(--bg-inset);
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border-subtle);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .node-title {
-          font-size: 22px;
-          font-weight: 700;
-          color: var(--text-primary);
-          letter-spacing: -0.01em;
-        }
-
-        .node-subtitle {
-          font-size: 12px;
-          margin-top: 2px;
-        }
-
-        .hero-right-controls {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .hero-divider {
-          height: 1px;
-          background: var(--border-subtle);
-          margin: 20px 0;
-        }
-
-        .hero-gauges-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 16px;
-        }
-
-        .gauge-item {
-          padding: 14px 16px;
+        .netra-dashboard-overview {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 16px;
         }
 
-        .gauge-header {
+        /* Main Header */
+        .dashboard-main-header {
           display: flex;
           align-items: center;
-          gap: 6px;
-        }
-
-        .gauge-header .editorial-pill {
-          margin-left: auto;
-        }
-
-        .pill-xs {
-          padding: 1px 6px;
-          font-size: 9px;
-        }
-
-        .gauge-label {
-          font-size: 10px;
-          letter-spacing: 0.06em;
-          font-weight: 600;
-        }
-
-        .gauge-footer {
-          display: flex;
           justify-content: space-between;
-          border-top: 1px dashed var(--border-subtle);
-          padding-top: 6px;
+          padding-bottom: 2px;
         }
 
-        .hero-gauge-num {
-          font-size: 26px !important;
-          font-weight: 800;
-          color: var(--text-primary);
+        .header-page-title {
+          font-size: 24px;
+          font-weight: 600;
           letter-spacing: -0.02em;
+          color: var(--text-primary);
           line-height: 1.2;
         }
 
-        .neo-progress-track {
-          height: 6px;
-          background: rgba(148, 163, 184, 0.2);
-          border-radius: var(--radius-pill);
-          overflow: hidden;
-        }
-
-        .neo-progress-fill {
-          height: 100%;
-          border-radius: var(--radius-pill);
-          transition: width 0.3s ease;
-        }
-
-        .bg-accent { background: var(--accent); }
-        .bg-info { background: var(--status-info); }
-        .bg-warning { background: var(--status-warning); }
-
-        .telemetry-cards-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 16px;
-        }
-
-        .metric-card {
+        .server-host-selector {
           display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          min-height: 125px;
-          padding: 18px 20px;
-        }
-
-        .metric-card-header {
-          display: flex;
-          justify-content: space-between;
           align-items: center;
+          gap: 8px;
         }
 
-        .metric-card-footer {
+        .selector-label {
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+
+        .host-tab-btn {
           display: flex;
-          justify-content: space-between;
-          border-top: 1px solid var(--border-subtle);
-          padding-top: 8px;
+          align-items: center;
+          gap: 6px;
+          background: transparent;
+          border: 1px solid var(--border-subtle);
+          color: var(--text-secondary);
+          font-family: var(--font-sans);
+          font-size: 12px;
+          padding: 4px 10px;
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          transition: all 0.15s ease;
         }
 
-        .editorial-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          padding-bottom: 12px;
-          border-bottom: 1px solid var(--border-subtle);
-          margin-bottom: 18px;
-        }
-
-        .editorial-title {
-          font-size: 16px;
-          font-weight: 700;
-          letter-spacing: -0.01em;
+        .host-tab-btn:hover {
+          background-color: var(--bg-surface-hover);
           color: var(--text-primary);
         }
 
-        .charts-grid {
+        .host-tab-btn.active {
+          background-color: var(--bg-surface);
+          border-color: var(--border-strong);
+          color: var(--text-primary);
+          font-weight: 500;
+        }
+
+        /* Panels */
+        .netra-panel {
+          background-color: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .panel-title-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .panel-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--text-primary);
+          letter-spacing: -0.01em;
+        }
+
+        .title-right-group {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .view-alerts-link {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 12px;
+          color: var(--text-secondary);
+          text-decoration: none;
+          transition: color 0.15s ease;
+        }
+
+        .view-alerts-link:hover {
+          color: var(--text-primary);
+        }
+
+        /* Upper Grid */
+        .upper-dashboard-grid {
+          display: grid;
+          grid-template-columns: 370px 1fr;
+          gap: 16px;
+        }
+
+        .upper-left-column {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .upper-right-column {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .full-height-panel {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+
+        /* Resource Metrics Grid */
+        .resource-metrics-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 20px;
+          gap: 10px;
         }
 
-        .contextual-cards-grid {
+        .resource-metric-card {
+          background-color: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          padding: 12px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .metric-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .card-label {
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--text-secondary);
+        }
+
+        .card-status {
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .status-normal { color: var(--text-muted); }
+        .status-warning { color: var(--status-warning); }
+        .status-critical { color: var(--status-critical); }
+
+        .card-value {
+          font-size: 22px;
+          font-weight: 600;
+          color: var(--text-primary);
+          letter-spacing: -0.02em;
+        }
+
+        .unit-symbol {
+          font-size: 13px;
+          font-weight: 400;
+          color: var(--text-muted);
+          margin-left: 2px;
+        }
+
+        /* Alerts Summary Content */
+        .alerts-summary-content {
+          padding-top: 2px;
+        }
+
+        .alerts-empty-state {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 0;
+          color: var(--text-muted);
+        }
+
+        .alerts-compact-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 20px;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 10px;
         }
 
-        .context-card {
-          padding: 22px 24px;
+        .alert-compact-card {
+          background-color: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          padding: 10px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
         }
 
-        .context-card-header {
+        .alert-card-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .alert-host-tag {
+          color: var(--text-muted);
+        }
+
+        .alert-card-msg {
+          color: var(--text-primary);
+          line-height: 1.3;
+        }
+
+        .alert-card-time {
+          color: var(--text-muted);
+        }
+
+        /* Anomalies Content */
+        .anomalies-content-body {
+          padding: 2px 0;
+        }
+
+        .anomaly-state-healthy {
           display: flex;
           align-items: center;
           gap: 10px;
-          border-bottom: 1px solid var(--border-subtle);
-          padding-bottom: 12px;
+          font-size: 13px;
+          color: var(--text-primary);
         }
 
-        .context-icon-box {
-          width: 32px;
-          height: 32px;
-          background: var(--bg-inset);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md);
+        .healthy-text {
+          font-size: 13px;
+          color: var(--text-primary);
+        }
+
+        .text-healthy-icon { color: var(--status-healthy); }
+        .text-warning-icon { color: var(--status-warning); }
+        .text-critical-icon { color: var(--status-critical); }
+
+        .anomaly-state-active {
           display: flex;
           align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
+          gap: 10px;
         }
 
-        .context-title {
+        .anomaly-main {
           font-size: 13px;
-          letter-spacing: 0.04em;
+          color: var(--text-primary);
         }
 
-        .context-card-body {
+        /* Segmented Tabs */
+        .segmented-tabs {
+          display: flex;
+          background-color: var(--bg-subtle);
+          padding: 3px;
+          border-radius: var(--radius-sm);
+          gap: 2px;
+        }
+
+        .tab-btn {
+          background: transparent;
+          border: none;
+          padding: 3px 8px;
+          font-family: var(--font-sans);
+          font-size: 11px;
+          color: var(--text-muted);
+          border-radius: var(--radius-xs);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .tab-btn:hover {
+          color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+          background-color: var(--bg-surface);
+          color: var(--text-primary);
+          font-weight: 500;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Forecast Body */
+        .forecast-body-content {
           display: flex;
           flex-direction: column;
           gap: 12px;
+          flex: 1;
         }
 
-        .context-row {
+        .forecast-headline-strip {
           display: flex;
-          justify-content: space-between;
           align-items: center;
+          justify-content: space-between;
+          background-color: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          padding: 10px 14px;
         }
 
-        .context-label {
-          font-size: 11px;
-          letter-spacing: 0.05em;
-          color: var(--text-tertiary);
+        .actual-badge-pill {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .badge-tag {
+          font-size: 10px;
           font-weight: 600;
+          letter-spacing: 0.05em;
+          background-color: var(--bg-subtle);
+          color: var(--text-secondary);
+          padding: 2px 6px;
+          border-radius: var(--radius-xs);
         }
 
-        .context-value {
+        .actual-val {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .forecast-arrow-divider {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .trajectory-label {
+          font-size: 11px;
+          color: var(--text-muted);
+        }
+
+        /* 4x2 Horizon Cards Grid */
+        .horizon-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 6px;
+        }
+
+        .horizon-card-compact {
+          background-color: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          padding: 6px 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .horizon-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .horizon-name {
+          font-size: 11px;
+          color: var(--text-muted);
+        }
+
+        .horizon-val {
           font-size: 13px;
-          font-weight: 700;
-          letter-spacing: 0.02em;
+          font-weight: 600;
+          color: var(--text-primary);
         }
 
-        .text-accent { color: var(--accent); }
-        .text-info { color: var(--status-info); }
-        .text-warning { color: var(--status-warning); }
-        .text-healthy { color: var(--status-healthy); }
-        .text-tertiary { color: var(--text-tertiary); }
-        .text-secondary { color: var(--text-secondary); }
-        .text-primary { color: var(--text-primary); }
+        /* Telemetry Trend Panel */
+        .trend-header-wrap {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
 
+        .trend-select-group {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .netra-metric-dropdown {
+          background-color: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-xs);
+          color: var(--text-primary);
+          font-size: 12px;
+          padding: 4px 10px;
+          outline: none;
+          cursor: pointer;
+          font-weight: 500;
+        }
+
+        .window-tabs-wrap {
+          flex-wrap: wrap;
+        }
+
+        .unified-chart-wrapper {
+          flex: 1;
+          min-height: 260px;
+          width: 100%;
+          margin-top: 6px;
+        }
+
+        .margin-top-md { margin-top: 4px; }
+
+        /* Responsive Layout */
         @media (max-width: 1100px) {
-          .telemetry-cards-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-          .charts-grid {
-            grid-template-columns: 1fr;
-          }
-          .contextual-cards-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .hero-gauges-grid {
-            grid-template-columns: 1fr;
-          }
-          .telemetry-cards-grid {
+          .upper-dashboard-grid {
             grid-template-columns: 1fr;
           }
         }

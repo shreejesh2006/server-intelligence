@@ -2,22 +2,10 @@ import React, { useState } from 'react';
 import { Navigate, useNavigate, useLocation } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { 
-  Activity, 
-  Lock, 
-  AlertOctagon, 
-  RefreshCw, 
   Eye, 
   EyeOff, 
-  Info,
-  Server,
-  Cpu,
-  ShieldCheck,
-  Zap,
-  HardDrive,
-  User,
-  KeyRound,
-  ArrowRight,
-  Globe
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 
 export function LoginPage() {
@@ -25,7 +13,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,22 +37,13 @@ export function LoginPage() {
       navigate(targetPath, { replace: true });
     } catch (err) {
       const status = err.response ? err.response.status : null;
-      const detail = err.response?.data?.detail;
 
-      if (status === 401) {
-        setErrorMessage(detail || 'Invalid username or password.');
+      if (status === 401 || status === 400 || status === 422) {
+        setErrorMessage('Invalid username or password.');
       } else if (status === 403) {
-        setErrorMessage(detail || 'User account is disabled by Administrator.');
-      } else if (status === 422) {
-        setErrorMessage('Validation error: Invalid authentication payload.');
-      } else if (status >= 500) {
-        setErrorMessage(`Server error (HTTP ${status}): ${detail || 'Internal server error'}`);
-      } else if (err.code === 'ECONNABORTED') {
-        setErrorMessage('Authentication request timed out.');
-      } else if (err.code === 'ERR_NETWORK') {
-        setErrorMessage('Network connection failed. Verify API backend connectivity.');
+        setErrorMessage('Account access restricted. Please contact your administrator.');
       } else {
-        setErrorMessage(detail || err.message || 'Authentication failed.');
+        setErrorMessage('Invalid username or password.');
       }
     } finally {
       setIsSubmitting(false);
@@ -72,157 +51,113 @@ export function LoginPage() {
   };
 
   return (
-    <div className="login-gateway-page font-sans">
-      {/* BACKGROUND LAYER: ANIMATED MOVING GRAPHICAL WAVES & NETWORK CONSTELLATION */}
-      <div className="animated-graph-background">
-        {/* Animated Moving Wave Graphs SVG */}
-        <svg className="moving-waves-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" fill="none" xmlns="http://www.w3.org/2000/svg">
-          {/* Background Grid Lines */}
-          <path d="M0 150 H1440 M0 300 H1440 M0 450 H1440 M0 600 H1440 M0 750 H1440" stroke="var(--border-subtle)" strokeDasharray="4 4" opacity="0.35" />
-          <path d="M180 0 V900 M360 0 V900 M540 0 V900 M720 0 V900 M900 0 V900 M1080 0 V900 M1260 0 V900" stroke="var(--border-subtle)" strokeDasharray="4 4" opacity="0.35" />
+    <div className="netra-split-login-page font-sans">
+      {/* LEFT PANEL — ANIMATED INFRASTRUCTURE VISUAL (50%) */}
+      <div className="login-visual-panel">
+        <div className="visual-graphic-container">
+          <svg className="geometric-pattern-svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* Background Dot Matrix */}
+            <g opacity="0.3">
+              {[120, 240, 360, 480, 500, 620, 740, 860].map((x) =>
+                [120, 240, 360, 480, 500, 620, 740, 860].map((y) => (
+                  <circle key={`dot-${x}-${y}`} cx={x} cy={y} r="1.5" fill="var(--text-muted)" />
+                ))
+              )}
+            </g>
 
-          {/* Wave 1: Primary Accent Green Telemetry Graph (Smooth Multi-Period Sine Wave) */}
-          <path 
-            className="moving-wave wave-primary" 
-            d="M -100 450 C 180 220, 420 680, 720 450 C 1020 220, 1260 680, 1540 450" 
-            stroke="var(--accent)" 
-            strokeWidth="3" 
-            strokeLinecap="round" 
-            opacity="0.7" 
-          />
+            {/* Fine Axis Crosshair Lines */}
+            <g opacity="0.15" stroke="var(--border-strong)" strokeWidth="1">
+              <line x1="500" y1="50" x2="500" y2="950" strokeDasharray="4 6" />
+              <line x1="50" y1="500" x2="950" y2="500" strokeDasharray="4 6" />
+            </g>
 
-          {/* Wave 2: Cyan Info Secondary Graph */}
-          <path 
-            className="moving-wave wave-secondary" 
-            d="M -100 320 C 220 580, 500 120, 720 320 C 940 520, 1220 120, 1540 320" 
-            stroke="var(--status-info, #38bdf8)" 
-            strokeWidth="2.2" 
-            strokeDasharray="6 6" 
-            opacity="0.5" 
-          />
+            {/* Outermost Concentric Ring (Radius 440, Clockwise slow) */}
+            <g className="geo-rotate-cw" transform-origin="500 500">
+              <circle cx="500" cy="500" r="440" stroke="var(--border-strong)" strokeWidth="1" strokeDasharray="8 14" opacity="0.4" />
+              <circle cx="500" cy="60" r="5" fill="var(--text-secondary)" />
+              <circle cx="500" cy="940" r="5" fill="var(--text-secondary)" />
+              <circle cx="60" cy="500" r="5" fill="var(--text-secondary)" />
+              <circle cx="940" cy="500" r="5" fill="var(--text-secondary)" />
+            </g>
 
-          {/* Wave 3: Amber Load Graph */}
-          <path 
-            className="moving-wave wave-tertiary" 
-            d="M -100 580 C 150 320, 460 780, 720 580 C 980 380, 1290 780, 1540 580" 
-            stroke="var(--status-warning, #f59e0b)" 
-            strokeWidth="1.8" 
-            opacity="0.4" 
-          />
+            {/* Large Outer Concentric Ring (Radius 340, Counter-clockwise) */}
+            <g className="geo-rotate-ccw" transform-origin="500 500">
+              <circle cx="500" cy="500" r="340" stroke="var(--text-muted)" strokeWidth="1" strokeDasharray="4 8" opacity="0.5" />
+              <rect x="491" y="152" width="18" height="18" rx="4" fill="var(--text-primary)" opacity="0.7" />
+              <rect x="491" y="830" width="18" height="18" rx="4" fill="var(--text-primary)" opacity="0.7" />
+              <rect x="152" y="491" width="18" height="18" rx="4" fill="var(--text-primary)" opacity="0.7" />
+              <rect x="830" y="491" width="18" height="18" rx="4" fill="var(--text-primary)" opacity="0.7" />
+            </g>
 
-          {/* Network Constellation Nodes & Pulses */}
-          <circle cx="280" cy="335" r="5" fill="var(--accent)" />
-          <circle cx="280" cy="335" r="14" stroke="var(--accent)" strokeWidth="1.5" className="pulse-ring-bg" />
+            {/* Middle Ring (Radius 240, Solid) */}
+            <circle cx="500" cy="500" r="240" stroke="var(--border-subtle)" strokeWidth="1.5" opacity="0.8" />
 
-          <circle cx="580" cy="565" r="6" fill="var(--status-info, #38bdf8)" />
-          <circle cx="580" cy="565" r="16" stroke="var(--status-info, #38bdf8)" strokeWidth="1.5" className="pulse-ring-bg" />
+            {/* Central Overlapping Geometric Composition */}
+            <g className="geo-pulse" transform-origin="500 500">
+              {/* Large Rotated Diamond Rounded Square */}
+              <g transform="translate(500 500) rotate(45)">
+                <rect x="-180" y="-180" width="360" height="360" rx="48" stroke="var(--text-primary)" strokeWidth="1.5" fill="var(--bg-canvas)" fillOpacity="0.3" opacity="0.25" />
+              </g>
 
-          <circle cx="860" cy="335" r="5" fill="var(--status-warning, #f59e0b)" />
-          <circle cx="860" cy="335" r="14" stroke="var(--status-warning, #f59e0b)" strokeWidth="1.5" className="pulse-ring-bg" />
-
-          <circle cx="1160" cy="565" r="6" fill="var(--accent)" />
-          <circle cx="1160" cy="565" r="18" stroke="var(--accent)" strokeWidth="1.5" className="pulse-ring-bg" />
-        </svg>
-
-      </div>
-
-      {/* CENTERED FLOATING LOGIN CARD */}
-      <div className="login-centered-card-wrapper font-mono">
-        {/* DOTTED GLOBE GRAPHIC (ANCHORED BEHIND TOP-LEFT CORNER OF LOGIN BOX) */}
-        <div className="bg-dotted-globe-container">
-          <svg className="bg-dotted-globe-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="100" cy="100" r="90" stroke="var(--border-subtle)" strokeWidth="1" strokeDasharray="4 4" opacity="0.6" />
-            <circle cx="100" cy="100" r="75" stroke="var(--accent-border)" strokeWidth="1" opacity="0.4" />
-
-            <ellipse cx="100" cy="100" rx="75" ry="30" stroke="var(--accent)" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
-            <ellipse cx="100" cy="100" rx="75" ry="55" stroke="var(--accent)" strokeWidth="1" strokeDasharray="3 3" opacity="0.3" />
-            <ellipse cx="100" cy="100" rx="30" ry="75" stroke="var(--accent)" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
-            <ellipse cx="100" cy="100" rx="55" ry="75" stroke="var(--accent)" strokeWidth="1" strokeDasharray="3 3" opacity="0.3" />
-
-            <g fill="var(--accent)" opacity="0.65">
-              <circle cx="100" cy="100" r="2.5" />
-              <circle cx="70" cy="100" r="2" />
-              <circle cx="130" cy="100" r="2" />
-              <circle cx="40" cy="100" r="1.8" />
-              <circle cx="160" cy="100" r="1.8" />
-              <circle cx="100" cy="70" r="2" />
-              <circle cx="100" cy="130" r="2" />
-              <circle cx="100" cy="40" r="1.8" />
-              <circle cx="100" cy="160" r="1.8" />
-              <circle cx="78" cy="78" r="1.8" />
-              <circle cx="122" cy="78" r="1.8" />
-              <circle cx="78" cy="122" r="1.8" />
-              <circle cx="122" cy="122" r="1.8" />
+              {/* Intersecting Rounded Rectangles */}
+              <g transform="translate(500 500)">
+                <rect x="-250" y="-115" width="500" height="230" rx="36" stroke="var(--border-strong)" strokeWidth="1.2" fill="var(--bg-surface)" fillOpacity="0.5" />
+                <rect x="-115" y="-250" width="230" height="500" rx="36" stroke="var(--border-strong)" strokeWidth="1.2" fill="var(--bg-surface)" fillOpacity="0.5" />
+                
+                {/* Inner Central Nested Rounded Square */}
+                <rect x="-95" y="-95" width="190" height="190" rx="30" stroke="var(--text-primary)" strokeWidth="1.5" fill="var(--bg-canvas)" />
+                
+                {/* Central Iris & Circle Details */}
+                <circle cx="0" cy="0" r="54" stroke="var(--text-primary)" strokeWidth="1.5" fill="none" />
+                <circle cx="0" cy="0" r="28" fill="var(--accent-primary)" opacity="0.12" />
+                <circle cx="0" cy="0" r="10" fill="var(--text-primary)" />
+              </g>
             </g>
           </svg>
         </div>
+      </div>
 
-        <div className="neo-card login-card-glass font-mono">
+      {/* RIGHT PANEL — LOGIN FORM (50%) */}
+      <div className="login-form-panel">
+        <div className="form-content-wrapper">
           {/* Brand Header */}
-          <div className="login-card-brand font-sans flex-between border-bottom padding-bottom-sm">
-            <div className="flex-center gap-xs">
-              <div className="brand-logo-box">
-                <Activity size={22} className="text-accent" />
-              </div>
-              <div>
-                <span className="brand-title font-bold">SERVER INTELLIGENCE</span>
-                <div className="brand-tag font-mono text-tertiary text-xs">v0.1.0-INDUSTRIAL</div>
-              </div>
-            </div>
-            <span className="editorial-pill pill-healthy font-mono">ONLINE</span>
+          <div className="netra-brand-header">
+            <h1 className="netra-wordmark">
+              Netra Intelligence
+            </h1>
           </div>
 
-          <div className="gateway-header-strip margin-top-md">
-            <h2 className="gateway-title font-sans font-bold">Sign in to Console</h2>
-            <p className="gateway-subtitle font-sans text-xs text-secondary margin-top-xs">
-              Enter your administrative credentials to access telemetry dashboard.
-            </p>
-          </div>
-
-          {/* Redirect Notice */}
-          {location.state?.from && (
-            <div className="editorial-notice-banner notice-info margin-top-md">
-              <Info size={14} className="shrink-0" />
-              <span>Session authorization required for {location.state.from.pathname}.</span>
-            </div>
-          )}
-
-          {/* Error Notice */}
+          {/* Error Banner only after login attempt */}
           {errorMessage && (
-            <div className="editorial-notice-banner notice-error margin-top-md">
-              <AlertOctagon size={14} className="shrink-0" />
+            <div className="banner banner-error font-sans">
+              <AlertCircle size={15} className="banner-icon" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="margin-top-md">
-            <div className="field-group">
-              <label htmlFor="username-input" className="field-label text-tertiary">
-                USERNAME:
+          {/* Login Form */}
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="form-field">
+              <label htmlFor="username-input" className="field-label">
+                Username
               </label>
-              <div className="input-with-icon">
-                <User size={14} className="input-icon text-tertiary" />
-                <input
-                  id="username-input"
-                  type="text"
-                  required
-                  autoComplete="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter username (e.g. admin)"
-                  disabled={isSubmitting}
-                  className="neo-input login-input input-padded"
-                />
-              </div>
+              <input
+                id="username-input"
+                type="text"
+                required
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={isSubmitting}
+                className="netra-input"
+              />
             </div>
 
-            <div className="field-group margin-top-md">
-              <label htmlFor="password-input" className="field-label text-tertiary">
-                PASSWORD:
+            <div className="form-field">
+              <label htmlFor="password-input" className="field-label">
+                Password
               </label>
-              <div className="input-with-icon">
-                <KeyRound size={14} className="input-icon text-tertiary" />
+              <div className="input-pass-wrapper">
                 <input
                   id="password-input"
                   type={showPassword ? 'text' : 'password'}
@@ -230,278 +165,296 @@ export function LoginPage() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password"
                   disabled={isSubmitting}
-                  className="neo-input login-input input-padded pass-padded"
+                  className="netra-input input-pass"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="neo-icon-btn pass-toggle-btn"
+                  className="pass-toggle-btn"
                   title={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
-            <div className="form-action margin-top-md">
-              <button
-                type="submit"
-                disabled={isSubmitting || !username.trim() || !password.trim()}
-                className="neo-btn neo-btn-primary btn-submit"
-              >
-                {isSubmitting ? (
-                  <>
-                    <RefreshCw size={14} className="spin" />
-                    <span>AUTHENTICATING SESSION...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>SIGN IN TO CONSOLE</span>
-                    <ArrowRight size={14} />
-                  </>
-                )}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={isSubmitting || !username.trim() || !password.trim()}
+              className="submit-btn"
+            >
+              {isSubmitting ? (
+                <>
+                  <RefreshCw size={15} className="spinning" />
+                  <span>Signing in...</span>
+                </>
+              ) : (
+                <span>Sign in</span>
+              )}
+            </button>
           </form>
         </div>
       </div>
 
       <style>{`
-        .margin-top-xs { margin-top: 6px; }
-        .margin-top-md { margin-top: 20px; }
-        .margin-top-lg { margin-top: 28px; }
-        .padding-bottom-xs { padding-bottom: 8px; }
-        .padding-bottom-sm { padding-bottom: 12px; }
-        .padding-top-sm { padding-top: 14px; }
-        .border-bottom { border-bottom: 1px solid var(--border-subtle); }
-        .border-top { border-top: 1px solid var(--border-subtle); }
-        .flex-between { display: flex; justify-content: space-between; align-items: center; }
-        .flex-center { display: flex; align-items: center; }
-        .gap-xs { gap: 8px; }
-
-        .login-gateway-page {
+        .netra-split-login-page {
           min-height: 100vh;
           width: 100vw;
-          background-color: var(--bg-app);
+          display: flex;
+          background-color: var(--bg-canvas);
+          overflow: hidden;
+        }
+
+        /* LEFT PANEL (50%) */
+        .login-visual-panel {
+          width: 50%;
+          min-height: 100vh;
+          background-color: var(--bg-surface);
+          border-right: 1px solid var(--border-subtle);
           display: flex;
           align-items: center;
           justify-content: center;
+          padding: 24px;
           position: relative;
           overflow: hidden;
-          padding: 20px;
         }
 
-        .animated-graph-background {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          pointer-events: none;
-          overflow: hidden;
-          z-index: 1;
-        }
-
-        .moving-waves-svg {
+        .visual-graphic-container {
           width: 100%;
           height: 100%;
-          position: absolute;
-          top: 0;
-          left: 0;
+          max-width: 720px;
+          max-height: 720px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
-        .moving-wave {
-          stroke-dasharray: 900;
-          stroke-dashoffset: 900;
-          animation: waveDraw 12s linear infinite alternate;
-        }
-
-        .wave-primary {
-          animation-duration: 14s;
-        }
-        .wave-secondary {
-          animation-duration: 18s;
-        }
-        .wave-tertiary {
-          animation-duration: 24s;
-        }
-
-        @keyframes waveDraw {
-          0% { stroke-dashoffset: 900; }
-          100% { stroke-dashoffset: 0; }
-        }
-
-        .pulse-ring-bg {
-          animation: pulseRingBg 3s ease-out infinite;
-          transform-origin: center;
-        }
-
-        @keyframes pulseRingBg {
-          0% { opacity: 0.8; }
-          100% { opacity: 0; }
-        }
-
-        .login-centered-card-wrapper {
-          position: relative;
-          z-index: 10;
-          width: 100%;
-          max-width: 440px;
-        }
-
-        .bg-dotted-globe-container {
-          position: absolute;
-          top: -90px;
-          left: -110px;
-          width: 320px;
-          height: 320px;
-          opacity: 0.45;
-          pointer-events: none;
-          z-index: -1;
-        }
-
-        .bg-dotted-globe-svg {
+        .geometric-pattern-svg {
           width: 100%;
           height: 100%;
-          animation: globeSpin 50s linear infinite;
         }
 
-        @keyframes globeSpin {
+        .geo-rotate-cw {
+          animation: geoRotateCW 90s linear infinite;
+        }
+
+        .geo-rotate-ccw {
+          animation: geoRotateCCW 60s linear infinite;
+        }
+
+        .geo-pulse {
+          animation: geoPulse 6s ease-in-out infinite;
+        }
+
+        .geo-float-slow {
+          animation: geoFloat 4s ease-in-out infinite;
+        }
+
+        @keyframes geoRotateCW {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
 
-        .login-centered-card-wrapper {
-          position: relative;
-          z-index: 10;
-          width: 100%;
-          max-width: 440px;
+        @keyframes geoRotateCCW {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(-360deg); }
         }
 
-        .login-card-glass {
-          padding: 36px 32px;
-          background: var(--bg-surface);
-          border: 1px solid var(--border-strong);
-          border-radius: var(--radius-lg);
-          box-shadow: var(--shadow-raised-lg);
+        @keyframes geoPulse {
+          0%, 100% { transform: scale(1); opacity: 0.95; }
+          50% { transform: scale(1.02); opacity: 1; }
         }
 
-        .brand-logo-box {
-          width: 40px;
-          height: 40px;
-          background: var(--bg-inset);
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border-subtle);
+        @keyframes geoFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+
+        /* RIGHT PANEL (50%) */
+        .login-form-panel {
+          width: 50%;
+          min-height: 100vh;
+          background-color: var(--bg-canvas);
           display: flex;
           align-items: center;
           justify-content: center;
+          padding: 40px;
         }
 
-        .brand-title {
-          font-size: 15px;
-          letter-spacing: 0.04em;
-          color: var(--text-primary);
+        .form-content-wrapper {
+          width: 100%;
+          max-width: 360px;
+          display: flex;
+          flex-direction: column;
+          gap: 28px;
         }
 
-        .gateway-title {
-          font-size: 22px;
-          letter-spacing: -0.02em;
-          color: var(--text-primary);
-        }
-
-        .editorial-notice-banner {
-          padding: 10px 14px;
-          font-size: 11px;
+        /* Brand Wordmark */
+        .netra-brand-header {
           display: flex;
           align-items: center;
-          gap: 8px;
-          border-radius: var(--radius-md);
         }
 
-        .notice-info {
-          background: rgba(2, 132, 199, 0.08);
-          border: 1px solid rgba(2, 132, 199, 0.3);
+        .netra-wordmark {
+          font-size: 32px;
+          font-weight: 600;
+          letter-spacing: -0.02em;
+          color: var(--text-primary);
+          display: inline-flex;
+          align-items: center;
+          margin: 0;
+        }
+
+        /* Banners */
+        .banner {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 14px;
+          border-radius: var(--radius-sm);
+          font-size: 13px;
+          line-height: 1.4;
+        }
+
+        .banner-icon {
+          flex-shrink: 0;
+        }
+
+        .banner-info {
+          background-color: var(--status-info-bg);
           color: var(--status-info);
         }
 
-        .notice-error {
-          background: rgba(220, 38, 38, 0.1);
-          border: 1px solid rgba(220, 38, 38, 0.3);
+        .banner-error {
+          background-color: var(--status-critical-bg);
           color: var(--status-critical);
         }
 
-        .field-group {
+        /* Form Controls */
+        .login-form {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 20px;
+        }
+
+        .form-field {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
         }
 
         .field-label {
-          font-size: 10px;
-          letter-spacing: 0.06em;
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-primary);
         }
 
-        .input-with-icon {
+        .input-pass-wrapper {
           position: relative;
           display: flex;
           align-items: center;
         }
 
-        .input-icon {
-          position: absolute;
-          left: 12px;
-          pointer-events: none;
-        }
-
-        .input-padded {
-          padding-left: 36px !important;
+        .netra-input {
           width: 100%;
-          height: 40px;
-          font-size: 12px;
+          height: 44px;
+          padding: 0 14px;
+          background-color: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          font-family: var(--font-sans);
+          font-size: 14px;
+          color: var(--text-primary);
+          outline: none;
+          transition: border-color 0.15s ease;
         }
 
-        .pass-padded {
-          padding-right: 40px !important;
+        .netra-input:focus {
+          border-color: var(--border-strong);
+        }
+
+        .input-pass {
+          padding-right: 44px;
         }
 
         .pass-toggle-btn {
           position: absolute;
-          right: 6px;
-          width: 28px;
-          height: 28px;
+          right: 10px;
+          background: transparent;
+          border: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 4px;
         }
 
-        .btn-submit {
+        .pass-toggle-btn:hover {
+          color: var(--text-primary);
+        }
+
+        .submit-btn {
           width: 100%;
-          height: 42px;
+          height: 44px;
+          background-color: var(--text-primary);
+          color: var(--bg-canvas);
+          border: none;
+          border-radius: var(--radius-sm);
+          font-family: var(--font-sans);
+          font-size: 14px;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
           justify-content: center;
           gap: 8px;
-          font-size: 12px;
-          font-weight: 700;
+          cursor: pointer;
+          transition: opacity 0.15s ease;
+          margin-top: 4px;
         }
 
-        .badge-row {
-          font-size: 10px;
+        .submit-btn:hover:not(:disabled) {
+          opacity: 0.9;
         }
 
-        .spin {
+        .submit-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .spinning {
           animation: spin 1s linear infinite;
         }
 
         @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+          100% { transform: rotate(360deg); }
         }
 
-        .shrink-0 { flex-shrink: 0; }
-        .text-accent { color: var(--accent); }
-        .text-info { color: var(--status-info, #38bdf8); }
-        .text-warning { color: var(--status-warning, #f59e0b); }
-        .text-healthy { color: var(--status-healthy); }
-        .text-tertiary { color: var(--text-tertiary); }
-        .text-secondary { color: var(--text-secondary); }
-        .text-primary { color: var(--text-primary); }
+        /* RESPONSIVE LAYOUT */
+        @media (max-width: 768px) {
+          .netra-split-login-page {
+            flex-direction: column;
+          }
+
+          .login-visual-panel {
+            width: 100%;
+            min-height: 240px;
+            padding: 24px;
+            border-right: none;
+            border-bottom: 1px solid var(--border-subtle);
+          }
+
+          .visual-graphic-container {
+            max-width: 240px;
+          }
+
+          .login-form-panel {
+            width: 100%;
+            min-height: auto;
+            padding: 40px 24px;
+          }
+        }
       `}</style>
     </div>
   );

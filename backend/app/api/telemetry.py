@@ -8,7 +8,11 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, 
 
 from app.database.database import SessionLocal
 from app.database.models import TelemetrySample
-from app.services.forwarder import forward_spool_manager, FORWARD_TELEMETRY_URL
+from app.services.forwarder import (
+    forward_spool_manager,
+    get_forward_url,
+    get_forward_token,
+)
 
 VICTORIAMETRICS_URL = os.getenv("VICTORIAMETRICS_URL", "http://localhost:8428").rstrip("/")
 TELEMETRY_SECRET_TOKEN = os.getenv("TELEMETRY_SECRET_TOKEN", "")
@@ -178,10 +182,12 @@ async def ingest_batch(
             print(f"[VM INGEST NOTICE] VictoriaMetrics uncontactable at {import_url}: {exc}", flush=True)
 
     # 3. Durable & Retryable forwarding to Render
-    target_fwd_url = os.getenv("FORWARD_TELEMETRY_URL", FORWARD_TELEMETRY_URL)
+    target_fwd_url = get_forward_url()
     if target_fwd_url:
         forward_spool_manager.enqueue(compressed_body)
         background_tasks.add_task(forward_spool_manager.flush)
+    else:
+        print("[FORWARDING NOTICE] FORWARD_TELEMETRY_URL is not configured. Forwarding skipped.", flush=True)
 
     return {
         "status": "success",
@@ -213,7 +219,7 @@ async def telemetry_health(
         "receiver": "online",
         "victoriametrics_url": VICTORIAMETRICS_URL,
         "victoriametrics_status": vm_status,
-        "forwarding_url": os.getenv("FORWARD_TELEMETRY_URL", FORWARD_TELEMETRY_URL) or None,
+        "forwarding_url": get_forward_url() or None,
         "spooled_forward_batches": len(forward_spool_manager.get_spooled_files()),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }

@@ -1,4 +1,5 @@
 .venv/
+.venv-ml/
 # Runtime databases
 *.db
 *.db-shm

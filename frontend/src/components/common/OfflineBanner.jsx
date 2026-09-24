@@ -3,7 +3,7 @@ import { WifiOff, RefreshCw } from 'lucide-react';
 
 export function OfflineBanner({ onRetry, error }) {
   return (
-    <div className="offline-banner font-mono">
+    <div className="offline-banner font-sans">
       <div className="banner-content">
         <WifiOff size={16} className="banner-icon" />
         <div>

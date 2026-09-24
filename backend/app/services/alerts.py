@@ -237,4 +237,92 @@ async def evaluate_host_alerts(
     except Exception as exc:
         logger.warning("ML Anomaly evaluation skipped during alert evaluation for host '%s': %s", canonical, exc)
 
+    # 3. Evaluate User-Defined Alert Rules
+    try:
+        rule_alerts = evaluate_alert_rules(db=db, host=canonical)
+        created_alerts.extend(rule_alerts)
+    except Exception as exc:
+        logger.warning("Alert rules evaluation failed for host '%s': %s", canonical, exc)
+
+    return created_alerts
+
+
+def evaluate_alert_rules(
+    db: Session,
+    host: str | None = None,
+) -> list[Alert]:
+    """
+    Evaluates enabled user-defined AlertRules from the database against recent metrics.
+    Creates active Alerts when metric threshold criteria are met.
+    """
+    from app.database.models import AlertRule
+
+    query = db.query(AlertRule).filter(AlertRule.enabled == True)
+    if host:
+        query = query.filter((AlertRule.host == host) | (AlertRule.host == None))
+
+    rules = query.all()
+    if not rules:
+        return []
+
+    created_alerts = []
+    try:
+        from app.services.victoriametrics import VictoriaMetricsService
+        vm_service = VictoriaMetricsService()
+    except Exception:
+        vm_service = None
+
+    for rule in rules:
+        target_host = rule.host or host or "ubuntu"
+        try:
+            live_metrics = {}
+            if vm_service:
+                live_metrics, _ = vm_service.get_current_metrics(host=target_host)
+
+            raw_val = live_metrics.get(rule.metric)
+            if raw_val is None:
+                continue
+
+            metric_val = float(raw_val)
+            threshold = float(rule.threshold)
+            op = rule.operator
+
+            is_breached = False
+            if op == ">" and metric_val > threshold:
+                is_breached = True
+            elif op == ">=" and metric_val >= threshold:
+                is_breached = True
+            elif op == "<" and metric_val < threshold:
+                is_breached = True
+            elif op == "<=" and metric_val <= threshold:
+                is_breached = True
+            elif op == "==" and metric_val == threshold:
+                is_breached = True
+            elif op == "!=" and metric_val != threshold:
+                is_breached = True
+
+            if is_breached:
+                existing = (
+                    db.query(Alert)
+                    .filter(
+                        Alert.server == target_host,
+                        Alert.metric == rule.metric,
+                        Alert.status == AlertStatus.ACTIVE.value,
+                    )
+                    .first()
+                )
+                if not existing:
+                    a = create_alert(
+                        db=db,
+                        title=f"Rule '{rule.name}' Breached on {target_host}",
+                        message=f"Metric '{rule.metric}' value {metric_val} breached rule threshold {op} {threshold}.",
+                        severity=rule.severity or AlertSeverity.WARNING.value,
+                        source=f"rule:{rule.name}",
+                        metric=rule.metric,
+                        server=target_host,
+                    )
+                    created_alerts.append(a)
+        except Exception as exc:
+            logger.warning("Error evaluating rule '%s': %s", rule.name, exc)
+
     return created_alerts

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: victoriametrics-data
+  namespace: netra
+  labels:
+    app.kubernetes.io/name: victoriametrics
+    app.kubernetes.io/instance: victoriametrics
+    app.kubernetes.io/part-of: netra-intelligence
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi

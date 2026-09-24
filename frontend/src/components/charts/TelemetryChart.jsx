@@ -31,11 +31,11 @@ function getAdaptiveTicks(data, targetCount = 7) {
 
 const CustomTooltip = ({ active, payload, label, unitFormatter, seriesConfig, formatTimestamp }) => {
   if (active && payload && payload.length) {
-    const timestampStr = formatTimestamp ? formatTimestamp(label, true) : `${label}`;
+    const timestampStr = formatTimestamp ? formatTimestamp(label, true, false) : `${label}`;
     return (
-      <div className="neo-tooltip font-mono">
-        <div className="tooltip-time">{timestampStr}</div>
-        <div className="tooltip-divider" />
+      <div className="nokia-chart-tooltip font-sans">
+        <div className="tooltip-time font-sans">{timestampStr}</div>
+        <div className="tooltip-hsep" />
         {payload.map((entry, idx) => {
           const config = seriesConfig?.[entry.dataKey] || {};
           const labelName = config.label || entry.name || entry.dataKey;
@@ -49,31 +49,29 @@ const CustomTooltip = ({ active, payload, label, unitFormatter, seriesConfig, fo
                 className="tooltip-dot"
                 style={{ backgroundColor: entry.color || entry.stroke }}
               />
-              <span className="tooltip-name">{labelName.toUpperCase()}:</span>
-              <span className="tooltip-val">{formattedVal}</span>
+              <span className="tooltip-name">{labelName}:</span>
+              <span className="tooltip-val font-sans">{formattedVal}</span>
             </div>
           );
         })}
 
         <style>{`
-          .neo-tooltip {
-            background-color: var(--bg-surface-raised);
-            border: 1px solid var(--border-strong);
+          .nokia-chart-tooltip {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
             padding: 8px 12px;
-            font-size: 11px;
-            box-shadow: var(--shadow-raised-md);
-            border-left: 3px solid var(--accent);
-            border-radius: var(--radius-md);
+            font-size: 12px;
+            border-radius: var(--radius-sm);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
           }
           .tooltip-time {
-            color: var(--text-secondary);
-            font-size: 10px;
+            color: var(--text-muted);
+            font-size: 11px;
             margin-bottom: 4px;
-            letter-spacing: 0.04em;
           }
-          .tooltip-divider {
+          .tooltip-hsep {
             height: 1px;
-            background: var(--border-subtle);
+            background-color: var(--border-subtle);
             margin-bottom: 6px;
           }
           .tooltip-row {
@@ -88,12 +86,12 @@ const CustomTooltip = ({ active, payload, label, unitFormatter, seriesConfig, fo
             border-radius: 50%;
           }
           .tooltip-name {
-            color: var(--text-tertiary);
-            font-size: 10px;
+            color: var(--text-secondary);
+            font-size: 12px;
           }
           .tooltip-val {
             color: var(--text-primary);
-            font-weight: 700;
+            font-weight: 500;
             margin-left: auto;
           }
         `}</style>
@@ -106,168 +104,94 @@ const CustomTooltip = ({ active, payload, label, unitFormatter, seriesConfig, fo
 export function TelemetryChart({
   data = [],
   series = [
-    { key: 'value', label: 'Value', color: '#16a34a', fillOpacity: 0.15 }
+    { key: 'value', label: 'Value', color: 'var(--text-primary)', fillOpacity: 0.05 }
   ],
   unitFormatter,
   yDomain = [0, 'auto'],
-  chartType = 'area', // 'area' or 'line'
+  chartType = 'area',
   loading = false,
 }) {
   const { formatChartTime, formatTimestamp } = useTimezone();
 
-  // Realign timeline so latest point matches real-time now for live demo
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
-
-    const lastItem = data[data.length - 1];
-    if (!lastItem || lastItem.timestamp == null) return data;
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    let rawTs = lastItem.timestamp;
-    if (rawTs > 1e11) {
-      rawTs = Math.floor(rawTs / 1000);
-    }
-    const timeShift = nowSec - rawTs;
-
-    return data.map((item) => {
-      let itemTs = item.timestamp;
-      if (itemTs > 1e11) {
-        itemTs = Math.floor(itemTs / 1000);
-      }
-      return {
-        ...item,
-        timestamp: itemTs + timeShift,
-      };
-    });
+    return data;
   }, [data]);
 
-  const adaptiveTicks = useMemo(() => getAdaptiveTicks(chartData, 7), [chartData]);
+  const xTicks = useMemo(() => getAdaptiveTicks(chartData, 6), [chartData]);
 
-  // If loading and no prior data exists at all
-  if (loading && (!data || data.length === 0)) {
+  const seriesConfigMap = useMemo(() => {
+    const map = {};
+    series.forEach((s) => {
+      map[s.key] = s;
+    });
+    return map;
+  }, [series]);
+
+  if (loading) {
     return (
-      <div className="chart-loading-skeleton font-mono">
-        <span>FETCHING TELEMETRY HISTORY...</span>
+      <div className="chart-loading-box font-sans text-muted text-xs">
+        Loading telemetry stream...
         <style>{`
-          .chart-loading-skeleton {
+          .chart-loading-box {
             height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--text-tertiary);
-            font-size: 10px;
-            border-radius: var(--radius-md);
           }
         `}</style>
       </div>
     );
   }
 
-  if (!data || data.length === 0) {
+  if (!chartData || chartData.length === 0) {
     return (
-      <div className="chart-empty font-mono">
-        <span>NO HISTORICAL TELEMETRY DATA AVAILABLE IN WINDOW</span>
+      <div className="chart-empty-box font-sans text-muted text-xs">
+        No telemetry data available
         <style>{`
-          .chart-empty {
+          .chart-empty-box {
             height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--text-tertiary);
-            font-size: 11px;
-            border: 1px dashed var(--border-subtle);
-            border-radius: var(--radius-md);
           }
         `}</style>
       </div>
     );
   }
-
-  const seriesMap = {};
-  series.forEach((s) => {
-    seriesMap[s.key] = s;
-  });
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      {chartType === 'area' ? (
-        <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 15, bottom: 4 }}>
-          <defs>
-            {series.map((s) => (
-              <linearGradient key={s.key} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={s.color} stopOpacity={s.fillOpacity ?? 0.18} />
-                <stop offset="95%" stopColor={s.color} stopOpacity={0.0} />
-              </linearGradient>
-            ))}
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+      {chartType === 'line' ? (
+        <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
           <XAxis
             dataKey="timestamp"
-            ticks={adaptiveTicks}
-            tickFormatter={formatChartTime}
-            stroke="var(--chart-axis)"
-            tick={{ fill: 'var(--text-tertiary)', fontSize: 10, fontFamily: 'var(--font-mono)' }}
+            ticks={xTicks}
+            tickFormatter={(val) => formatChartTime(val)}
+            stroke="var(--text-muted)"
+            fontSize={11}
+            fontFamily="var(--font-sans)"
             tickLine={false}
             axisLine={{ stroke: 'var(--border-subtle)' }}
-            interval={0}
-            minTickGap={35}
-            padding={{ left: 10, right: 10 }}
           />
           <YAxis
             domain={yDomain}
-            stroke="var(--chart-axis)"
-            tick={{ fill: 'var(--text-tertiary)', fontSize: 10, fontFamily: 'var(--font-mono)' }}
-            tickLine={false}
-            axisLine={false}
-            width={54}
-            dx={-2}
-            tickFormatter={(val) => (unitFormatter ? unitFormatter(val) : val)}
-          />
-          <Tooltip
-            content={<CustomTooltip unitFormatter={unitFormatter} seriesConfig={seriesMap} formatTimestamp={formatTimestamp} />}
-          />
-          {series.map((s) => (
-            <Area
-              key={s.key}
-              type="monotone"
-              dataKey={s.key}
-              name={s.label}
-              stroke={s.color}
-              strokeWidth={1.8}
-              fill={`url(#grad-${s.key})`}
-              isAnimationActive={true}
-              animationDuration={400}
-              animationEasing="ease-in-out"
-            />
-          ))}
-        </AreaChart>
-      ) : (
-        <LineChart data={chartData} margin={{ top: 10, right: 20, left: 15, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-          <XAxis
-            dataKey="timestamp"
-            ticks={adaptiveTicks}
-            tickFormatter={formatChartTime}
-            stroke="var(--chart-axis)"
-            tick={{ fill: 'var(--text-tertiary)', fontSize: 10, fontFamily: 'var(--font-mono)' }}
+            stroke="var(--text-muted)"
+            fontSize={11}
+            fontFamily="var(--font-sans)"
             tickLine={false}
             axisLine={{ stroke: 'var(--border-subtle)' }}
-            interval={0}
-            minTickGap={35}
-            padding={{ left: 10, right: 10 }}
-          />
-          <YAxis
-            domain={yDomain}
-            stroke="var(--chart-axis)"
-            tick={{ fill: 'var(--text-tertiary)', fontSize: 10, fontFamily: 'var(--font-mono)' }}
-            tickLine={false}
-            axisLine={false}
-            width={54}
-            dx={-2}
             tickFormatter={(val) => (unitFormatter ? unitFormatter(val) : val)}
           />
           <Tooltip
-            content={<CustomTooltip unitFormatter={unitFormatter} seriesConfig={seriesMap} formatTimestamp={formatTimestamp} />}
+            content={
+              <CustomTooltip
+                unitFormatter={unitFormatter}
+                seriesConfig={seriesConfigMap}
+                formatTimestamp={formatTimestamp}
+              />
+            }
           />
           {series.map((s) => (
             <Line
@@ -275,15 +199,68 @@ export function TelemetryChart({
               type="monotone"
               dataKey={s.key}
               name={s.label}
-              stroke={s.color}
-              strokeWidth={1.8}
+              stroke={s.color || 'var(--text-primary)'}
+              strokeWidth={s.strokeWidth || 1.5}
+              strokeDasharray={s.strokeDasharray}
               dot={false}
-              isAnimationActive={true}
-              animationDuration={400}
-              animationEasing="ease-in-out"
+              activeDot={{ r: 3, strokeWidth: 0 }}
             />
           ))}
         </LineChart>
+      ) : (
+        <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+          <defs>
+            {series.map((s) => (
+              <linearGradient key={`grad-${s.key}`} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={s.color || 'var(--text-primary)'} stopOpacity={s.fillOpacity ?? 0.08} />
+                <stop offset="95%" stopColor={s.color || 'var(--text-primary)'} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+          <XAxis
+            dataKey="timestamp"
+            ticks={xTicks}
+            tickFormatter={(val) => formatChartTime(val)}
+            stroke="var(--text-muted)"
+            fontSize={11}
+            fontFamily="var(--font-sans)"
+            tickLine={false}
+            axisLine={{ stroke: 'var(--border-subtle)' }}
+          />
+          <YAxis
+            domain={yDomain}
+            stroke="var(--text-muted)"
+            fontSize={11}
+            fontFamily="var(--font-sans)"
+            tickLine={false}
+            axisLine={{ stroke: 'var(--border-subtle)' }}
+            tickFormatter={(val) => (unitFormatter ? unitFormatter(val) : val)}
+          />
+          <Tooltip
+            content={
+              <CustomTooltip
+                unitFormatter={unitFormatter}
+                seriesConfig={seriesConfigMap}
+                formatTimestamp={formatTimestamp}
+              />
+            }
+          />
+          {series.map((s) => (
+            <Area
+              key={s.key}
+              type="monotone"
+              dataKey={s.key}
+              name={s.label}
+              stroke={s.color || 'var(--text-primary)'}
+              strokeWidth={s.strokeWidth || 1.5}
+              strokeDasharray={s.strokeDasharray}
+              fill={`url(#grad-${s.key})`}
+              dot={false}
+              activeDot={{ r: 3, strokeWidth: 0 }}
+            />
+          ))}
+        </AreaChart>
       )}
     </ResponsiveContainer>
   );

@@ -1,125 +1,101 @@
 /* ============================================================
-   SERVER INTELLIGENCE PLATFORM — LIGHT INDUSTRIAL CONSOLE
-   Theme: REFINED LIGHT NEUMORPHIC TECHNICAL OBSERVABILITY
+   NOKIA SERVER INTELLIGENCE PLATFORM — DESIGN SYSTEM
+   Theme: MODERN MINIMALIST ENGINEERING PRODUCT
    ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root,
 [data-theme="light"] {
-  /* Surface Layers (Light Cool-Gray Primary Experience) */
-  --bg-app: #eef2f6;            /* Cool-gray application background */
-  --bg-shell: #f8fafc;          /* Off-white application container shell */
-  --bg-surface: #ffffff;        /* Crisp white primary card surface */
-  --bg-surface-raised: #ffffff; /* Elevated interactive surface */
-  --bg-surface-hover: #f1f5f9;  /* Soft hover state */
-  --bg-inset: #f1f5f9;          /* Recessed container surface */
-  --bg-inset-deep: #e2e8f0;     /* Code block/deep inset */
+  /* Canvas & Surfaces */
+  --bg-canvas: #fafafa;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f4f4f5;
+  --bg-subtle: #f4f4f5;
+  --bg-inset: #e4e4e7;
 
-  /* Refined, Ultra-Soft, Lightweight Neumorphic Depth */
-  --shadow-raised-sm: 1px 2px 4px rgba(15, 23, 42, 0.04), -1px -1px 3px rgba(255, 255, 255, 0.8);
-  --shadow-raised-md: 2px 3px 6px rgba(15, 23, 42, 0.05), -2px -2px 6px rgba(255, 255, 255, 0.9);
-  --shadow-raised-lg: 4px 6px 12px rgba(15, 23, 42, 0.06), -4px -4px 12px rgba(255, 255, 255, 0.95);
-  --shadow-inset-sm: inset 1px 1px 2px rgba(15, 23, 42, 0.04), inset -1px -1px 2px rgba(255, 255, 255, 0.7);
-  --shadow-inset-md: inset 2px 2px 4px rgba(15, 23, 42, 0.05), inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+  /* Borders & Dividers */
+  --border-subtle: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --border-accent: rgba(37, 99, 235, 0.4);
 
-  /* Border Tokens */
-  --border-subtle: rgba(148, 163, 184, 0.22);
-  --border-strong: rgba(148, 163, 184, 0.38);
-  --border-accent: rgba(22, 163, 74, 0.35);
-  --border-dashed: 1px dashed rgba(148, 163, 184, 0.4);
-
-  /* Uniform Radius Scale */
-  --radius-sm: 4px;
+  /* Radius Scale */
+  --radius-xs: 3px;
+  --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-pill: 999px;
 
-  /* Typography (Dark Navy Palette) */
-  --text-primary: #0f172a;      /* Dark navy primary heading & metric text */
-  --text-secondary: #475569;    /* Slate secondary text */
-  --text-tertiary: #64748b;     /* Muted slate technical labels */
-  --text-muted: #94a3b8;
+  /* Typography Palette */
+  --text-primary: #09090b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --text-dim: #a1a1aa;
 
-  /* Primary Status & Accent (Restrained Green) */
-  --accent: #16a34a;            /* Restrained green accent */
-  --accent-hover: #15803d;
-  --accent-muted: rgba(22, 163, 74, 0.08);
-  --accent-border: rgba(22, 163, 74, 0.3);
+  /* Brand Accent */
+  --accent-primary: #18181b;
+  --accent-primary-hover: #09090b;
+  --accent-primary-muted: rgba(24, 24, 27, 0.05);
 
-  /* Semantic Status Colors */
-  --status-healthy: #16a34a;    /* Green */
-  --status-warning: #d97706;    /* Amber */
-  --status-elevated: #ea580c;   /* Orange */
-  --status-critical: #dc2626;   /* Red */
-  --status-info: #0284c7;       /* Cyan */
-  --status-neutral: #64748b;    /* Slate */
+  /* Status Colors (Calm & Restrained) */
+  --status-healthy: #16a34a;
+  --status-healthy-bg: rgba(22, 163, 74, 0.08);
+  --status-warning: #d97706;
+  --status-warning-bg: rgba(217, 119, 6, 0.08);
+  --status-critical: #dc2626;
+  --status-critical-bg: rgba(220, 38, 38, 0.08);
+  --status-info: #2563eb;
+  --status-info-bg: rgba(37, 99, 235, 0.08);
+  --status-neutral: #71717a;
+  --status-neutral-bg: rgba(113, 113, 122, 0.08);
 
-  /* Chart tokens */
-  --chart-grid: rgba(148, 163, 184, 0.15);
-  --chart-axis: #64748b;
-  --chart-tick: #475569;
-  --chart-tooltip-bg: #ffffff;
-  --chart-tooltip-border: rgba(148, 163, 184, 0.3);
+  /* Fonts */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
 
-  /* Typography Fonts */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-
-  /* Layout Spacing Scale */
-  --sidebar-width: 220px;
-  --topbar-height: 52px;
-  --footer-height: 36px;
+  /* Layout dimensions */
+  --sidebar-width: 200px;
+  --sidebar-width-collapsed: 56px;
+  --topbar-height: 48px;
 }
 
 [data-theme="dark"] {
-  /* Dark Industrial Neumorphic Palette */
-  --bg-app: #0f1117;
-  --bg-shell: #141720;
-  --bg-surface: #1a1e29;
-  --bg-surface-raised: #202533;
-  --bg-surface-hover: #262c3d;
-  --bg-inset: #11141c;
-  --bg-inset-deep: #0b0d13;
+  /* Canvas & Surfaces */
+  --bg-canvas: #09090b;
+  --bg-surface: #121215;
+  --bg-surface-hover: #1c1c21;
+  --bg-subtle: #18181b;
+  --bg-inset: #27272a;
 
-  --shadow-raised-sm: 2px 2px 4px rgba(0, 0, 0, 0.3), -1px -1px 3px rgba(255, 255, 255, 0.02);
-  --shadow-raised-md: 3px 3px 7px rgba(0, 0, 0, 0.35), -2px -2px 5px rgba(255, 255, 255, 0.025);
-  --shadow-raised-lg: 5px 5px 12px rgba(0, 0, 0, 0.45), -3px -3px 8px rgba(255, 255, 255, 0.03);
-  --shadow-inset-sm: inset 1px 1px 3px rgba(0, 0, 0, 0.4), inset -1px -1px 2px rgba(255, 255, 255, 0.02);
-  --shadow-inset-md: inset 2px 2px 5px rgba(0, 0, 0, 0.45), inset -2px -2px 4px rgba(255, 255, 255, 0.025);
+  /* Borders & Dividers */
+  --border-subtle: #27272a;
+  --border-strong: #3f3f46;
+  --border-accent: rgba(59, 130, 246, 0.4);
 
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --border-accent: rgba(34, 197, 94, 0.35);
-  --border-dashed: 1px dashed rgba(255, 255, 255, 0.12);
+  /* Typography Palette */
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-dim: #52525b;
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-muted: #475569;
+  /* Brand Accent */
+  --accent-primary: #f4f4f5;
+  --accent-primary-hover: #ffffff;
+  --accent-primary-muted: rgba(244, 244, 245, 0.08);
 
-  --accent: #22c55e;
-  --accent-hover: #16a34a;
-  --accent-muted: rgba(34, 197, 94, 0.12);
-  --accent-border: rgba(34, 197, 94, 0.35);
-
+  /* Status Colors */
   --status-healthy: #22c55e;
-  --status-warning: #eab308;
-  --status-elevated: #f97316;
+  --status-healthy-bg: rgba(34, 197, 94, 0.12);
+  --status-warning: #f59e0b;
+  --status-warning-bg: rgba(245, 158, 11, 0.12);
   --status-critical: #ef4444;
-  --status-info: #38bdf8;
-  --status-neutral: #64748b;
-
-  --chart-grid: rgba(255, 255, 255, 0.05);
-  --chart-axis: #64748b;
-  --chart-tick: #94a3b8;
-  --chart-tooltip-bg: #1a1e29;
-  --chart-tooltip-border: rgba(255, 255, 255, 0.12);
+  --status-critical-bg: rgba(239, 68, 68, 0.12);
+  --status-info: #3b82f6;
+  --status-info-bg: rgba(59, 130, 246, 0.12);
+  --status-neutral: #71717a;
+  --status-neutral-bg: rgba(113, 113, 122, 0.12);
 }
 
-/* ============================================================
-   GLOBAL RESET & TYPOGRAPHY
-   ============================================================ */
-
+/* Reset & Global */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -130,14 +106,13 @@ html, body {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background-color: var(--bg-app);
+  background-color: var(--bg-canvas);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 #root {
@@ -148,327 +123,232 @@ html, body {
   overflow: hidden;
 }
 
-/* Typography Utility Classes */
-.font-sans { font-family: var(--font-sans) !important; }
-.font-mono { font-family: var(--font-mono) !important; }
-
-.editorial-tag {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
-.editorial-number {
+.font-mono {
   font-family: var(--font-mono);
-  color: var(--accent);
-  font-weight: 600;
 }
 
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+/* Typography Primitives */
+.nokia-display {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.nokia-title {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.nokia-section-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.nokia-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.nokia-mono-val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+/* Badges */
+.nokia-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-healthy {
+  background-color: var(--status-healthy-bg);
+  color: var(--status-healthy);
+}
+
+.badge-warning {
+  background-color: var(--status-warning-bg);
+  color: var(--status-warning);
+}
+
+.badge-critical {
+  background-color: var(--status-critical-bg);
+  color: var(--status-critical);
+}
+
+.badge-info {
+  background-color: var(--status-info-bg);
+  color: var(--status-info);
+}
+
+.badge-neutral {
+  background-color: var(--status-neutral-bg);
+  color: var(--text-secondary);
+}
+
+/* Status Dot Indicator */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.dot-healthy { background-color: var(--status-healthy); }
+.dot-warning { background-color: var(--status-warning); }
+.dot-critical { background-color: var(--status-critical); }
+.dot-info { background-color: var(--status-info); }
+.dot-neutral { background-color: var(--status-neutral); }
+
+/* Table System */
+.nokia-table-container {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface);
+}
+
+.nokia-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+.nokia-table th {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background-color: var(--bg-subtle);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.nokia-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.nokia-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.nokia-table tbody tr:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.nokia-table .num-col {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Buttons */
+.nokia-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.nokia-btn:hover {
+  background-color: var(--bg-surface-hover);
+  border-color: var(--border-strong);
+}
+
+.nokia-btn-primary {
+  background-color: var(--accent-primary);
+  color: var(--bg-canvas);
+  border-color: var(--accent-primary);
+}
+
+.nokia-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.nokia-select {
+  height: 32px;
+  padding: 0 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  outline: none;
+}
+
+.nokia-select:focus {
+  border-color: var(--border-strong);
+}
+
+/* Focus Outline */
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: 2px solid var(--border-strong);
+  outline-offset: 1px;
 }
 
-button, input, select, textarea {
-  font-family: var(--font-mono);
-  font-size: inherit;
-  color: inherit;
-}
-
-/* Metric Display Utility Classes */
-.neo-metric-num {
-  font-family: var(--font-mono);
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-  line-height: 1.15;
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-}
-
-.neo-metric-unit {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-tertiary);
-}
-
-/* Custom Scrollbars */
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-inset);
+  background: var(--bg-canvas);
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: var(--radius-pill);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
-}
-
-/* ============================================================
-   CONTAINER & PINNED FIXED BARS LAYOUT ARCHITECTURE
-   ============================================================ */
-
-.app-grid {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  width: 100vw;
-  padding: 10px;
-  background-color: var(--bg-app);
-  overflow: hidden;
-}
-
-.app-outer-shell {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 20px);
-  width: 100%;
-  background-color: var(--bg-shell);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-raised-sm);
-  border: 1px solid var(--border-subtle);
-  overflow: hidden;
-}
-
-/* FIXED TOP BAR PINNED AT TOP */
-.neo-topbar {
-  height: var(--topbar-height);
-  flex-shrink: 0;
-  z-index: 20;
-}
-
-.app-body {
-  display: flex;
-  flex: 1;
-  height: calc(100vh - 20px - var(--topbar-height) - var(--footer-height));
-  overflow: hidden;
-}
-
-/* FIXED SIDEBAR PINNED AT LEFT */
-.neo-sidebar {
-  width: var(--sidebar-width);
-  height: 100%;
-  flex-shrink: 0;
-  z-index: 15;
-}
-
-/* MAIN CONTENT AREA - INDEPENDENT SCROLLING CONTAINER */
-.main-content {
-  flex: 1;
-  height: 100%;
-  overflow-y: auto;
-  padding: 24px 32px;
-  max-width: 1600px;
-  margin: 0 auto;
-  width: 100%;
-  background-color: var(--bg-shell);
-}
-
-/* FIXED FOOTER PINNED AT BOTTOM */
-.neo-footer {
-  height: var(--footer-height);
-  flex-shrink: 0;
-  z-index: 20;
-}
-
-/* ============================================================
-   CARDS & SURFACE HIERARCHY
-   ============================================================ */
-
-.neo-card {
-  background: var(--bg-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-raised-sm);
-  border: 1px solid var(--border-subtle);
-  padding: 18px 22px;
-  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  position: relative;
-}
-
-.neo-card-raised {
-  background: var(--bg-surface-raised);
-  box-shadow: var(--shadow-raised-md);
-}
-
-.neo-card-inset {
-  background: var(--bg-inset);
-  box-shadow: var(--shadow-inset-sm);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-}
-
-/* Button & Form Controls */
-.neo-btn, .editorial-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 14px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--text-primary);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-raised-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.neo-btn:hover:not(:disabled), .editorial-btn:hover:not(:disabled) {
-  border-color: var(--accent-border);
-  color: var(--accent);
-  background: var(--bg-surface-hover);
-}
-
-.neo-btn-primary {
-  background: var(--accent);
-  color: #ffffff !important;
-  border-color: var(--accent-hover);
-}
-
-.neo-btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.neo-btn-active {
-  background: var(--accent-muted);
-  border-color: var(--accent-border);
-  color: var(--accent);
-}
-
-.neo-input, .neo-select, .editorial-input, .editorial-select {
-  height: 32px;
-  padding: 0 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-primary);
-  background: var(--bg-inset);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-inset-sm);
-  transition: all 0.15s ease;
-}
-
-.neo-input:focus, .neo-select:focus, .editorial-input:focus, .editorial-select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.neo-icon-btn, .icon-btn, .neo-btn-icon {
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  box-shadow: var(--shadow-raised-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.neo-icon-btn:hover, .icon-btn:hover, .neo-btn-icon:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent-border);
-  background: var(--bg-surface-hover);
-}
-
-/* Segmented Control Track & Items */
-.neo-segmented-track {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--bg-inset);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 3px;
-  box-shadow: var(--shadow-inset-sm);
-}
-
-.neo-segmented-item {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-secondary);
-  padding: 5px 12px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.neo-segmented-item:hover:not(.active) {
-  color: var(--text-primary);
-  background: var(--bg-surface-hover);
-}
-
-.neo-segmented-item.active {
-  background: var(--bg-surface);
-  color: var(--accent);
-  border-color: var(--accent-border);
-  box-shadow: var(--shadow-raised-sm);
-}
-
-/* Badges & Pills */
-.editorial-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  border-radius: var(--radius-pill);
-  white-space: nowrap;
-}
-
-.pill-healthy {
-  background: var(--accent-muted);
-  color: var(--status-healthy);
-  border: 1px solid var(--accent-border);
-}
-
-.pill-warning {
-  background: rgba(217, 119, 6, 0.1);
-  color: var(--status-warning);
-  border: 1px solid rgba(217, 119, 6, 0.3);
-}
-
-.pill-critical {
-  background: rgba(220, 38, 38, 0.1);
-  color: var(--status-critical);
-  border: 1px solid rgba(220, 38, 38, 0.3);
-}
-
-.pill-neutral {
-  background: var(--bg-inset);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-}
-
-.pill-info {
-  background: rgba(2, 132, 199, 0.1);
-  color: var(--status-info);
-  border: 1px solid rgba(2, 132, 199, 0.3);
+  background: var(--text-muted);
 }

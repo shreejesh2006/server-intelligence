@@ -1,741 +1,663 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import PageHeader from '../../components/common/PageHeader';
 import OfflineBanner from '../../components/common/OfflineBanner';
+import TelemetryChart from '../../components/charts/TelemetryChart';
 import { useServer } from '../../context/ServerContext';
 import { useTimezone } from '../../context/TimezoneContext';
 import { getAnomaly, getAnomalyHistory } from '../../services/intelligence';
 import { formatNumber } from '../../utils/formatters';
-import {
-  ShieldAlert,
-  CheckCircle2,
+import { 
+  AlertTriangle, 
+  ShieldCheck, 
+  Server as ServerIcon, 
   RefreshCw,
-  Server,
-  Clock,
-  HelpCircle,
-  ListChecks,
   AlertCircle,
+  Clock
 } from 'lucide-react';
 
+const LOOKBACK_OPTIONS = [
+  { id: '15m', label: '15m' },
+  { id: '30m', label: '30m' },
+  { id: '1h', label: '1h' },
+  { id: '3h', label: '3h' },
+  { id: '6h', label: '6h' },
+  { id: '12h', label: '12h' },
+  { id: '1d', label: '24h' },
+];
+
+function formatMetricVal(val, unit) {
+  if (val == null || isNaN(val)) return '—';
+  const numStr = formatNumber(val, 2);
+  if (!unit) return numStr;
+  const cleanUnit = unit.trim();
+  if (cleanUnit === '%') return `${numStr}%`;
+  return `${numStr} ${cleanUnit}`;
+}
 
 export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
-  const { servers, selectedHost, selectServer } = useServer();
+  const { servers, selectedHost, selectServer, activeServer } = useServer();
   const { formatTimestamp } = useTimezone();
-
 
   const [loading, setLoading] = useState(true);
   const [anomalyData, setAnomalyData] = useState(null);
+  const [historyData, setHistoryData] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [lookbackWindow, setLookbackWindow] = useState('1h');
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // Historical Timeline state
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyData, setHistoryData] = useState(null);
-  const [selectedLookback, setSelectedLookback] = useState('1h');
-
-  const LOOKBACKS = ['5m', '15m', '30m', '1h', '3h', '6h', '12h', '1d', '7d'];
-
-  const loadCurrentAnomaly = useCallback(async () => {
+  // Load current anomaly status & historical evaluations
+  const loadData = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
+
     try {
-      const res = await getAnomaly(selectedHost);
-      if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
-        console.log('[ANOMALY DATA PATH]', {
-          selectedHost,
-          requestUrl: `/api/intelligence/anomaly?host=${selectedHost}`,
-          score: res?.anomaly_score,
-          is_anomaly: res?.is_anomaly,
-          severity: res?.severity,
-          first_metric_name: res?.all_metrics_evaluated?.[0]?.display_name,
-          first_metric_baseline: res?.all_metrics_evaluated?.[0]?.baseline_value,
-          first_metric_current: res?.all_metrics_evaluated?.[0]?.current_value,
-          first_metric_status: res?.all_metrics_evaluated?.[0]?.status,
-          model_trained_at: res?.model_trained_at,
-          training_samples: res?.model_metadata?.training_samples,
-        });
+      const [curRes, histRes] = await Promise.all([
+        getAnomaly(selectedHost).catch((err) => {
+          console.warn('[Anomalies] Current fetch error:', err);
+          return null;
+        }),
+        getAnomalyHistory(selectedHost, lookbackWindow).catch((err) => {
+          console.warn('[Anomalies] History fetch error:', err);
+          return null;
+        }),
+      ]);
+
+      if (!curRes && !histRes) {
+        setErrorMsg('Anomaly detection service unavailable');
+      } else {
+        setAnomalyData(curRes);
+        setHistoryData(histRes);
       }
-      setAnomalyData(res);
     } catch (err) {
-      setErrorMsg(err?.response?.data?.detail || err?.message || 'Failed to connect to anomaly detection service.');
+      setErrorMsg(err?.response?.data?.detail || 'Failed to load anomaly telemetry');
     } finally {
       setLoading(false);
     }
-  }, [selectedHost]);
+  }, [selectedHost, lookbackWindow]);
 
-  const loadHistory = useCallback(async () => {
+  useEffect(() => {
+    loadData();
+  }, [loadData, lastUpdated]);
 
+  // Handle lookback window change specifically
+  const handleLookbackChange = async (newLookback) => {
+    setLookbackWindow(newLookback);
     setHistoryLoading(true);
     try {
-      const res = await getAnomalyHistory(selectedHost, selectedLookback);
-      setHistoryData(res);
-    } catch (err) {
-      console.warn('Failed loading anomaly history:', err);
+      const histRes = await getAnomalyHistory(selectedHost, newLookback);
+      setHistoryData(histRes);
+    } catch (_err) {
+      // Keep existing data on error
     } finally {
       setHistoryLoading(false);
     }
-  }, [selectedHost, selectedLookback]);
-
-  useEffect(() => {
-    loadCurrentAnomaly();
-    loadHistory();
-  }, [loadCurrentAnomaly, loadHistory, lastUpdated]);
-
-  const getSeverityBadgeClass = (sev) => {
-    switch (sev) {
-      case 'CRITICAL':
-        return 'pill-critical';
-      case 'HIGH':
-        return 'pill-critical';
-      case 'MEDIUM':
-        return 'pill-warning';
-      case 'LOW':
-        return 'pill-warning';
-      default:
-        return 'pill-healthy';
-    }
   };
 
-  const isAnomaly = anomalyData?.is_anomaly || false;
-  const severity = anomalyData?.severity || 'NORMAL';
-  const modelStatus = anomalyData?.model_status || 'unavailable';
-  const isModelUnavailable = modelStatus === 'unavailable' || anomalyData?.telemetry_status === 'model_unavailable';
-  const isStale = anomalyData?.is_stale || false;
+  const isAnomaly = anomalyData?.is_anomaly ?? false;
+  const severity = anomalyData?.severity || (isAnomaly ? 'WARNING' : 'NORMAL');
+  const anomalyScore = anomalyData?.anomaly_score ?? 0.0;
+  const primaryReason = anomalyData?.primary_reason || 'Operating within normal bounds.';
+  const telemetryTimestamp = anomalyData?.telemetry_timestamp;
 
-  const formattedTimestamp = anomalyData?.telemetry_timestamp
-    ? formatTimestamp(new Date(anomalyData.telemetry_timestamp).getTime() / 1000, true, false)
-    : 'N/A';
+  const signals = anomalyData?.contributing_signals?.length > 0
+    ? anomalyData.contributing_signals
+    : anomalyData?.all_metrics_evaluated || [];
 
-  const formattedTrainedAt = anomalyData?.model_trained_at
-    ? formatTimestamp(new Date(anomalyData.model_trained_at).getTime() / 1000, true, false)
-    : 'N/A';
+  const historyPoints = historyData?.points || [];
 
-  const modelMeta = anomalyData?.model_metadata || {};
-  const contributingSignals = anomalyData?.contributing_signals || [];
-  const allMetrics = anomalyData?.all_metrics_evaluated || [];
-  const recommendations = anomalyData?.recommendations || [];
+  const hasCriticalSignal = signals.some((s) => s.status === 'CRITICAL' || s.status === 'HIGH');
+  const hasWarningSignal = signals.some((s) => s.status === 'WARNING' || s.status === 'ELEVATED' || s.status === 'MEDIUM');
+
+  const isAnomalousState = isAnomaly || severity === 'CRITICAL' || severity === 'WARNING' || hasCriticalSignal || hasWarningSignal;
+
+  const effectiveSeverity = isAnomaly || hasCriticalSignal
+    ? (severity === 'CRITICAL' || hasCriticalSignal ? 'CRITICAL' : 'WARNING')
+    : (hasWarningSignal ? 'WARNING' : (severity && severity !== 'NORMAL' ? severity : 'NORMAL'));
+
+  const statusBadgeClass = isAnomalousState
+    ? (effectiveSeverity === 'CRITICAL' ? 'badge-critical' : 'badge-warning')
+    : 'badge-healthy';
+
+  const statusDotClass = isAnomalousState
+    ? (effectiveSeverity === 'CRITICAL' ? 'dot-critical' : 'dot-warning')
+    : 'dot-healthy';
+
+  const displayScore = formatNumber(Math.max(0, anomalyScore), 4);
+
+  const chartTimeline = historyPoints.map((pt) => {
+    const tsNum = typeof pt.timestamp === 'number'
+      ? pt.timestamp
+      : Math.floor(new Date(pt.timestamp).getTime() / 1000);
+    return {
+      timestamp: tsNum,
+      value: pt.score ?? 0,
+    };
+  });
 
   return (
     <div className="anomalies-page font-sans">
-      <PageHeader
-        index="04"
-        title="ANOMALY INTELLIGENCE"
-        subtitle="Host-aware multivariate Isolation Forest anomaly detection with explainable signal attribution."
-        tag="ANOMALY DETECTION ENGINE"
-      />
-
       {isOffline && <OfflineBanner onRetry={refetch} />}
 
-      {/* HOST SELECTOR BAR */}
-      <section className="neo-card font-mono margin-top-md margin-bottom-lg">
-        <div className="host-selector-bar">
-          <div className="bar-left">
-            <Server size={14} className="text-accent" />
-            <span className="editorial-tag">TARGET NODE SCOPE:</span>
-            <div className="neo-segmented-track">
-              {servers.map((srv) => {
-                const h = srv.host.toLowerCase();
-                const isSelected = selectedHost?.toLowerCase() === h;
-                const label = h === 'ubuntu' ? 'UBUNTU (PRIMARY)' : 'KALI (TARGET VM)';
-                return (
-                  <button
-                    key={srv.id}
-                    type="button"
-                    className={`neo-segmented-item ${isSelected ? 'active' : ''}`}
-                    onClick={() => selectServer(h)}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
+      {/* HEADER WITH HOST SELECTOR */}
+      <div className="page-header-block">
+        <div>
+          <h1 className="page-title font-sans">Anomalies</h1>
+        </div>
 
-          </div>
-
-          <div className="bar-right">
-            <span className={`editorial-pill ${isModelUnavailable ? 'pill-critical' : isStale ? 'pill-warning' : 'pill-healthy'}`}>
-              MODEL: {modelStatus.toUpperCase()}
-            </span>
+        {/* Active Host Selector */}
+        <div className="server-host-selector font-sans">
+          <span className="selector-label font-sans">Host:</span>
+          {servers.map((s) => (
             <button
+              key={s.host}
               type="button"
-              className="neo-icon-btn"
-              onClick={() => {
-                loadCurrentAnomaly();
-                loadHistory();
-              }}
-              title="Refresh Evaluation"
-              disabled={loading}
+              onClick={() => selectServer(s.host)}
+              className={`host-tab-btn ${selectedHost === s.host ? 'active' : ''}`}
             >
-              <RefreshCw size={14} className={loading ? 'spin' : ''} />
+              <ServerIcon size={12} />
+              <span>{s.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="netra-panel anomaly-state-box font-sans">
+          <RefreshCw size={18} className="spinning text-muted" />
+          <span className="text-muted text-xs font-medium">Evaluating anomaly intelligence for {activeServer.name}...</span>
+        </div>
+      ) : errorMsg && !anomalyData ? (
+        <div className="netra-panel anomaly-state-box font-sans">
+          <AlertCircle size={18} className="text-warning-icon" />
+          <div className="error-text-group">
+            <span className="error-msg font-medium text-xs">{errorMsg}</span>
+            <button type="button" onClick={loadData} className="retry-btn font-sans">
+              Retry fetch
             </button>
           </div>
         </div>
-      </section>
+      ) : (
+        <>
+          {/* 1. CURRENT ANOMALY STATUS PANEL */}
+          <div className="netra-panel current-status-panel">
+            <div className="panel-title-bar">
+              <h2 className="panel-title font-sans">Current Anomaly Status</h2>
+              <span className={`nokia-badge ${statusBadgeClass} font-sans`}>
+                <span className={`status-dot ${statusDotClass}`} />
+                {effectiveSeverity}
+              </span>
+            </div>
 
-      {/* ERROR / UNAVAILABLE STATE BANNER */}
-      {errorMsg && (
-        <div className="neo-card-inset error-banner font-mono margin-bottom-lg text-critical">
-          <AlertCircle size={16} />
-          <span>{errorMsg}</span>
-        </div>
-      )}
+            <div className="status-readout-grid font-sans">
+              {/* Status Banner Card */}
+              <div className="status-readout-card highlight-card">
+                <div className="card-top-icon">
+                  {isAnomalousState ? (
+                    <AlertTriangle size={18} className={effectiveSeverity === 'CRITICAL' ? 'text-critical-icon' : 'text-warning-icon'} />
+                  ) : (
+                    <ShieldCheck size={18} className="text-healthy-icon" />
+                  )}
+                  <div className="card-status-label font-sans">
+                    <span className="label-title font-semibold">
+                      {isAnomalousState 
+                        ? (effectiveSeverity === 'CRITICAL' ? 'Telemetry Anomaly Detected' : 'Elevated Metric Signals') 
+                        : 'Operating Normally'}
+                    </span>
+                  </div>
+                </div>
+                <div className="primary-reason-box font-sans text-xs">
+                  <span className="reason-label font-medium text-muted">Primary Reason:</span>
+                  <span className="reason-text font-medium">{primaryReason}</span>
+                </div>
+              </div>
 
-      {/* 01 / LIVE ANOMALY STATUS */}
-      <section className="neo-card neo-card-raised font-mono margin-bottom-lg">
-        <div className="status-hero-grid">
-          <div className="status-left">
-            <div className={`status-icon-box ${isAnomaly ? 'box-critical' : 'box-healthy'}`}>
-              {isAnomaly ? (
-                <ShieldAlert size={28} className="text-critical" />
+              {/* Anomaly Score Card */}
+              <div className="status-readout-card metric-card">
+                <span className="metric-card-label font-sans">Anomaly Score</span>
+                <div className="metric-card-value font-sans">
+                  {displayScore}
+                </div>
+              </div>
+
+              {/* Observation Timestamp Card */}
+              <div className="status-readout-card metric-card">
+                <span className="metric-card-label font-sans">Observation Timestamp</span>
+                <div className="metric-card-timestamp font-mono">
+                  {telemetryTimestamp
+                    ? formatTimestamp(typeof telemetryTimestamp === 'number' ? telemetryTimestamp : new Date(telemetryTimestamp).getTime() / 1000, true, false)
+                    : 'N/A'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. ANOMALY SIGNALS PANEL */}
+          <div className="netra-panel anomaly-signals-panel">
+            <div className="panel-title-bar">
+              <h2 className="panel-title font-sans">Anomaly Signals</h2>
+              <span className="nokia-badge badge-neutral font-sans text-xs font-mono">
+                {signals.length} Telemetry Dimensions
+              </span>
+            </div>
+
+            {signals.length === 0 ? (
+              <div className="signals-empty-state font-sans text-muted text-xs">
+                No signal breakdown returned for current observation.
+              </div>
+            ) : (
+              <div className="nokia-table-container font-sans">
+                <table className="nokia-table font-sans">
+                  <thead>
+                    <tr>
+                      <th>Signal / Dimension</th>
+                      <th>Observed Value</th>
+                      <th>Baseline Value</th>
+                      <th>Deviation / Reason</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {signals.map((sig, idx) => {
+                      const statusClass = 
+                        sig.status === 'CRITICAL' || sig.status === 'HIGH'
+                          ? 'badge-critical'
+                          : sig.status === 'WARNING' || sig.status === 'ELEVATED' || sig.status === 'MEDIUM'
+                          ? 'badge-warning'
+                          : 'badge-healthy';
+
+                      return (
+                        <tr key={sig.metric || idx}>
+                          <td className="font-medium text-xs">{sig.display_name || sig.metric}</td>
+                          <td className="font-mono text-xs">
+                            {formatMetricVal(sig.current_value, sig.unit)}
+                          </td>
+                          <td className="font-mono text-xs text-muted">
+                            {formatMetricVal(sig.baseline_value, sig.unit)}
+                          </td>
+                          <td className="font-sans text-xs text-secondary">
+                            {sig.reason || (sig.deviation_percent != null ? `${formatNumber(sig.deviation_percent, 1)}% deviation` : 'Operating within nominal baseline')}
+                          </td>
+                          <td>
+                            <span className={`nokia-badge ${statusClass} font-sans`}>
+                              {sig.status || 'NORMAL'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* 3. HISTORICAL ANOMALY ACTIVITY PANEL */}
+          <div className="netra-panel historical-activity-panel">
+            <div className="panel-title-bar">
+              <div className="title-left">
+                <Clock size={16} className="text-muted" />
+                <h2 className="panel-title font-sans">Historical Anomaly Activity</h2>
+              </div>
+
+              {/* Lookback Window Selector */}
+              <div className="segmented-tabs font-sans">
+                {LOOKBACK_OPTIONS.map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => handleLookbackChange(w.id)}
+                    className={`tab-btn ${lookbackWindow === w.id ? 'active' : ''}`}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Historical Score Chart */}
+            <div className="historical-chart-box">
+              {historyLoading ? (
+                <div className="chart-loading-overlay font-sans text-muted text-xs">
+                  Updating evaluation timeline...
+                </div>
+              ) : chartTimeline.length === 0 ? (
+                <div className="chart-empty-box font-sans text-muted text-xs">
+                  No historical telemetry evaluation points recorded for {activeServer.name}.
+                </div>
               ) : (
-                <CheckCircle2 size={28} className="text-healthy" />
+                <TelemetryChart
+                  data={chartTimeline}
+                  series={[{ key: 'value', label: 'Anomaly Score', color: 'var(--text-primary)', fillOpacity: 0.05 }]}
+                  unitFormatter={(v) => formatNumber(v, 3)}
+                  yDomain={[0, 1]}
+                />
               )}
             </div>
-            <div>
-              <div className="status-title-row">
-                <span className="status-main-title font-sans">
-                  {isModelUnavailable
-                    ? 'MODEL UNAVAILABLE'
-                    : isAnomaly
-                    ? 'ANOMALY DETECTED'
-                    : 'SYSTEM NOMINAL'}
-                </span>
-                <span className={`editorial-pill ${getSeverityBadgeClass(severity)}`}>
-                  {severity}
-                </span>
-              </div>
-              <p className="status-sub-desc text-secondary font-sans text-xs margin-top-xs">
-                {isModelUnavailable
-                  ? `No trained Isolation Forest model available for host '${selectedHost.toUpperCase()}'.`
-                  : isAnomaly
-                  ? `Multivariate telemetry observation deviates significantly from host '${selectedHost.toUpperCase()}' baseline.`
-                  : `Host '${selectedHost.toUpperCase()}' telemetry is operating within learned multivariate bounds.`}
-              </p>
-            </div>
-          </div>
 
-          <div className="status-right font-mono text-xs text-tertiary">
-            <div className="stat-line">
-              <span>ANOMALY SCORE:</span>
-              <span className={`stat-value font-bold ${isAnomaly ? 'text-critical' : 'text-primary'}`}>
-                {anomalyData?.anomaly_score != null ? formatNumber(anomalyData.anomaly_score, 4) : '—'}
-              </span>
-            </div>
-            <div className="stat-line">
-              <span>LAST TELEMETRY:</span>
-              <span className="text-secondary">{formattedTimestamp}</span>
-            </div>
-            <div className="stat-line">
-              <span>MODEL TRAINED:</span>
-              <span className="text-secondary">{formattedTrainedAt}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 02 / WHY WAS THIS FLAGGED? */}
-      <section className="neo-card font-mono margin-bottom-lg">
-        <div className="section-header border-bottom padding-bottom-sm">
-          <span className="editorial-tag font-bold">02 / WHY WAS THIS FLAGGED? (SIGNAL ATTRIBUTION)</span>
-        </div>
-
-        <div className="margin-top-md">
-          {/* PRIMARY REASON BANNER */}
-          <div className="neo-card-inset primary-reason-box margin-bottom-md font-sans">
-            <div className="reason-label font-mono text-tertiary text-xs margin-bottom-xs">PRIMARY REASON SUMMARY:</div>
-            <p className="reason-text font-bold text-primary">
-              {anomalyData?.primary_reason || 'Evaluating observation against learned host baselines...'}
-            </p>
-          </div>
-
-          {/* CONTRIBUTING SIGNAL CARDS */}
-          {contributingSignals.length > 0 ? (
-            <div className="signal-cards-grid">
-              {contributingSignals.map((sig) => (
-                <div key={sig.metric} className={`neo-card-inset signal-card status-${sig.status.toLowerCase()}`}>
-                  <div className="signal-card-header font-mono">
-                    <span className="sig-name font-sans font-bold text-primary">{sig.display_name}</span>
-                    <span className={`editorial-pill ${getSeverityBadgeClass(sig.status)}`}>
-                      {sig.status}
-                    </span>
-                  </div>
-
-                  <div className="signal-metrics-row font-mono margin-top-xs">
-                    <div className="sig-metric-item">
-                      <span className="text-tertiary text-xs">CURRENT</span>
-                      <span className="sig-val text-primary font-bold">{formatNumber(sig.current_value, 2)}{sig.unit}</span>
-                    </div>
-                    <div className="sig-metric-item">
-                      <span className="text-tertiary text-xs">BASELINE</span>
-                      <span className="sig-val text-secondary">{formatNumber(sig.baseline_value, 2)}{sig.unit}</span>
-                    </div>
-                    <div className="sig-metric-item">
-                      <span className="text-tertiary text-xs">DEVIATION</span>
-                      <span className="sig-val text-accent font-bold">
-                        {sig.deviation_percent != null ? `+${sig.deviation_percent}%` : `+${sig.absolute_deviation}`}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="signal-reason font-sans text-xs text-secondary margin-top-xs">
-                    {sig.reason}
-                  </p>
+            {/* Historical Points Log Table */}
+            {historyPoints.length > 0 && (
+              <div className="historical-table-wrap margin-top-sm">
+                <div className="table-caption font-sans text-xs text-muted font-medium margin-bottom-xs">
+                  Evaluation History ({historyPoints.length} sample points)
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="neo-card-inset empty-signals-box text-center font-mono padding-md">
-              <span className="text-secondary text-xs">
-                {isModelUnavailable
-                  ? `No trained anomaly model loaded for host '${selectedHost.toUpperCase()}'. Showing live telemetry values below.`
-                  : `All monitored telemetry signals are operating within nominal baseline bounds.`}
-              </span>
-            </div>
-          )}
+                <div className="nokia-table-container font-sans">
+                  <table className="nokia-table font-sans">
+                    <thead>
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>Status</th>
+                        <th>Severity</th>
+                        <th>Score</th>
+                        <th>CPU</th>
+                        <th>Memory</th>
+                        <th>Load 1m</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyPoints.slice(0, 10).map((pt, idx) => {
+                        const tsNum = typeof pt.timestamp === 'number'
+                          ? pt.timestamp
+                          : Math.floor(new Date(pt.timestamp).getTime() / 1000);
 
-        </div>
-      </section>
-
-      {/* 03 / TELEMETRY DEVIATION BREAKDOWN */}
-      <section className="neo-card font-mono margin-bottom-lg">
-        <div className="section-header border-bottom padding-bottom-sm">
-          <span className="editorial-tag font-bold">03 / TELEMETRY DEVIATION BREAKDOWN (11 FEATURES)</span>
-        </div>
-
-        <div className="table-responsive margin-top-md">
-          <table className="neo-table font-mono">
-            <thead>
-              <tr>
-                <th>METRIC SIGNAL</th>
-                <th>CURRENT VALUE</th>
-                <th>LEARNED BASELINE</th>
-                <th>ABS DEVIATION</th>
-                <th>SCALED DIFF</th>
-                <th>PERCENT DEV</th>
-                <th>STATUS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allMetrics.map((m) => (
-                <tr key={m.metric}>
-                  <td className="font-bold text-primary">{m.display_name}</td>
-                  <td className="text-accent font-bold">{formatNumber(m.current_value, 2)} {m.unit}</td>
-                  <td className="text-secondary">{formatNumber(m.baseline_value, 2)} {m.unit}</td>
-                  <td className="text-primary">{formatNumber(m.absolute_deviation, 2)}</td>
-                  <td className="text-secondary">+{formatNumber(m.scaled_deviation, 2)}σ</td>
-                  <td className="text-tertiary">
-                    {m.deviation_percent != null ? `+${formatNumber(m.deviation_percent, 1)}%` : 'N/A (near-zero)'}
-                  </td>
-                  <td>
-                    <span className={`editorial-pill ${getSeverityBadgeClass(m.status)}`}>
-                      {m.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* 04 / ANOMALY TIMELINE */}
-      <section className="neo-card font-mono margin-bottom-lg">
-        <div className="timeline-header-bar border-bottom padding-bottom-sm">
-          <span className="editorial-tag font-bold">04 / HISTORICAL ANOMALY TIMELINE</span>
-          <div className="lookback-selector">
-            <Clock size={12} className="text-tertiary" />
-            <span className="text-tertiary text-xs">RANGE:</span>
-            {LOOKBACKS.map((lb) => (
-              <button
-                key={lb}
-                type="button"
-                className={`neo-btn-sm ${selectedLookback === lb ? 'active' : ''}`}
-                onClick={() => setSelectedLookback(lb)}
-              >
-                {lb.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="margin-top-md">
-          {historyLoading ? (
-            <div className="neo-card-inset empty-timeline-box text-center font-mono">
-              <RefreshCw size={24} className="spin text-accent margin-bottom-xs" />
-              <p className="text-secondary text-xs">Scoring historical VictoriaMetrics telemetry range ({selectedLookback})...</p>
-            </div>
-          ) : historyData?.telemetry_status === 'insufficient_history' ? (
-            <div className="neo-card-inset empty-timeline-box text-center font-mono">
-              <HelpCircle size={24} className="text-tertiary margin-bottom-xs" />
-              <p className="text-primary font-bold text-sm">INSUFFICIENT HISTORICAL TELEMETRY</p>
-              <p className="text-secondary text-xs margin-top-xs">
-                Host '{selectedHost}' does not have enough continuous telemetry points recorded for window '{selectedLookback}'.
-              </p>
-            </div>
-          ) : historyData?.points && historyData.points.length > 0 ? (
-            <div className="timeline-points-container font-mono">
-              <div className="points-summary-row text-xs text-tertiary margin-bottom-xs">
-                <span>EVALUATED POINTS: <strong className="text-primary">{historyData.points.length}</strong></span>
-                <span>ANOMALOUS EVENTS DETECTED: <strong className="text-critical">{historyData.points.filter((p) => p.is_anomaly).length}</strong></span>
+                        return (
+                          <tr key={idx}>
+                            <td className="font-mono text-xs">
+                              {formatTimestamp(tsNum, true, false)}
+                            </td>
+                            <td>
+                              <span className={`nokia-badge ${pt.is_anomaly ? 'badge-critical' : 'badge-healthy'} font-sans`}>
+                                {pt.is_anomaly ? 'ANOMALY' : 'NORMAL'}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="nokia-badge badge-neutral font-sans">
+                                {pt.severity || 'NORMAL'}
+                              </span>
+                            </td>
+                            <td className="font-mono text-xs">{formatNumber(pt.score ?? 0, 4)}</td>
+                            <td className="font-mono text-xs">{formatNumber(pt.cpu, 1)}%</td>
+                            <td className="font-mono text-xs">{formatNumber(pt.memory, 1)}%</td>
+                            <td className="font-mono text-xs">{formatNumber(pt.load_1m, 2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-
-              {/* TIMELINE BARS GRAPH */}
-              <div className="timeline-bars-track neo-card-inset">
-                {historyData.points.map((pt, idx) => {
-                  const isPtAnomaly = pt.is_anomaly;
-                  const scoreVal = pt.score || 0;
-                  const barHeightPct = Math.min(100, Math.max(10, ((scoreVal + 0.2) / 0.5) * 100));
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`timeline-bar ${isPtAnomaly ? 'bar-anomaly' : 'bar-normal'}`}
-                      style={{ height: `${barHeightPct}%` }}
-                      title={`Time: ${formatTimestamp(new Date(pt.timestamp).getTime() / 1000, true, false)} | Score: ${scoreVal.toFixed(4)} | Severity: ${pt.severity}`}
-                    />
-                  );
-                })}
-              </div>
-
-              <div className="timeline-axis-labels text-tertiary text-xs margin-top-xs">
-                <span>{formatTimestamp(new Date(historyData.points[0].timestamp).getTime() / 1000, true, false)}</span>
-                <span>{formatTimestamp(new Date(historyData.points[historyData.points.length - 1].timestamp).getTime() / 1000, true, false)}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="neo-card-inset empty-timeline-box text-center font-mono">
-              <p className="text-secondary text-xs">No historical points evaluated.</p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* 05 / DETECTION ENGINE SPECIFICATIONS */}
-      <section className="neo-card-dashed font-mono margin-bottom-lg">
-        <div className="specs-header border-bottom padding-bottom-sm">
-          <span className="editorial-tag font-bold">05 / DETECTION ENGINE SPECIFICATIONS</span>
-        </div>
-
-        <div className="specs-grid margin-top-md">
-          <div className="neo-card-inset spec-card">
-            <span className="spec-title text-tertiary text-xs">ALGORITHM</span>
-            <span className="spec-val text-accent font-bold">{modelMeta.algorithm || 'Isolation Forest'}</span>
-            <span className="spec-desc text-secondary text-xs">100 Trees &bull; RobustScaler Log1p Transformation</span>
+            )}
           </div>
-
-          <div className="neo-card-inset spec-card">
-            <span className="spec-title text-tertiary text-xs">FEATURE COUNT</span>
-            <span className="spec-val text-primary font-bold">{modelMeta.features_count || 11} Telemetry Features</span>
-            <span className="spec-desc text-secondary text-xs">CPU, Memory, Load (1m, 5m, 15m), Network, Disk, Processes</span>
-          </div>
-
-          <div className="neo-card-inset spec-card">
-            <span className="spec-title text-tertiary text-xs">CONTAMINATION RATE</span>
-            <span className="spec-val text-primary font-bold">{(modelMeta.contamination || 0.03) * 100}% Operational Assumption</span>
-            <span className="spec-desc text-secondary text-xs">Statistical outlier boundary based on learned percentiles</span>
-          </div>
-
-          <div className="neo-card-inset spec-card">
-            <span className="spec-title text-tertiary text-xs">TRAINING SAMPLES & SCOPE</span>
-            <span className="spec-val text-healthy font-bold">{modelMeta.training_samples || 0} Samples ({selectedHost.toUpperCase()})</span>
-            <span className="spec-desc text-secondary text-xs">Trained at {formattedTrainedAt}</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 06 / RECOMMENDED ACTIONS */}
-      <section className="neo-card font-mono">
-        <div className="section-header border-bottom padding-bottom-sm">
-          <span className="editorial-tag font-bold">06 / RECOMMENDED OPERATOR ACTIONS</span>
-        </div>
-
-        <div className="recommendations-list margin-top-md">
-          {recommendations.map((rec, idx) => (
-            <div key={idx} className="neo-card-inset rec-item">
-              <ListChecks size={16} className="text-accent shrink-0" />
-              <span className="rec-text font-sans text-secondary text-xs">{rec}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+        </>
+      )}
 
       <style>{`
-        .margin-top-xs { margin-top: 6px; }
-        .margin-top-md { margin-top: 20px; }
-        .margin-bottom-xs { margin-bottom: 8px; }
-        .margin-bottom-md { margin-bottom: 16px; }
-        .margin-bottom-lg { margin-bottom: 28px; }
-
-        .host-selector-bar {
+        .anomalies-page {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .bar-left {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .bar-right {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .status-hero-grid {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 8px;
-          gap: 20px;
-          flex-wrap: wrap;
-        }
-
-        .status-left {
-          display: flex;
-          align-items: center;
+          flex-direction: column;
           gap: 16px;
         }
 
-        .status-icon-box {
-          width: 56px;
-          height: 56px;
+        /* Header */
+        .page-header-block {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 2px;
+        }
+
+        .page-title {
+          font-size: 24px;
+          font-weight: 600;
+          letter-spacing: -0.02em;
+          color: var(--text-primary);
+          line-height: 1.2;
+        }
+
+        .server-host-selector {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .selector-label {
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+
+        .host-tab-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: transparent;
+          border: 1px solid var(--border-subtle);
+          color: var(--text-secondary);
+          font-family: var(--font-sans);
+          font-size: 12px;
+          padding: 4px 10px;
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .host-tab-btn:hover {
+          background-color: var(--bg-surface-hover);
+          color: var(--text-primary);
+        }
+
+        .host-tab-btn.active {
+          background-color: var(--bg-surface);
+          border-color: var(--border-strong);
+          color: var(--text-primary);
+          font-weight: 500;
+        }
+
+        /* Panels */
+        .netra-panel {
+          background-color: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md);
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .panel-title-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .title-left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .panel-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--text-primary);
+          letter-spacing: -0.01em;
+        }
+
+        /* Status Readout Grid */
+        .status-readout-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr;
+          gap: 12px;
+        }
+
+        .status-readout-card {
+          background-color: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .card-top-icon {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .card-status-label {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .label-title {
+          font-size: 14px;
+          color: var(--text-primary);
+        }
+
+        .primary-reason-box {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          background-color: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-xs);
+          padding: 8px 10px;
+        }
+
+        .reason-label {
+          font-size: 11px;
+        }
+
+        .reason-text {
+          color: var(--text-primary);
+          line-height: 1.3;
+        }
+
+        .metric-card-label {
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--text-secondary);
+        }
+
+        .metric-card-value {
+          font-size: 26px;
+          font-weight: 600;
+          color: var(--text-primary);
+          letter-spacing: -0.02em;
+        }
+
+        .metric-card-timestamp {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        /* Segmented Tabs */
+        .segmented-tabs {
+          display: flex;
+          background-color: var(--bg-subtle);
+          padding: 3px;
+          border-radius: var(--radius-sm);
+          gap: 2px;
+        }
+
+        .tab-btn {
+          background: transparent;
+          border: none;
+          padding: 3px 8px;
+          font-family: var(--font-sans);
+          font-size: 11px;
+          color: var(--text-muted);
+          border-radius: var(--radius-xs);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .tab-btn:hover {
+          color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+          background-color: var(--bg-surface);
+          color: var(--text-primary);
+          font-weight: 500;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Signals & Table */
+        .signals-empty-state {
+          padding: 12px 0;
+        }
+
+        .margin-top-sm { margin-top: 10px; }
+        .margin-bottom-xs { margin-bottom: 6px; }
+
+        /* Historical Chart Box */
+        .historical-chart-box {
+          height: 180px;
+          width: 100%;
+          position: relative;
+        }
+
+        .chart-loading-overlay, .chart-empty-box {
+          height: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
         }
 
-        .box-healthy {
-          background: var(--bg-inset);
-          border: 1px solid var(--border-subtle);
-          box-shadow: var(--shadow-inset-sm);
-        }
-
-        .box-critical {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-
-        .status-title-row {
+        /* State Boxes */
+        .anomaly-state-box {
           display: flex;
           align-items: center;
+          justify-content: center;
           gap: 10px;
+          padding: 40px;
+          text-align: center;
         }
 
-        .status-main-title {
-          font-size: 18px;
-          font-weight: 800;
-          color: var(--text-primary);
-        }
-
-        .status-right {
+        .error-text-group {
           display: flex;
           flex-direction: column;
-          gap: 6px;
-          min-width: 220px;
-        }
-
-        .stat-line {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .primary-reason-box {
-          padding: 16px 20px;
-          border-radius: var(--radius-md);
-          border-left: 4px solid var(--accent);
-        }
-
-        .reason-text {
-          font-size: 14px;
-          line-height: 1.5;
-        }
-
-        .signal-cards-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 16px;
-        }
-
-        .signal-card {
-          padding: 16px;
-          border-radius: var(--radius-md);
-          display: flex;
-          flex-direction: column;
+          align-items: center;
           gap: 8px;
         }
 
-        .signal-card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .signal-metrics-row {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 8px;
-          background: var(--bg-card);
-          padding: 8px;
-          border-radius: var(--radius-sm);
-        }
-
-        .sig-metric-item {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .table-responsive {
-          overflow-x: auto;
-        }
-
-        .neo-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 12px;
-        }
-
-        .neo-table th {
-          text-align: left;
-          padding: 10px 12px;
-          border-bottom: 1px solid var(--border-subtle);
-          color: var(--text-tertiary);
-          font-size: 10px;
-        }
-
-        .neo-table td {
-          padding: 12px;
-          border-bottom: 1px solid var(--border-subtle);
-        }
-
-        .timeline-header-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .lookback-selector {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .empty-timeline-box {
-          padding: 32px 20px;
-        }
-
-        .timeline-bars-track {
-          height: 100px;
-          padding: 12px;
-          display: flex;
-          align-items: flex-end;
-          gap: 4px;
-          border-radius: var(--radius-md);
-          overflow-x: auto;
-        }
-
-        .timeline-bar {
-          flex: 1;
-          min-width: 4px;
-          border-radius: 2px;
-          transition: all 0.2s ease;
-        }
-
-        .bar-normal {
-          background: var(--accent);
-          opacity: 0.7;
-        }
-
-        .bar-anomaly {
-          background: var(--status-critical, #ef4444);
-        }
-
-        .timeline-axis-labels {
-          display: flex;
-          justify-content: space-between;
-        }
-
-        .specs-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 16px;
-        }
-
-        .spec-card {
-          padding: 16px;
-          border-radius: var(--radius-md);
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .recommendations-list {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .rec-item {
-          padding: 14px 16px;
-          border-radius: var(--radius-md);
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .error-banner {
-          padding: 12px 16px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 12px;
-        }
-
-        .neo-btn-sm {
-          padding: 3px 8px;
-          font-size: 10px;
-          font-family: inherit;
-          border-radius: var(--radius-sm);
-          border: 1px solid var(--border-subtle);
-          background: var(--bg-card);
+        .error-msg {
           color: var(--text-secondary);
+        }
+
+        .retry-btn {
+          background: var(--bg-subtle);
+          border: 1px solid var(--border-subtle);
+          color: var(--text-primary);
+          font-size: 11px;
+          padding: 4px 10px;
+          border-radius: var(--radius-xs);
           cursor: pointer;
-          transition: all 0.15s ease;
         }
 
-        .neo-btn-sm.active {
-          background: var(--accent);
-          color: #ffffff;
-          border-color: var(--accent);
+        .retry-btn:hover {
+          background: var(--bg-surface-hover);
         }
 
-        .spin {
+        .text-healthy-icon { color: var(--status-healthy); }
+        .text-warning-icon { color: var(--status-warning); }
+        .text-critical-icon { color: var(--status-critical); }
+
+        .spinning {
           animation: spin 1s linear infinite;
         }
 
         @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+          100% { transform: rotate(360deg); }
         }
 
-        .border-bottom { border-bottom: 1px solid var(--border-subtle); }
-        .padding-bottom-sm { padding-bottom: 10px; }
-
-        .text-accent { color: var(--accent); }
-        .text-healthy { color: var(--status-healthy, #10b981); }
-        .text-warning { color: var(--status-warning, #f59e0b); }
-        .text-critical { color: var(--status-critical, #ef4444); }
-        .text-tertiary { color: var(--text-tertiary); }
-        .text-secondary { color: var(--text-secondary); }
-        .text-primary { color: var(--text-primary); }
+        @media (max-width: 1000px) {
+          .status-readout-grid {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
     </div>
   );

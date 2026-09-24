@@ -2,19 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Settings, 
-  ShieldCheck, 
-  Terminal, 
-  Eye, 
+  Sliders,
   Sun, 
   Moon, 
-  Clock, 
   Bot, 
-  Database, 
-  Lock, 
   CheckCircle2, 
   AlertCircle, 
-  User, 
-  Crown, 
   Save, 
   RefreshCw, 
   Trash2 
@@ -27,9 +20,9 @@ import { getAiSettingsApi, updateAiSettingsApi, deleteAiKeyApi } from '../../ser
 export function SettingsModal({ isOpen, onClose }) {
   const { theme, toggleTheme } = useTheme();
   const { timezone, setTimezone, formatTimestamp, TIMEZONE_OPTIONS } = useTimezone();
-  const { user, switchRole } = useAuth();
+  const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('appearance'); // 'appearance' | 'ai' | 'monitoring'
+  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'ai'
   const [notice, setNotice] = useState(null);
   const [error, setError] = useState(null);
 
@@ -43,7 +36,7 @@ export function SettingsModal({ isOpen, onClose }) {
   const [savingAi, setSavingAi] = useState(false);
 
   const currentRole = user?.role || 'ADMIN';
-  const isAdmin = currentRole === 'ADMIN';
+  const displayRole = currentRole === 'ADMIN' ? 'Admin' : currentRole === 'OPERATOR' ? 'Operator' : 'Viewer';
 
   const nowSeconds = Math.floor(Date.now() / 1000);
   const livePreviewTime = formatTimestamp ? formatTimestamp(nowSeconds, true) : 'NOW';
@@ -89,31 +82,35 @@ export function SettingsModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  const handleSaveAi = async (e) => {
-    e.preventDefault();
+  const handleSaveSettings = async () => {
     if (savingAi) return;
-    setSavingAi(true);
     setNotice(null);
     setError(null);
 
-    try {
-      const payload = {
-        provider: aiProvider,
-        model: aiModel,
-        enabled: aiEnabled,
-      };
-      if (aiApiKey.trim()) {
-        payload.api_key = aiApiKey.trim();
+    if (activeTab === 'ai') {
+      setSavingAi(true);
+      try {
+        const payload = {
+          provider: aiProvider,
+          model: aiModel,
+          enabled: aiEnabled,
+        };
+        if (aiApiKey.trim()) {
+          payload.api_key = aiApiKey.trim();
+        }
+        const res = await updateAiSettingsApi(payload);
+        setNotice('Settings saved.');
+        setAiHasKey(res.has_key ?? !!aiApiKey.trim());
+        setAiApiKey('');
+        setTimeout(() => onClose(), 400);
+      } catch (err) {
+        setError(err?.response?.data?.detail || 'Failed to save AI settings.');
+      } finally {
+        setSavingAi(false);
       }
-
-      const res = await updateAiSettingsApi(payload);
-      setNotice('AI Copilot settings updated successfully.');
-      setAiHasKey(res.has_key ?? !!aiApiKey.trim());
-      setAiApiKey('');
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to save AI settings.');
-    } finally {
-      setSavingAi(false);
+    } else {
+      setNotice('Settings saved.');
+      setTimeout(() => onClose(), 400);
     }
   };
 
@@ -136,25 +133,20 @@ export function SettingsModal({ isOpen, onClose }) {
   return (
     <div className="settings-modal-backdrop" onClick={onClose}>
       <div 
-        className="settings-modal-container neo-card font-mono" 
+        className="settings-modal-container font-sans" 
         onClick={(e) => e.stopPropagation()}
       >
         {/* MODAL HEADER */}
         <div className="modal-header flex-between border-bottom padding-bottom-sm">
           <div className="flex-center gap-xs">
             <div className="modal-icon-box">
-              <Settings size={18} className="text-accent" />
+              <Settings size={18} className="text-primary" />
             </div>
-            <div>
-              <span className="editorial-tag font-bold font-sans">PLATFORM PREFERENCES & SETTINGS</span>
-              <div className="text-xs text-tertiary margin-top-xs font-mono">
-                ACTIVE USER: <strong className="text-primary">{user?.username || 'ADMIN'}</strong> &bull; ROLE: {currentRole}
-              </div>
-            </div>
+            <div className="modal-title font-semibold text-primary">Settings</div>
           </div>
           <button 
             type="button" 
-            className="neo-icon-btn close-btn" 
+            className="close-btn" 
             onClick={onClose}
             title="Close Settings Window"
           >
@@ -164,27 +156,27 @@ export function SettingsModal({ isOpen, onClose }) {
 
         {/* NOTIFICATION BANNERS */}
         {notice && (
-          <div className="notice-banner notice-success margin-top-xs font-mono">
+          <div className="notice-banner notice-success margin-top-xs font-sans">
             <CheckCircle2 size={13} />
             <span>{notice}</span>
           </div>
         )}
         {error && (
-          <div className="notice-banner notice-error margin-top-xs font-mono">
+          <div className="notice-banner notice-error margin-top-xs font-sans">
             <AlertCircle size={13} />
             <span>{error}</span>
           </div>
         )}
 
         {/* MODAL NAVIGATION TABS */}
-        <div className="modal-tabs-bar margin-top-md">
+        <div className="modal-tabs-bar margin-top-md font-sans">
           <button
             type="button"
-            className={`tab-btn ${activeTab === 'appearance' ? 'active' : ''}`}
-            onClick={() => setActiveTab('appearance')}
+            className={`tab-btn ${activeTab === 'general' ? 'active' : ''}`}
+            onClick={() => setActiveTab('general')}
           >
-            <Sun size={14} className="text-accent" />
-            <span>THEME & TIMEZONE</span>
+            <Sliders size={14} />
+            <span>General</span>
           </button>
 
           <button
@@ -192,132 +184,48 @@ export function SettingsModal({ isOpen, onClose }) {
             className={`tab-btn ${activeTab === 'ai' ? 'active' : ''}`}
             onClick={() => setActiveTab('ai')}
           >
-            <Bot size={14} className="text-info" />
-            <span>AI COPILOT</span>
-          </button>
-
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === 'monitoring' ? 'active' : ''}`}
-            onClick={() => setActiveTab('monitoring')}
-          >
-            <Database size={14} className="text-warning" />
-            <span>POLICIES</span>
+            <Bot size={14} />
+            <span>AI Copilot</span>
           </button>
         </div>
 
-        {/* TAB 1: ROLE & PROFILE LOGOS */}
-        {activeTab === 'role' && (
-          <div className="tab-content margin-top-md">
-            <div className="editorial-tag font-bold margin-bottom-xs">USER ROLE & PROFILE LOGO SELECTOR</div>
-            <p className="text-xs text-secondary margin-bottom-md font-sans">
-              Switch role scope to preview profile badges and accessibility permissions across the platform console.
-            </p>
-
-            <div className="roles-grid">
-              {/* ADMIN ROLE CARD */}
-              <div 
-                className={`neo-card-inset role-select-card ${currentRole === 'ADMIN' ? 'role-card-active' : ''}`}
-                onClick={() => switchRole && switchRole('ADMIN')}
-              >
-                <div className="role-card-top flex-between">
-                  <div className="flex-center gap-xs">
-                    <div className="role-avatar-badge role-admin-badge">
-                      <Crown size={18} className="text-warning" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-primary font-sans">ADMINISTRATOR</div>
-                      <div className="text-xs text-tertiary font-mono">FULL PLATFORM CONTROL</div>
-                    </div>
-                  </div>
-                  {currentRole === 'ADMIN' && (
-                    <span className="editorial-pill pill-healthy font-mono">ACTIVE ROLE</span>
-                  )}
-                </div>
-                <p className="text-xs text-secondary margin-top-xs font-sans">
-                  Full administrative permissions. Access retraining pipelines, security thresholds, and system settings.
-                </p>
-              </div>
-
-              {/* OPERATOR ROLE CARD */}
-              <div 
-                className={`neo-card-inset role-select-card ${currentRole === 'OPERATOR' ? 'role-card-active' : ''}`}
-                onClick={() => switchRole && switchRole('OPERATOR')}
-              >
-                <div className="role-card-top flex-between">
-                  <div className="flex-center gap-xs">
-                    <div className="role-avatar-badge role-operator-badge">
-                      <Terminal size={18} className="text-accent" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-primary font-sans">SYSTEM OPERATOR</div>
-                      <div className="text-xs text-tertiary font-mono">INFRASTRUCTURE MONITORING</div>
-                    </div>
-                  </div>
-                  {currentRole === 'OPERATOR' && (
-                    <span className="editorial-pill pill-healthy font-mono">ACTIVE ROLE</span>
-                  )}
-                </div>
-                <p className="text-xs text-secondary margin-top-xs font-sans">
-                  Operator scope. Acknowledge alerts, inspect predictive capacity models, and query telemetry data.
-                </p>
-              </div>
-
-              {/* VIEWER ROLE CARD */}
-              <div 
-                className={`neo-card-inset role-select-card ${currentRole === 'VIEWER' ? 'role-card-active' : ''}`}
-                onClick={() => switchRole && switchRole('VIEWER')}
-              >
-                <div className="role-card-top flex-between">
-                  <div className="flex-center gap-xs">
-                    <div className="role-avatar-badge role-viewer-badge">
-                      <Eye size={18} className="text-info" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-primary font-sans">READ-ONLY VIEWER</div>
-                      <div className="text-xs text-tertiary font-mono">AUDIT & DASHBOARD VIEW</div>
-                    </div>
-                  </div>
-                  {currentRole === 'VIEWER' && (
-                    <span className="editorial-pill pill-healthy font-mono">ACTIVE ROLE</span>
-                  )}
-                </div>
-                <p className="text-xs text-secondary margin-top-xs font-sans">
-                  Read-only view access. Inspect telemetry charts, historical analytics, and anomaly score reports.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: APPEARANCE & TIMEZONE */}
-        {activeTab === 'appearance' && (
-          <div className="tab-content margin-top-md">
+        {/* TAB 1: GENERAL (USER DETAILS + THEME & TIMEZONE) */}
+        {activeTab === 'general' && (
+          <div className="tab-content margin-top-md font-sans">
             <div className="setting-item flex-between border-bottom padding-bottom-xs margin-bottom-md">
-              <div>
-                <div className="setting-title font-sans font-bold text-primary">COLOR MODE THEME</div>
-                <div className="text-xs text-secondary font-sans">Toggle between Light Industrial Paper and Dark Graphite themes.</div>
-              </div>
+              <div className="setting-title font-semibold text-primary font-sans">Username</div>
+              <span className="font-medium text-primary font-sans">{user?.username || 'admin'}</span>
+            </div>
+
+            <div className="setting-item flex-between border-bottom padding-bottom-xs margin-bottom-md">
+              <div className="setting-title font-semibold text-primary font-sans">Role</div>
+              <span className="font-medium text-primary font-sans">{displayRole}</span>
+            </div>
+
+            <div className="setting-item flex-between border-bottom padding-bottom-xs margin-bottom-md">
+              <div className="setting-title font-semibold text-primary font-sans">System Access</div>
+              <span className="text-xs text-muted font-sans">Full Control</span>
+            </div>
+
+            <div className="setting-item flex-between border-bottom padding-bottom-xs margin-bottom-md">
+              <div className="setting-title font-semibold text-primary font-sans">Theme</div>
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="neo-btn font-mono"
+                className="host-tab-btn font-sans"
               >
-                {isDarkMode ? <Moon size={14} /> : <Sun size={14} />}
-                <span>{isDarkMode ? 'DARK MODE' : 'LIGHT MODE'}</span>
+                {isDarkMode ? <Sun size={13} /> : <Moon size={13} />}
+                <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
               </button>
             </div>
 
             <div className="setting-item flex-between">
-              <div>
-                <div className="setting-title font-sans font-bold text-primary">DISPLAY TIMEZONE</div>
-                <div className="text-xs text-secondary font-sans">Format timestamps for telemetry series, charts, and incident logs.</div>
-              </div>
+              <div className="setting-title font-semibold text-primary font-sans">Display Timezone</div>
               <div className="flex-column align-end gap-xs">
                 <select
                   value={timezone}
                   onChange={(e) => setTimezone && setTimezone(e.target.value)}
-                  className="neo-select select-tz"
+                  className="netra-metric-dropdown font-sans"
                 >
                   {TIMEZONE_OPTIONS.map((opt) => (
                     <option key={opt.id} value={opt.id}>
@@ -325,45 +233,39 @@ export function SettingsModal({ isOpen, onClose }) {
                     </option>
                   ))}
                 </select>
-                <span className="text-xs text-tertiary">PREVIEW: {livePreviewTime}</span>
+                <span className="text-xs text-muted font-sans">Preview: {livePreviewTime}</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 3: AI COPILOT */}
+        {/* TAB 2: AI COPILOT */}
         {activeTab === 'ai' && (
-          <div className="tab-content margin-top-md">
+          <div className="tab-content margin-top-md font-sans">
             {loadingAi ? (
-              <div className="text-center padding-md text-tertiary text-xs">
-                <RefreshCw size={16} className="spin text-accent margin-bottom-xs" />
+              <div className="text-center padding-md text-muted text-xs font-sans">
+                <RefreshCw size={16} className="spin margin-bottom-xs" />
                 <p>Loading AI Assistant configuration...</p>
               </div>
             ) : (
-              <form onSubmit={handleSaveAi}>
+              <div>
                 <div className="setting-item flex-between border-bottom padding-bottom-xs margin-bottom-md">
-                  <div>
-                    <div className="setting-title font-sans font-bold text-primary">COPILOT SERVICE STATUS</div>
-                    <div className="text-xs text-secondary font-sans">Enable or disable local AI copilot engineering assistant.</div>
-                  </div>
+                  <div className="setting-title font-semibold text-primary font-sans">Copilot Status</div>
                   <button
                     type="button"
                     onClick={() => setAiEnabled((prev) => !prev)}
-                    className={`neo-btn ${aiEnabled ? 'neo-btn-active' : ''}`}
+                    className={`host-tab-btn ${aiEnabled ? 'active' : ''} font-sans`}
                   >
-                    <span>{aiEnabled ? 'COPILOT ACTIVE' : 'DISABLED'}</span>
+                    <span>{aiEnabled ? 'Copilot Active' : 'Disabled'}</span>
                   </button>
                 </div>
 
                 <div className="setting-item flex-between border-bottom padding-bottom-xs margin-bottom-md">
-                  <div>
-                    <div className="setting-title font-sans font-bold text-primary">INFERENCE PROVIDER</div>
-                    <div className="text-xs text-secondary font-sans">Select target LLM backend engine.</div>
-                  </div>
+                  <div className="setting-title font-semibold text-primary font-sans">Inference Provider</div>
                   <select
                     value={aiProvider}
                     onChange={(e) => setAiProvider(e.target.value)}
-                    className="neo-select"
+                    className="netra-metric-dropdown font-sans"
                   >
                     <option value="ollama">Ollama (Mac-Local 11434)</option>
                     <option value="openai">OpenAI Cloud API</option>
@@ -372,14 +274,11 @@ export function SettingsModal({ isOpen, onClose }) {
                 </div>
 
                 <div className="setting-item flex-between border-bottom padding-bottom-xs margin-bottom-md">
-                  <div>
-                    <div className="setting-title font-sans font-bold text-primary">MODEL ARCHITECTURE</div>
-                    <div className="text-xs text-secondary font-sans">Target LLM parameter size and model family.</div>
-                  </div>
+                  <div className="setting-title font-semibold text-primary font-sans">Model Architecture</div>
                   <select
                     value={aiModel}
                     onChange={(e) => setAiModel(e.target.value)}
-                    className="neo-select"
+                    className="netra-metric-dropdown font-sans"
                   >
                     {aiProvider === 'ollama' && (
                       <>
@@ -404,88 +303,56 @@ export function SettingsModal({ isOpen, onClose }) {
 
                 {aiProvider !== 'ollama' && (
                   <div className="setting-item flex-between margin-bottom-md">
-                    <div>
-                      <div className="setting-title font-sans font-bold text-primary">API CREDENTIALS</div>
-                      <div className="text-xs text-secondary font-sans">Encrypted API secret key for cloud backend.</div>
-                    </div>
+                    <div className="setting-title font-semibold text-primary font-sans">API Credentials</div>
                     <div className="flex-center gap-xs">
                       <input
                         type="password"
                         value={aiApiKey}
                         onChange={(e) => setAiApiKey(e.target.value)}
                         placeholder={aiHasKey ? '••••••••••••' : 'Enter API Key'}
-                        className="neo-input"
+                        className="netra-input font-sans"
                       />
                       {aiHasKey && (
                         <button
                           type="button"
                           onClick={handleDeleteAiKey}
-                          className="neo-btn btn-danger-icon"
+                          className="close-btn"
                           title="Remove Key"
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={13} />
                         </button>
                       )}
                     </div>
                   </div>
                 )}
-
-                <div className="flex-end margin-top-md">
-                  <button
-                    type="submit"
-                    disabled={savingAi}
-                    className="neo-btn neo-btn-primary"
-                  >
-                    {savingAi ? <RefreshCw size={12} className="spin" /> : <Save size={12} />}
-                    <span>SAVE AI CONFIG</span>
-                  </button>
-                </div>
-              </form>
+              </div>
             )}
-          </div>
-        )}
-
-        {/* TAB 4: MONITORING POLICIES */}
-        {activeTab === 'monitoring' && (
-          <div className="tab-content margin-top-md">
-            <div className="setting-item flex-between border-bottom padding-bottom-xs margin-bottom-md">
-              <div>
-                <div className="setting-title font-sans font-bold text-primary">SCRAPE FREQUENCY</div>
-                <div className="text-xs text-secondary font-sans">Python telemetry collection interval daemon.</div>
-              </div>
-              <span className="editorial-pill pill-healthy">30 SECONDS FIXED</span>
-            </div>
-
-            <div className="setting-item flex-between border-bottom padding-bottom-xs margin-bottom-md">
-              <div>
-                <div className="setting-title font-sans font-bold text-primary">CPU ALERT THRESHOLD</div>
-                <div className="text-xs text-secondary font-sans">Trigger level for high compute utilization warnings.</div>
-              </div>
-              <span className="editorial-pill pill-warning">85.0% CRITICAL</span>
-            </div>
-
-            <div className="setting-item flex-between">
-              <div>
-                <div className="setting-title font-sans font-bold text-primary">MEMORY ALERT THRESHOLD</div>
-                <div className="text-xs text-secondary font-sans">Trigger level for RAM exhaustion warnings.</div>
-              </div>
-              <span className="editorial-pill pill-critical">90.0% CRITICAL</span>
-            </div>
           </div>
         )}
 
         {/* MODAL FOOTER */}
         <div className="modal-footer flex-between border-top margin-top-md padding-top-sm">
-          <span className="text-xs text-tertiary font-mono">
-            PRESS <kbd className="neo-kbd">ESC</kbd> TO CLOSE WINDOW
+          <span className="text-xs text-muted font-sans">
+            Press <kbd className="neo-kbd font-sans">ESC</kbd> to close
           </span>
-          <button
-            type="button"
-            className="neo-btn neo-btn-primary"
-            onClick={onClose}
-          >
-            <span>CLOSE & APPLY PREFERENCES</span>
-          </button>
+          <div className="flex-center gap-xs">
+            <button
+              type="button"
+              className="host-tab-btn active font-sans"
+              disabled={savingAi}
+              onClick={handleSaveSettings}
+            >
+              {savingAi ? <RefreshCw size={12} className="spin" /> : <Save size={12} />}
+              <span>Save Settings</span>
+            </button>
+            <button
+              type="button"
+              className="host-tab-btn font-sans"
+              onClick={onClose}
+            >
+              <span>Close</span>
+            </button>
+          </div>
         </div>
 
         <style>{`
@@ -495,7 +362,7 @@ export function SettingsModal({ isOpen, onClose }) {
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.65);
+            background: rgba(0, 0, 0, 0.45);
             backdrop-filter: blur(4px);
             z-index: 1000;
             display: flex;
@@ -507,12 +374,12 @@ export function SettingsModal({ isOpen, onClose }) {
 
           .settings-modal-container {
             width: 100%;
-            max-width: 680px;
+            max-width: 620px;
             background: var(--bg-surface);
-            border: 1px solid var(--border-strong);
-            box-shadow: var(--shadow-raised-lg);
-            border-radius: var(--radius-lg);
-            padding: 24px;
+            border: 1px solid var(--border-subtle);
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+            border-radius: var(--radius-md);
+            padding: 20px 24px;
             position: relative;
             max-height: 85vh;
             overflow-y: auto;
@@ -523,33 +390,50 @@ export function SettingsModal({ isOpen, onClose }) {
           .flex-end { display: flex; justify-content: flex-end; }
           .flex-column { display: flex; flex-direction: column; }
           .align-end { align-items: flex-end; }
-          .gap-xs { gap: 6px; }
+          .gap-xs { gap: 8px; }
 
           .modal-icon-box {
-            width: 36px;
-            height: 36px;
-            background: var(--bg-inset);
-            border-radius: var(--radius-md);
+            width: 32px;
+            height: 32px;
+            background: var(--bg-canvas);
+            border-radius: var(--radius-sm);
             border: 1px solid var(--border-subtle);
-            box-shadow: var(--shadow-inset-sm);
             display: flex;
             align-items: center;
             justify-content: center;
           }
 
+          .modal-title {
+            font-size: 16px;
+            letter-spacing: -0.01em;
+          }
+
           .close-btn {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: var(--radius-xs);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+
+          .close-btn:hover {
+            color: var(--text-primary);
+            background: var(--bg-subtle);
           }
 
           .modal-tabs-bar {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            background: var(--bg-inset);
-            padding: 4px;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-subtle);
+            grid-template-columns: repeat(2, 1fr);
+            gap: 4px;
+            background: var(--bg-subtle);
+            padding: 3px;
+            border-radius: var(--radius-sm);
           }
 
           .tab-btn {
@@ -557,98 +441,109 @@ export function SettingsModal({ isOpen, onClose }) {
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 8px 10px;
-            font-size: 11px;
-            font-family: inherit;
-            font-weight: 600;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-family: var(--font-sans);
+            font-weight: 500;
             background: transparent;
-            border: 1px solid transparent;
-            border-radius: var(--radius-sm);
-            color: var(--text-secondary);
+            border: none;
+            border-radius: var(--radius-xs);
+            color: var(--text-muted);
             cursor: pointer;
             transition: all 0.15s ease;
+          }
+
+          .tab-btn:hover {
+            color: var(--text-primary);
           }
 
           .tab-btn.active {
             background: var(--bg-surface);
             color: var(--text-primary);
-            border-color: var(--accent-border);
-            box-shadow: var(--shadow-raised-sm);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
           }
 
-          .roles-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
-
-          .role-select-card {
-            padding: 14px 16px;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: all 0.15s ease;
-            border: 1px solid var(--border-subtle);
-          }
-
-          .role-select-card:hover {
-            border-color: var(--accent-border);
-            background: var(--bg-surface-hover);
-          }
-
-          .role-card-active {
-            border-color: var(--accent) !important;
-            box-shadow: var(--shadow-raised-sm);
-          }
-
-          .role-avatar-badge {
-            width: 32px;
-            height: 32px;
-            border-radius: var(--radius-pill);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
-          .role-admin-badge {
-            background: rgba(245, 158, 11, 0.15);
-            border: 1px solid rgba(245, 158, 11, 0.35);
-          }
-
-          .role-operator-badge {
-            background: var(--accent-muted);
-            border: 1px solid var(--accent-border);
-          }
-
-          .role-viewer-badge {
-            background: rgba(56, 189, 248, 0.15);
-            border: 1px solid rgba(56, 189, 248, 0.35);
+          .setting-title {
+            font-size: 13px;
           }
 
           .notice-banner {
             padding: 8px 12px;
-            font-size: 11px;
-            border-radius: var(--radius-md);
+            font-size: 12px;
+            border-radius: var(--radius-sm);
             display: flex;
             align-items: center;
             gap: 8px;
           }
+
           .notice-success {
-            background: var(--accent-muted);
+            background: var(--status-healthy-bg);
             color: var(--status-healthy);
-            border: 1px solid var(--accent-border);
+            border: 1px solid var(--border-subtle);
           }
+
           .notice-error {
-            background: rgba(220, 38, 38, 0.1);
+            background: var(--status-critical-bg);
             color: var(--status-critical);
-            border: 1px solid rgba(220, 38, 38, 0.3);
+            border: 1px solid var(--border-subtle);
+          }
+
+          .netra-input {
+            background: var(--bg-canvas);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xs);
+            color: var(--text-primary);
+            font-size: 12px;
+            padding: 4px 10px;
+            outline: none;
           }
 
           .neo-kbd {
-            background: var(--bg-inset);
+            background: var(--bg-subtle);
             border: 1px solid var(--border-subtle);
             padding: 1px 5px;
             border-radius: 3px;
-            font-size: 9px;
+            font-size: 10px;
+            color: var(--text-secondary);
+          }
+
+          .host-tab-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-family: var(--font-sans);
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+
+          .host-tab-btn:hover {
+            background-color: var(--bg-surface-hover);
+            color: var(--text-primary);
+          }
+
+          .host-tab-btn.active {
+            background-color: var(--bg-surface);
+            border-color: var(--border-strong);
+            color: var(--text-primary);
+            font-weight: 500;
+          }
+
+          .netra-metric-dropdown {
+            background-color: var(--bg-canvas);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xs);
+            color: var(--text-primary);
+            font-size: 12px;
+            padding: 4px 10px;
+            outline: none;
+            cursor: pointer;
+            font-weight: 500;
           }
 
           .margin-top-xs { margin-top: 6px; }
@@ -661,12 +556,10 @@ export function SettingsModal({ isOpen, onClose }) {
           .border-bottom { border-bottom: 1px solid var(--border-subtle); }
           .border-top { border-top: 1px solid var(--border-subtle); }
 
-          .text-accent { color: var(--accent); }
-          .text-warning { color: var(--status-warning, #f59e0b); }
-          .text-info { color: var(--status-info, #38bdf8); }
-          .text-tertiary { color: var(--text-tertiary); }
+          .text-tertiary { color: var(--text-muted); }
           .text-secondary { color: var(--text-secondary); }
           .text-primary { color: var(--text-primary); }
+          .text-muted { color: var(--text-muted); }
 
           .spin {
             animation: spin 1s linear infinite;

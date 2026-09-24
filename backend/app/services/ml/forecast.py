@@ -5,6 +5,22 @@ import pandas as pd
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 
+import sys
+from pathlib import Path
+
+_resolved_file = Path(__file__).resolve()
+if len(_resolved_file.parents) > 4 and _resolved_file.parents[3].name == "backend":
+    REPO_ROOT = _resolved_file.parents[4]
+else:
+    REPO_ROOT = _resolved_file.parents[3]
+
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+BACKEND_DIR = REPO_ROOT / "backend"
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 from app.services.ml.loader import ml_loader, TARGET_COLUMNS, HORIZONS, normalize_host
 from app.services.victoriametrics import VictoriaMetricsService
 from ml.training import prepare_forecasting_features
@@ -14,10 +30,49 @@ CACHE_TTL_SECONDS = 30.0
 MIN_REQUIRED_HISTORICAL_SAMPLES = 13  # Minimum 13 30-second steps (6 minutes) required for lag_12 feature
 
 
+def extract_context_window(df_history: pd.DataFrame, sequence_length: int = 60) -> np.ndarray:
+    """
+    Extracts a [T=60, D=14] float32 context window from telemetry DataFrame.
+    Pads with earliest values or zeros if <60 steps available, truncates to last 60 if >60 steps.
+    """
+    from ml.bdh.config import FEATURE_COLUMNS
+    column_mapping = {
+        "process_count": "processes" if "processes" in df_history.columns and "process_count" not in df_history.columns else "process_count"
+    }
+
+    feature_series_list = []
+    for feat in FEATURE_COLUMNS:
+        col = column_mapping.get(feat, feat)
+        if col in df_history.columns:
+            series = df_history[col].astype(np.float32)
+        elif feat in df_history.columns:
+            series = df_history[feat].astype(np.float32)
+        else:
+            series = pd.Series(0.0, index=df_history.index, dtype=np.float32)
+        feature_series_list.append(series)
+
+    df_features = pd.concat(feature_series_list, axis=1)
+    df_features = df_features.ffill().bfill().fillna(0.0)
+
+    arr = df_features.values.astype(np.float32)
+
+    if len(arr) < sequence_length:
+        pad_count = sequence_length - len(arr)
+        first_row = arr[[0]] if len(arr) > 0 else np.zeros((1, len(FEATURE_COLUMNS)), dtype=np.float32)
+        pad_rows = np.repeat(first_row, pad_count, axis=0)
+        arr = np.vstack([pad_rows, arr])
+    elif len(arr) > sequence_length:
+        arr = arr[-sequence_length:]
+
+    return arr
+
+
 class ForecastService:
     """
     Service for generating telemetry forecasts using real historical telemetry from VictoriaMetrics.
     Uses per-host 30-second TTL cache to prevent repeated inference.
+    Primary model: iTransformer (vNext Phase 1)
+    Fallback model: HistGradientBoosting (HGB)
     """
     def __init__(self):
         self.victoria = VictoriaMetricsService()
@@ -41,7 +96,7 @@ class ForecastService:
         if not canonical_host:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Host parameter is required (e.g. ?host=ubuntu or ?host=kali).",
+                detail="Host parameter is required (e.g. ?host=ubuntu).",
             )
 
         now = time.time()
@@ -115,48 +170,117 @@ class ForecastService:
             self._cache_timestamps[cache_key] = now
             return response
 
-        # Real historical feature extraction and model inference
-        for target in TARGET_COLUMNS:
-            hist_latest = float(df_history[target].iloc[-1]) if target in df_history.columns else 0.0
-            current_val = float(live_metrics.get(target, hist_latest) if live_metrics.get(target) is not None else hist_latest)
+        # ---------------------------------------------------------------------
+        # Primary Path: iTransformer Architecture
+        # ---------------------------------------------------------------------
+        itransformer_adapter = ml_loader.get_itransformer_model(host=canonical_host)
+        itransformer_success = False
+        itransformer_preds = None
 
-            meta_5m = ml_loader.get_forecast_meta(target, "5m", host=canonical_host)
-            target_strategy = meta_5m.get("strategy", "persistence") if meta_5m else "persistence"
+        if itransformer_adapter is not None:
+            try:
+                context_window = extract_context_window(df_history, sequence_length=60)
+                itransformer_preds = itransformer_adapter.predict(context_window)
 
-            predictions = {}
-            for horizon in HORIZONS:
-                meta = ml_loader.get_forecast_meta(target, horizon, host=canonical_host)
-                strategy = meta.get("strategy", "persistence") if meta else "persistence"
+                if (
+                    isinstance(itransformer_preds, dict)
+                    and all(t in itransformer_preds for t in TARGET_COLUMNS)
+                ):
+                    has_nan = False
+                    for t in TARGET_COLUMNS:
+                        for h in HORIZONS:
+                            val = itransformer_preds[t].get(h)
+                            if val is None or np.isnan(val).any():
+                                has_nan = True
+                                break
+                        if has_nan:
+                            break
 
-                if strategy == "persistence":
-                    predictions[horizon] = round(current_val, 2)
-                elif strategy == "model":
-                    model = ml_loader.get_forecast_model(target, horizon, host=canonical_host)
-                    if model is not None and meta and "feature_columns" in meta:
-                        try:
-                            feature_cols = meta["feature_columns"]
-                            prepared_df, _ = prepare_forecasting_features(df_history, target)
-                            clean_df = prepared_df.dropna(subset=feature_cols)
+                    if not has_nan:
+                        itransformer_success = True
+            except Exception as exc:
+                logger.warning(
+                    "iTransformer primary forecast inference failed for host '%s': %s",
+                    canonical_host,
+                    exc,
+                )
 
-                            if not clean_df.empty:
-                                X_df = clean_df.iloc[[-1]][feature_cols]
-                                pred_val = float(model.predict(X_df)[0])
-                                predictions[horizon] = round(max(0.0, pred_val), 2)
-                            else:
+        if itransformer_success and itransformer_preds is not None:
+            logger.info("Successfully generated forecasts using primary model 'iTransformer' for host '%s'", canonical_host)
+            response["primary_model"] = "iTransformer"
+            response["fallback_used"] = False
+            response["model_version"] = "vNext-Phase1-iTransformer"
+
+            for target in TARGET_COLUMNS:
+                hist_latest = float(df_history[target].iloc[-1]) if target in df_history.columns else 0.0
+                current_val = float(live_metrics.get(target, hist_latest) if live_metrics.get(target) is not None else hist_latest)
+
+                predictions = {}
+                for horizon in HORIZONS:
+                    pred_val = itransformer_preds[target][horizon]
+                    if isinstance(pred_val, (np.ndarray, list)):
+                        pred_val = float(pred_val.flat[0])
+                    predictions[horizon] = round(max(0.0, float(pred_val)), 2)
+
+                response[target] = {
+                    "current": round(current_val, 2),
+                    "strategy": "iTransformer",
+                    "predictions": predictions,
+                }
+        else:
+            # -----------------------------------------------------------------
+            # Fallback Path: HistGradientBoosting (HGB) Mechanism
+            # -----------------------------------------------------------------
+            logger.warning(
+                "Primary model 'iTransformer' unavailable or failed for host '%s'. Executing HGB fallback path.",
+                canonical_host,
+            )
+            response["primary_model"] = "iTransformer"
+            response["fallback_used"] = True
+            response["model_version"] = "vNext-Phase1-HGB-fallback"
+
+            for target in TARGET_COLUMNS:
+                hist_latest = float(df_history[target].iloc[-1]) if target in df_history.columns else 0.0
+                current_val = float(live_metrics.get(target, hist_latest) if live_metrics.get(target) is not None else hist_latest)
+
+                meta_5m = ml_loader.get_forecast_meta(target, "5m", host=canonical_host)
+                target_strategy = meta_5m.get("strategy", "persistence") if meta_5m else "persistence"
+                strategy_name = "HGB" if target_strategy == "model" else target_strategy
+
+                predictions = {}
+                for horizon in HORIZONS:
+                    meta = ml_loader.get_forecast_meta(target, horizon, host=canonical_host)
+                    strategy = meta.get("strategy", "persistence") if meta else "persistence"
+
+                    if strategy == "persistence":
+                        predictions[horizon] = round(current_val, 2)
+                    elif strategy == "model":
+                        model = ml_loader.get_forecast_model(target, horizon, host=canonical_host)
+                        if model is not None and meta and "feature_columns" in meta:
+                            try:
+                                feature_cols = meta["feature_columns"]
+                                prepared_df, _ = prepare_forecasting_features(df_history, target)
+                                clean_df = prepared_df.dropna(subset=feature_cols)
+
+                                if not clean_df.empty:
+                                    X_df = clean_df.iloc[[-1]][feature_cols]
+                                    pred_val = float(model.predict(X_df)[0])
+                                    predictions[horizon] = round(max(0.0, pred_val), 2)
+                                else:
+                                    predictions[horizon] = round(current_val, 2)
+                            except Exception as err:
+                                logger.warning("HGB inference error for %s %s on %s: %s", target, horizon, canonical_host, err)
                                 predictions[horizon] = round(current_val, 2)
-                        except Exception as err:
-                            logger.warning("Inference error for %s %s on %s: %s", target, horizon, canonical_host, err)
+                        else:
                             predictions[horizon] = round(current_val, 2)
                     else:
                         predictions[horizon] = round(current_val, 2)
-                else:
-                    predictions[horizon] = round(current_val, 2)
 
-            response[target] = {
-                "current": round(current_val, 2),
-                "strategy": target_strategy,
-                "predictions": predictions,
-            }
+                response[target] = {
+                    "current": round(current_val, 2),
+                    "strategy": strategy_name,
+                    "predictions": predictions,
+                }
 
         # Cache host result
         self._cache[cache_key] = response

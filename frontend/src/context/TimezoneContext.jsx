@@ -50,22 +50,24 @@ export function TimezoneProvider({ children }) {
     const options = {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false,
+      hour12: true,
       ...(includeSeconds ? { second: '2-digit' } : {}),
       ...(targetIana ? { timeZone: targetIana } : {}),
     };
 
     try {
-      const formatted = new Intl.DateTimeFormat('en-GB', options).format(date);
+      const formatted = new Intl.DateTimeFormat('en-US', options).format(date);
       const label = timezone === 'LOCAL' 
         ? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'LOCAL')
         : timezone;
       return includeTimezoneLabel ? `${formatted} ${label}` : formatted;
     } catch (_err) {
-      const hours = String(date.getUTCHours()).padStart(2, '0');
+      let hours = date.getUTCHours();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
       const minutes = String(date.getUTCMinutes()).padStart(2, '0');
       const seconds = String(date.getUTCSeconds()).padStart(2, '0');
-      const timeStr = includeSeconds ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`;
+      const timeStr = includeSeconds ? `${hours}:${minutes}:${seconds} ${ampm}` : `${hours}:${minutes} ${ampm}`;
       return includeTimezoneLabel ? `${timeStr} ${timezone}` : timeStr;
     }
   };

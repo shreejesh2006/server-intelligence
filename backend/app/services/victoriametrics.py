@@ -30,7 +30,6 @@ METRICS_MAP = {
 
 HOST_LABEL_MAP = {
     "ubuntu": 'host=~"ubuntu|100.108.160.2"',
-    "kali": 'host=~"kali|Kali|100.115.122.92"',
 }
 
 
@@ -38,7 +37,6 @@ def normalize_host(host: str | None) -> str | None:
     """
     Normalizes host identifiers and Tailscale IPs into canonical host strings:
     - 'ubuntu' or '100.108.160.2' -> 'ubuntu'
-    - 'kali', 'Kali', or '100.115.122.92' -> 'kali'
     """
     if not host:
         return None
@@ -46,9 +44,7 @@ def normalize_host(host: str | None) -> str | None:
     clean = host.strip().lower()
     if clean in ("ubuntu", "100.108.160.2"):
         return "ubuntu"
-    elif clean in ("kali", "100.115.122.92"):
-        return "kali"
-    return clean
+    return None
 
 
 from sqlalchemy import select

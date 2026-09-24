@@ -6,38 +6,28 @@ import {
   Server, 
   TrendingUp, 
   AlertTriangle, 
-  Bell, 
-  BarChart2, 
-  Users, 
-  Sliders,
+  Users,
   ChevronLeft,
   ChevronRight
-
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { name: 'OVERVIEW', path: '/overview', icon: LayoutDashboard, adminOnly: false },
-  { name: 'SERVERS', path: '/servers', icon: Server, adminOnly: false },
-  { name: 'FORECASTS', path: '/forecasts', icon: TrendingUp, adminOnly: false },
-  { name: 'ANOMALIES', path: '/anomalies', icon: AlertTriangle, adminOnly: false },
-  { name: 'ALERTS', path: '/alerts', icon: Bell, adminOnly: false },
-  { name: 'ANALYTICS', path: '/analytics', icon: BarChart2, adminOnly: false },
-  { name: 'USERS', path: '/users', icon: Users, adminOnly: true },
+  { name: 'Overview', path: '/overview', icon: LayoutDashboard },
+  { name: 'Servers', path: '/servers', icon: Server },
+  { name: 'Forecasts', path: '/forecasts', icon: TrendingUp },
+  { name: 'Anomalies', path: '/anomalies', icon: AlertTriangle },
+  { name: 'Users', path: '/users', icon: Users },
 ];
 
-
-export function Sidebar({ onOpenSettings }) {
+export function Sidebar() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
-
-  const visibleNavItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
-    return localStorage.getItem('server_intel_sidebar_collapsed') === 'true';
+    return localStorage.getItem('nokia_sidebar_collapsed') === 'true';
   });
 
   useEffect(() => {
-    localStorage.setItem('server_intel_sidebar_collapsed', isCollapsed);
+    localStorage.setItem('nokia_sidebar_collapsed', isCollapsed);
   }, [isCollapsed]);
 
   const toggleCollapse = () => {
@@ -45,23 +35,26 @@ export function Sidebar({ onOpenSettings }) {
   };
 
   return (
-    <aside className={`neo-sidebar ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
-      {/* Sidebar Header */}
+    <aside className={`nokia-sidebar ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
       <div className="sidebar-header">
-        {!isCollapsed && <span className="editorial-tag font-mono">NAVIGATION</span>}
+        {!isCollapsed && (
+          <div className="brand-title-group">
+            <span className="brand-main font-semibold">NETRA</span>
+            <span className="brand-sub font-medium">INTELLIGENCE</span>
+          </div>
+        )}
         <button
           type="button"
           onClick={toggleCollapse}
-          className="neo-toggle-btn"
+          className="collapse-toggle-btn"
           title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {isCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
       </div>
 
-      {/* Navigation List */}
-      <nav className="nav-list font-mono">
-        {visibleNavItems.map((item) => {
+      <nav className="sidebar-nav font-sans">
+        {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
@@ -69,67 +62,80 @@ export function Sidebar({ onOpenSettings }) {
               to={item.path}
               title={isCollapsed ? item.name : undefined}
               className={({ isActive }) =>
-                `neo-nav-item ${isActive ? 'nav-item-active' : ''}`
+                `nav-link ${isActive ? 'active' : ''}`
               }
             >
-              <Icon size={14} className="nav-icon" />
-              {!isCollapsed && <span className="nav-label">{item.name}</span>}
+              <Icon size={16} className="nav-icon" />
+              {!isCollapsed && <span className="nav-text">{item.name}</span>}
             </NavLink>
           );
         })}
       </nav>
 
-      {/* Sidebar Footer */}
-      <div className="sidebar-footer font-mono">
-        {!isCollapsed ? (
-          <div className="system-status-inset">
-            <div className="status-label text-tertiary">ENGINE TELEMETRY</div>
-            <div className="status-value text-accent font-bold">VICTORIAMETRICS ACTIVE</div>
-          </div>
-        ) : (
-          <div className="status-dot-compact" title="VICTORIAMETRICS ACTIVE">
-            <span className="live-dot-small" />
-          </div>
-        )}
-      </div>
-
       <style>{`
-        .neo-sidebar {
+        .nokia-sidebar {
           width: var(--sidebar-width);
-          position: sticky;
-          top: 0;
           background-color: var(--bg-surface);
           border-right: 1px solid var(--border-subtle);
           display: flex;
           flex-direction: column;
-          padding: 12px 10px;
+          padding: 16px 10px;
           flex-shrink: 0;
           transition: width 0.15s ease;
-          z-index: 8;
+          z-index: 10;
         }
 
         .sidebar-collapsed {
-          width: 60px;
-          padding: 12px 6px;
+          width: var(--sidebar-width-collapsed);
+          padding: 16px 6px;
         }
 
         .sidebar-header {
-          padding: 0 4px 10px 4px;
-          border-bottom: 1px solid var(--border-subtle);
-          margin-bottom: 10px;
           display: flex;
           align-items: center;
           justify-content: space-between;
+          padding: 0 4px 16px 4px;
         }
 
         .sidebar-collapsed .sidebar-header {
           justify-content: center;
+          padding: 0 0 16px 0;
         }
 
-        .neo-toggle-btn {
-          background: var(--bg-inset);
-          border: 1px solid var(--border-subtle);
-          color: var(--text-secondary);
+        .brand-title-group {
+          display: flex;
+          flex-direction: column;
+          line-height: 1.1;
+        }
+
+        .brand-main {
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          color: var(--text-primary);
+        }
+
+        .brand-sub {
+          font-size: 9px;
+          font-weight: 500;
+          letter-spacing: 0.08em;
+          color: var(--text-muted);
+        }
+
+        .collapsed-eye-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .collapsed-eye-icon {
+          color: var(--text-primary);
+        }
+
+        .collapse-toggle-btn {
+          background: transparent;
+          border: none;
+          color: var(--text-muted);
           width: 24px;
           height: 24px;
           border-radius: var(--radius-sm);
@@ -140,110 +146,55 @@ export function Sidebar({ onOpenSettings }) {
           transition: all 0.15s ease;
         }
 
-        .neo-toggle-btn:hover {
-          color: var(--accent);
-          border-color: var(--accent-border);
+        .collapse-toggle-btn:hover {
+          color: var(--text-primary);
+          background: var(--bg-subtle);
         }
 
-        .nav-list {
+        .sidebar-nav {
           display: flex;
           flex-direction: column;
+          gap: 2px;
           flex: 1;
-          gap: 4px;
-          width: 100%;
         }
 
-        .neo-nav-item {
+        .nav-link {
           display: flex;
           align-items: center;
           gap: 10px;
-          height: 36px;
-          width: 100%;
-          padding: 0 12px;
+          height: 34px;
+          padding: 0 10px;
           color: var(--text-secondary);
           text-decoration: none;
-          font-size: 11px;
-          letter-spacing: 0.04em;
-          border-radius: var(--radius-md);
+          font-size: 13px;
+          font-weight: 400;
+          border-radius: var(--radius-sm);
           transition: all 0.15s ease;
-          box-sizing: border-box;
-          white-space: nowrap;
-          border-left: 3px solid transparent;
         }
 
-        .sidebar-collapsed .neo-nav-item {
+        .sidebar-collapsed .nav-link {
           justify-content: center;
           padding: 0;
         }
 
-        .neo-nav-item:hover:not(.nav-item-active) {
+        .nav-link:hover:not(.active) {
           color: var(--text-primary);
-          background-color: var(--bg-surface-hover);
+          background-color: var(--bg-subtle);
         }
 
-        .nav-item-active {
-          background: var(--accent-muted);
-          border-left-color: var(--accent);
-          color: var(--accent);
-          font-weight: 700;
-        }
-
-        .nav-label {
-          flex: 1;
-          overflow: hidden;
-          text-overflow: ellipsis;
+        .nav-link.active {
+          color: var(--text-primary);
+          background-color: var(--bg-subtle);
+          font-weight: 500;
         }
 
         .nav-icon {
           flex-shrink: 0;
-          opacity: 0.7;
-          transition: opacity 0.15s ease;
+          color: var(--text-muted);
         }
 
-        .neo-nav-item:hover .nav-icon,
-        .nav-item-active .nav-icon {
-          opacity: 1;
-        }
-
-        .sidebar-footer {
-          padding-top: 10px;
-          border-top: 1px solid var(--border-subtle);
-          margin-top: 10px;
-        }
-
-        .system-status-inset {
-          background: var(--bg-inset);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md);
-          padding: 8px 10px;
-        }
-
-        .status-label {
-          font-size: 9px;
-          letter-spacing: 0.06em;
-          margin-bottom: 2px;
-        }
-
-        .status-value {
-          font-size: 10px;
-          letter-spacing: 0.03em;
-        }
-
-        .status-dot-compact {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 28px;
-          background: var(--bg-inset);
-          border-radius: var(--radius-sm);
-          border: 1px solid var(--border-subtle);
-        }
-
-        .live-dot-small {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background-color: var(--status-healthy);
+        .nav-link.active .nav-icon {
+          color: var(--text-primary);
         }
       `}</style>
     </aside>

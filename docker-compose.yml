@@ -23,6 +23,10 @@ services:
     environment:
       OLLAMA_URL: "http://host.docker.internal:11434/api/chat"
       VICTORIAMETRICS_URL: "http://victoriametrics:8428"
+      FORWARD_TELEMETRY_URL: "${FORWARD_TELEMETRY_URL:-}"
+      FORWARD_TELEMETRY_TOKEN: "${FORWARD_TELEMETRY_TOKEN:-}"
+      TELEMETRY_SECRET_TOKEN: "${TELEMETRY_SECRET_TOKEN:-}"
+      RENDER_TELEMETRY_URL: "${RENDER_TELEMETRY_URL:-}"
 
     depends_on:
       - victoriametrics

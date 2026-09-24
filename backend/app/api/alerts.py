@@ -105,7 +105,7 @@ def list_alerts(
 
 @router.post("/evaluate", dependencies=[Depends(require_operator)])
 async def trigger_host_alert_evaluation(
-    host: str = Query(..., description="Target server host (e.g. ubuntu, kali)"),
+    host: str = Query(..., description="Target server host (e.g. ubuntu)"),
     db: Session = Depends(get_db),
 ):
     alerts = await evaluate_host_alerts(db=db, host=host)

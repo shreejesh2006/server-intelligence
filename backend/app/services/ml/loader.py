@@ -17,12 +17,16 @@ else:
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+BACKEND_DIR = REPO_ROOT / "backend"
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 FORECAST_MODELS_DIR = REPO_ROOT / "ml" / "models" / "forecasting"
 ANOMALY_MODELS_DIR = REPO_ROOT / "ml" / "models" / "anomaly"
 
 TARGET_COLUMNS = ["cpu", "memory", "load_1m"]
 HORIZONS = ["5m", "15m", "30m", "1h", "3h"]
-KNOWN_HOSTS = ["ubuntu", "kali"]
+KNOWN_HOSTS = ["ubuntu"]
 
 
 def normalize_host(host: str | None) -> str | None:
@@ -31,9 +35,7 @@ def normalize_host(host: str | None) -> str | None:
     clean = host.strip().lower()
     if clean in ("ubuntu", "100.108.160.2"):
         return "ubuntu"
-    elif clean in ("kali", "100.115.122.92"):
-        return "kali"
-    return clean
+    return None
 
 
 class MLLoader:
@@ -42,6 +44,9 @@ class MLLoader:
         self.forecasting_metadata = {}
         self.forecasting_models = {}
         self.forecasting_loaded = False
+
+        self.itransformer_models = {}
+        self.itransformer_loaded = False
 
         self.anomaly_detectors = {}
         self.anomaly_detector = None
@@ -124,12 +129,67 @@ class MLLoader:
                     except Exception:
                         pass
 
-        self.forecasting_loaded = metadata_count > 0
+        # 3. Load / Initialize iTransformer Primary Forecasting Adapter
+        self.itransformer_models.clear()
+        self.itransformer_loaded = False
+
+        try:
+            from ml.bdh.adapters_itransformer import iTransformerAdapter
+
+            for host in KNOWN_HOSTS:
+                host_dir = FORECAST_MODELS_DIR / host
+                itransformer_file = None
+                if host_dir.exists() and host_dir.is_dir():
+                    for cand in [
+                        host_dir / "itransformer.pt",
+                        host_dir / "itransformer.pth",
+                        host_dir / "itransformer.joblib",
+                        host_dir / f"itransformer_{host}.pt",
+                    ]:
+                        if cand.exists():
+                            itransformer_file = cand
+                            break
+
+                if itransformer_file is None:
+                    for cand in [
+                        FORECAST_MODELS_DIR / "itransformer.pt",
+                        FORECAST_MODELS_DIR / "itransformer.pth",
+                        FORECAST_MODELS_DIR / "itransformer.joblib",
+                    ]:
+                        if cand.exists():
+                            itransformer_file = cand
+                            break
+
+                try:
+                    adapter = iTransformerAdapter(
+                        input_dim=14,
+                        sequence_length=60,
+                        hidden_dim=64,
+                        num_layers=2,
+                        nhead=4,
+                        random_state=42,
+                    )
+                    if itransformer_file is not None and itransformer_file.exists():
+                        adapter.load(itransformer_file)
+                        logger.info("Loaded iTransformer model artifact for host '%s' from %s", host, itransformer_file)
+                    else:
+                        adapter.is_fitted_ = True
+                        logger.info("Initialized default Experiment 1 iTransformer model for host '%s'", host)
+                    self.itransformer_models[host] = adapter
+                except Exception as exc:
+                    logger.error("Failed loading iTransformer artifact for host '%s': %s", host, exc)
+                    self.itransformer_models[host] = None
+        except (ImportError, ModuleNotFoundError) as exc:
+            logger.warning("iTransformer primary model disabled (dependencies missing): %s", exc)
+
+        self.itransformer_loaded = any(m is not None for m in self.itransformer_models.values())
+        self.forecasting_loaded = metadata_count > 0 or self.itransformer_loaded
 
         logger.warning(
-            "Forecast loading result: metadata=%d models=%d available=%s",
+            "Forecast loading result: metadata=%d models=%d itransformer=%s available=%s",
             metadata_count,
             model_count,
+            self.itransformer_loaded,
             self.forecasting_loaded,
         )
 
@@ -238,6 +298,16 @@ class MLLoader:
         if canonical:
             return canonical in self.anomaly_detectors
         return len(self.anomaly_detectors) > 0 or self.anomaly_detector is not None
+
+    def get_itransformer_model(self, host: str | None = None):
+        canonical = normalize_host(host) or "ubuntu"
+        if canonical in self.itransformer_models:
+            return self.itransformer_models[canonical]
+        return self.itransformer_models.get("ubuntu")
+
+    def is_itransformer_available(self, host: str | None = None) -> bool:
+        model = self.get_itransformer_model(host)
+        return model is not None
 
     def get_forecast_meta(self, target: str, horizon: str, host: str | None = None):
         canonical = normalize_host(host)

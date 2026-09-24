@@ -4,12 +4,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 
 
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-
-if not JWT_SECRET_KEY:
-    raise RuntimeError(
-        "JWT_SECRET_KEY environment variable is not configured."
-    )
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY") or "local-mac-development-secret-change-me"
 
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(

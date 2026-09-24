@@ -51,7 +51,7 @@ class AnomalyService:
         if not canonical_host:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Host parameter is required (e.g. ?host=ubuntu or ?host=kali).",
+                detail="Host parameter is required (e.g. ?host=ubuntu).",
             )
 
         now = time.time()
@@ -172,7 +172,7 @@ class AnomalyService:
         if not canonical_host:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Host parameter is required (e.g. ?host=ubuntu or ?host=kali).",
+                detail="Host parameter is required (e.g. ?host=ubuntu).",
             )
 
         lookback_mins = LOOKBACK_MINUTES_MAP.get(lookback.lower(), 60)
