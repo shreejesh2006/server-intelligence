@@ -8,7 +8,7 @@ from app.database.models import AISetting, User
 from app.schemas.ai import ChatRequest, ChatResponse
 from app.services.ai.credentials import decrypt_api_key
 from app.services.ai.manager import AIManager
-from app.services.ai.context import build_server_system_prompt
+from app.agent.orchestrator import AgentOrchestrator
 
 
 router = APIRouter(
@@ -34,7 +34,6 @@ async def chat_with_assistant(
         )
 
     last_msg = payload.messages[-1]
-
     if last_msg.role != "user" or not last_msg.content.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -42,7 +41,6 @@ async def chat_with_assistant(
         )
 
     setting = db.scalar(select(AISetting).order_by(AISetting.id))
-
     if setting is None or not setting.is_enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -53,15 +51,10 @@ async def chat_with_assistant(
         )
 
     provider_name = (setting.provider or "ollama").strip().lower()
-
-    # Ollama is local and does not require an API key.
     api_key = ""
 
     if provider_name != "ollama":
-        if (
-            not setting.encrypted_api_key
-            or not setting.encrypted_api_key.strip()
-        ):
+        if not setting.encrypted_api_key or not setting.encrypted_api_key.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
@@ -69,7 +62,6 @@ async def chat_with_assistant(
                     "message": "AI Assistant API credentials have not been configured.",
                 },
             )
-
         try:
             api_key = decrypt_api_key(setting.encrypted_api_key)
         except ValueError as err:
@@ -87,30 +79,30 @@ async def chat_with_assistant(
         )
 
     messages_payload = [
-        {
-            "role": m.role,
-            "content": m.content,
-        }
+        {"role": m.role, "content": m.content}
         for m in payload.messages
     ]
 
-    # Build live telemetry + forecasting + anomaly context.
-    try:
-        system_prompt = await build_server_system_prompt()
-    except Exception:
-        system_prompt = None
+    session_id = str(current_user.id)
+    user_role = getattr(current_user, "role", "viewer")
+
+    orchestrator = AgentOrchestrator(
+        provider=provider,
+        model=setting.model or "qwen3:1.7b",
+        api_key=api_key,
+    )
 
     try:
-        reply_text = await provider.generate_response(
+        reply_text = await orchestrator.run(
+            session_id=session_id,
             messages=messages_payload,
-            model=setting.model or "qwen3:1.7b",
-            api_key=api_key,
-            system_prompt=system_prompt,
+            default_host="ubuntu",
+            user_role=user_role,
         )
-    except ValueError as err:
+    except Exception as err:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(err),
+            detail=f"Agent orchestration failed: {str(err)}",
         )
 
     return ChatResponse(
