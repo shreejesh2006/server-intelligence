@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, s
 from app.auth.permissions import require_viewer, require_operator
 from app.services.ml.forecast import ForecastService
 from app.services.ml.anomaly import AnomalyService
-from app.services.ml.loader import ml_loader, normalize_host
+from app.services.ml.loader import ml_loader, normalize_host, KNOWN_HOSTS
 from ml.training import train_host_models
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,13 @@ def validate_host(host: str | None) -> str | None:
                 status_code=400,
                 detail="Invalid host parameter",
             )
-        return clean
+        canonical = normalize_host(clean)
+        if not canonical:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown host identifier: '{host}'. Supported hosts: {KNOWN_HOSTS}",
+            )
+        return canonical
     return None
 
 
@@ -47,7 +53,7 @@ async def run_retraining_background_job(job_id: str, host_input: str, lookback_d
         retrain_jobs[job_id]["status"] = "running"
         retrain_jobs[job_id]["started_at"] = datetime.now(timezone.utc).isoformat()
 
-        target_hosts = ["ubuntu"] if host_input.lower() == "all" else [normalize_host(host_input)]
+        target_hosts = list(KNOWN_HOSTS) if host_input.lower() == "all" else [normalize_host(host_input)]
 
         errors = []
         completed_hosts = []
@@ -149,7 +155,7 @@ async def trigger_retraining(
     if target_host.lower() != "all" and not normalize_host(target_host):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid target host identifier: '{host}'",
+            detail=f"Invalid target host identifier: '{host}'. Supported hosts: {KNOWN_HOSTS} or 'all'",
         )
 
     job_id = str(uuid.uuid4())
@@ -191,3 +197,89 @@ async def get_retraining_status(
         "active_jobs_count": len([j for j in retrain_jobs.values() if j.get("status") in ("queued", "running")]),
         "jobs": list(retrain_jobs.values())[-10:],
     }
+
+
+@router.get("/capacity")
+async def get_capacity(
+    host: str | None = Query(
+        None,
+        description="Optional target hostname filter (e.g. ubuntu)",
+    )
+):
+    """
+    Returns resource-capacity intelligence and projected exhaustion estimates.
+    Distinguishes current utilization, forecasted values, threshold breaches, and headroom.
+    """
+    canonical_host = validate_host(host)
+    return await forecast_service.get_capacity_intelligence(host=canonical_host)
+
+
+@router.get("/correlate")
+async def correlate_host_intelligence(
+    host: str = Query(..., description="Target server host (e.g. ubuntu)"),
+    window_minutes: int = Query(default=15, ge=1, le=120, description="Log correlation window in minutes"),
+):
+    """
+    Unified operational correlation for investigation:
+    Combines live metrics, multi-horizon forecasts, multivariate anomaly score,
+    nearby operational logs from VictoriaLogs, and NetBox infrastructure inventory.
+    """
+    canonical_host = validate_host(host) or "ubuntu"
+
+    # 1. Fetch live metrics
+    from app.services.victoriametrics import VictoriaMetricsService
+    vm = VictoriaMetricsService()
+    try:
+        current_metrics, obs_ts = await vm.get_current_metrics(host=canonical_host)
+    except Exception:
+        current_metrics, obs_ts = {}, datetime.now(timezone.utc).isoformat()
+
+    # 2. Fetch forecast and capacity
+    try:
+        capacity = await forecast_service.get_capacity_intelligence(host=canonical_host)
+    except Exception as exc:
+        capacity = {"status": "unavailable", "detail": str(exc)}
+
+    # 3. Fetch anomaly score
+    try:
+        anomaly = await anomaly_service.get_anomaly_score(host=canonical_host)
+    except Exception as exc:
+        anomaly = {"status": "unavailable", "detail": str(exc)}
+
+    # 4. Fetch nearby operational logs from VictoriaLogs
+    from app.services.victorialogs import victorialogs_service
+    try:
+        logs_res = await victorialogs_service.correlate_logs(
+            host=canonical_host,
+            timestamp=obs_ts,
+            window_minutes=window_minutes,
+        )
+    except Exception as exc:
+        logs_res = {"status": "unavailable", "detail": str(exc), "logs": []}
+
+    # 5. Fetch NetBox infrastructure inventory
+    from app.services.netbox import netbox_service
+    try:
+        inventory_device = await netbox_service.get_device_by_host(canonical_host)
+    except Exception as exc:
+        inventory_device = None
+
+    return {
+        "status": "success",
+        "host": canonical_host,
+        "correlated_at": datetime.now(timezone.utc).isoformat(),
+        "telemetry": {
+            "timestamp": obs_ts,
+            "metrics": current_metrics,
+        },
+        "forecast_capacity": capacity,
+        "anomaly": anomaly,
+        "logs": {
+            "source": logs_res.get("source", "none"),
+            "total": logs_res.get("total", 0),
+            "entries": logs_res.get("logs", []),
+            "window_minutes": window_minutes,
+        },
+        "inventory": inventory_device,
+    }
+

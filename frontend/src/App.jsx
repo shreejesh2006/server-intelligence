@@ -17,6 +17,9 @@ const ServersPage = lazy(() => import('./pages/Servers/ServersPage'));
 const ForecastsPage = lazy(() => import('./pages/Forecasts/ForecastsPage'));
 const AnomaliesPage = lazy(() => import('./pages/Anomalies/AnomaliesPage'));
 const AlertsPage = lazy(() => import('./pages/Alerts/AlertsPage'));
+const IncidentsPage = lazy(() => import('./pages/Incidents/IncidentsPage'));
+const AutomationsPage = lazy(() => import('./pages/Automations/AutomationsPage'));
+const LogsPage = lazy(() => import('./pages/Logs/LogsPage'));
 const AnalyticsPage = lazy(() => import('./pages/Analytics/AnalyticsPage'));
 const UsersPage = lazy(() => import('./pages/Users/UsersPage'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
@@ -128,6 +131,30 @@ function AuthenticatedAppShell() {
             element={
               <ProtectedRoute>
                 <AlertsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/incidents"
+            element={
+              <ProtectedRoute>
+                <IncidentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/automations"
+            element={
+              <ProtectedRoute>
+                <AutomationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/logs"
+            element={
+              <ProtectedRoute>
+                <LogsPage />
               </ProtectedRoute>
             }
           />

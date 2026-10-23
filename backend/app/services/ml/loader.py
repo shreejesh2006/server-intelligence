@@ -33,7 +33,7 @@ def normalize_host(host: str | None) -> str | None:
     if not host:
         return None
     clean = host.strip().lower()
-    if clean in ("ubuntu", "100.108.160.2"):
+    if clean in ("ubuntu", "100.108.160.2", "192.168.1.10") or "ubuntu" in clean:
         return "ubuntu"
     return None
 
@@ -284,48 +284,60 @@ class MLLoader:
     def is_forecast_available(self, host: str | None = None) -> bool:
         if not self.forecasting_loaded:
             return False
-        canonical = normalize_host(host)
-        if canonical:
-            # Check if host-specific model exists for at least cpu_5m
-            if (canonical, "cpu", "5m") in self.forecasting_metadata:
-                return True
-        return len(self.forecasting_metadata) > 0
+        if host is not None:
+            canonical = normalize_host(host)
+            if not canonical:
+                return False
+            has_hgb = (canonical, "cpu", "5m") in self.forecasting_metadata
+            has_itrans = self.itransformer_models.get(canonical) is not None
+            return has_hgb or has_itrans
+        return len(self.forecasting_metadata) > 0 or self.itransformer_loaded
 
     def is_anomaly_available(self, host: str | None = None) -> bool:
         if not self.anomaly_loaded:
             return False
-        canonical = normalize_host(host)
-        if canonical:
+        if host is not None:
+            canonical = normalize_host(host)
+            if not canonical:
+                return False
             return canonical in self.anomaly_detectors
         return len(self.anomaly_detectors) > 0 or self.anomaly_detector is not None
 
     def get_itransformer_model(self, host: str | None = None):
-        canonical = normalize_host(host) or "ubuntu"
-        if canonical in self.itransformer_models:
+        if host is None:
+            return self.itransformer_models.get("ubuntu")
+        canonical = normalize_host(host)
+        if canonical and canonical in self.itransformer_models:
             return self.itransformer_models[canonical]
-        return self.itransformer_models.get("ubuntu")
+        return None
 
     def is_itransformer_available(self, host: str | None = None) -> bool:
         model = self.get_itransformer_model(host)
         return model is not None
 
     def get_forecast_meta(self, target: str, horizon: str, host: str | None = None):
+        if host is None:
+            return self.forecasting_metadata.get(("ubuntu", target, horizon)) or self.forecasting_metadata.get((target, horizon))
         canonical = normalize_host(host)
         if canonical and (canonical, target, horizon) in self.forecasting_metadata:
             return self.forecasting_metadata[(canonical, target, horizon)]
-        return self.forecasting_metadata.get((target, horizon))
+        return None
 
     def get_forecast_model(self, target: str, horizon: str, host: str | None = None):
+        if host is None:
+            return self.forecasting_models.get(("ubuntu", target, horizon)) or self.forecasting_models.get((target, horizon))
         canonical = normalize_host(host)
         if canonical and (canonical, target, horizon) in self.forecasting_models:
             return self.forecasting_models[(canonical, target, horizon)]
-        return self.forecasting_models.get((target, horizon))
+        return None
 
     def get_anomaly_detector(self, host: str | None = None):
+        if host is None:
+            return self.anomaly_detectors.get("ubuntu") or self.anomaly_detector
         canonical = normalize_host(host)
-        if canonical:
-            return self.anomaly_detectors.get(canonical, None)
-        return self.anomaly_detector
+        if canonical and canonical in self.anomaly_detectors:
+            return self.anomaly_detectors[canonical]
+        return None
 
     def check_model_freshness(self, host: str | None = None, target: str = "cpu", horizon: str = "5m", max_age_hours: int = 168) -> dict:
         """

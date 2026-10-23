@@ -19,6 +19,8 @@ from app.api.telemetry import router as telemetry_router
 from app.api.alert_rules import router as alert_rules_router
 from app.api.incidents import router as incidents_router
 from app.api.automations import router as automations_router
+from app.api.logs import router as logs_router, ingest_router as logs_ingest_router
+from app.api.inventory import router as inventory_router
 import asyncio
 from app.services.forwarder import forward_spool_manager, get_forward_url
 from app.services.ml.loader import ml_loader
@@ -46,7 +48,12 @@ async def lifespan(app: FastAPI):
         print(f"Forwarding enabled to {get_forward_url()}. Flushing any spooled batches...", flush=True)
         asyncio.create_task(forward_spool_manager.flush())
 
+    from app.services.scheduler import predictive_scheduler
+    predictive_scheduler.start()
+
     yield
+
+    await predictive_scheduler.astop()
 
 
 app = FastAPI(
@@ -137,6 +144,18 @@ app.include_router(
 app.include_router(
     mcp_router,
      prefix="/api"
+)
+app.include_router(
+    logs_router,
+    prefix="/api",
+)
+app.include_router(
+    logs_ingest_router,
+    prefix="/api",
+)
+app.include_router(
+    inventory_router,
+    prefix="/api",
 )
 
 

@@ -10,3 +10,5 @@ data:
   FORWARD_SPOOL_DIR: "/app/forward_spool"
   ACCESS_TOKEN_EXPIRE_MINUTES: "480"
   OLLAMA_URL: "http://host.docker.internal:11434/api/chat"
+  VICTORIALOGS_URL: "http://victorialogs.netra.svc.cluster.local:9428"
+  NETBOX_URL: "http://netbox.netra.svc.cluster.local:8080"

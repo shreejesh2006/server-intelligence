@@ -49,13 +49,18 @@ def get_ai_settings(
     provider = (setting.provider or "ollama").strip().lower()
     model = setting.model or "qwen3:1.7b"
 
-    # Local Ollama does not require an API key.
+    import os
     if provider == "ollama":
         is_configured = True
+    elif provider in ("gemini", "google", "google-gemini"):
+        is_configured = bool(
+            (setting.encrypted_api_key and setting.encrypted_api_key.strip())
+            or os.getenv("GEMINI_API_KEY")
+        )
     else:
         is_configured = bool(
-            setting.encrypted_api_key
-            and setting.encrypted_api_key.strip()
+            (setting.encrypted_api_key and setting.encrypted_api_key.strip())
+            or os.getenv("OPENAI_API_KEY")
         )
 
     return AISettingResponse(

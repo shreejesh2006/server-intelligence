@@ -147,8 +147,10 @@ export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
             {targetConfigs.map((target) => {
               const Icon = target.icon;
               const curVal = target.currentVal;
-              const predictions = target.forecastObj?.predictions || {};
-              const strategy = target.forecastObj?.strategy || primaryModel;
+              const rawPredictions = target.forecastObj?.predictions || {};
+              const hasPredictions = Object.keys(rawPredictions).length > 0;
+              const predictions = rawPredictions;
+              const strategy = target.forecastObj?.strategy || (hasPredictions ? primaryModel : 'unavailable');
 
               return (
                 <div key={target.key} className="forecast-target-block">

@@ -99,6 +99,13 @@ def update_incident(
     if data.severity is not None:
         incident.severity = data.severity
 
+    if data.status is not None:
+        incident.status = data.status
+        if data.status == IncidentStatus.ACKNOWLEDGED.value and not incident.acknowledged_at:
+            incident.acknowledged_at = datetime.now(timezone.utc)
+        elif data.status == IncidentStatus.RESOLVED.value and not incident.resolved_at:
+            incident.resolved_at = datetime.now(timezone.utc)
+
     if data.server is not None:
         incident.server = data.server
 
@@ -113,11 +120,21 @@ def update_incident(
     response_model=list[IncidentResponse],
 )
 def list_incidents(
+    status: str | None = None,
+    severity: str | None = None,
+    server: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    query = db.query(Incident)
+    if status:
+        query = query.filter(Incident.status == status)
+    if severity:
+        query = query.filter(Incident.severity == severity)
+    if server:
+        query = query.filter(Incident.server == server)
     return (
-        db.query(Incident)
+        query
         .order_by(Incident.created_at.desc())
         .all()
     )

@@ -20,10 +20,8 @@ def normalize_host(host: str | None) -> str | None:
     if not host:
         return None
     clean = str(host).strip().lower()
-    if clean in ("ubuntu", "100.108.160.2"):
+    if clean in ("ubuntu", "100.108.160.2", "192.168.1.10"):
         return "ubuntu"
-    elif clean in ("kali", "100.115.122.92"):
-        return "kali"
     return clean
 
 
@@ -46,10 +44,7 @@ class MacAnomalyInferenceService:
         """
         Maps canonical ML host names to backend VictoriaMetrics host parameters.
         Canonical 'ubuntu' -> 'ubuntu'
-        Canonical 'kali' -> 'Kali' (VictoriaMetrics uses capital K for Kali node)
         """
-        if canonical_host == "kali":
-            return "Kali"
         return canonical_host
 
     def get_detector(self, host: str) -> AnomalyDetector | None:
@@ -162,7 +157,7 @@ class MacAnomalyInferenceService:
                 "primary_reason": f"Invalid or unknown host identifier '{host}'.",
                 "contributing_signals": [],
                 "all_metrics_evaluated": [],
-                "recommendations": ["Specify a valid host identifier ('ubuntu' or 'kali')."],
+                "recommendations": ["Specify a valid host identifier ('ubuntu')."],
                 "model_metadata": {"algorithm": "IsolationForest", "host": str(host)},
             }
 

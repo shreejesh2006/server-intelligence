@@ -2,10 +2,9 @@
 
 ## 1. Architecture Overview & Data Ingestion
 - **Time-Series Telemetry Engine:** VictoriaMetrics (`/api/v1/query` and `/api/v1/query_range`).
-- **Host Isolation & Query Strategy:** `VictoriaMetricsService.build_metric_query()` formats explicit PromQL selectors with label expressions (`{host=~"ubuntu|100.108.160.2"}` or `{host=~"kali|Kali|100.115.122.92"}`). Unfiltered queries require host context to prevent cross-host telemetry leakage.
-- **Canonical Host Identifiers:**
-  - **Ubuntu:** `ubuntu` (Tailscale IP: `100.108.160.2`)
-  - **Kali:** `kali` (Tailscale IP: `100.115.122.92`)
+- **Host Isolation & Query Strategy:** `VictoriaMetricsService.build_metric_query()` formats explicit PromQL selectors with label expressions (`{host=~"ubuntu|100.108.160.2|192.168.1.10"}`). Unfiltered queries require host context to prevent cross-host telemetry leakage.
+- **Canonical Host Identifier:**
+  - **Ubuntu:** `ubuntu` (Tailscale IP: `100.108.160.2`, LAN IP: `192.168.1.10`)
 
 ---
 
@@ -16,9 +15,8 @@
   - Lags over target metric: $t$, $t-1$ (30s ago), $t-2$ (1m ago), $t-4$ (2m ago), $t-8$ (4m ago), $t-12$ (6m ago).
   - Auxiliary metric current values: `aux_cpu_t`, `aux_memory_t`, `aux_load_1m_t`, `aux_load_5m_t`, `aux_network_rx_t`, `aux_network_tx_t`, `aux_iowait_t`.
   - Target rolling statistics: 5-period rolling mean (`roll_mean_5`) and rolling standard deviation (`roll_std_5`).
-- **Per-Host Model Artifacts:**
+- **Production Model Artifacts:**
   - `ml/models/forecasting/ubuntu/{target}_{horizon}.joblib` & `_meta.json`
-  - `ml/models/forecasting/kali/{target}_{horizon}.joblib` & `_meta.json`
 
 ---
 
@@ -28,9 +26,8 @@
 - **Features Evaluated (11 Dimensions):**
   `["cpu", "memory", "load_1m", "load_5m", "load_15m", "network_rx", "network_tx", "disk_read", "disk_write", "process_count", "iowait"]`
 - **Severity Scoring:** Classifies observations into `NORMAL`, `LOW`, `MEDIUM`, `HIGH`, and `CRITICAL` using quantile thresholds calibrated from training anomaly score distribution.
-- **Per-Host Artifacts:**
+- **Production Artifacts:**
   - `ml/models/anomaly/ubuntu/isolation_forest.joblib` & `anomaly_metadata.json`
-  - `ml/models/anomaly/kali/isolation_forest.joblib` & `anomaly_metadata.json`
 
 ---
 

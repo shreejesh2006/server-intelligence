@@ -16,6 +16,11 @@ TOOL_TIER_MAP = {
     "get_forecast": ToolTier.READ,
     "get_anomaly": ToolTier.READ,
     "run_diagnostics": ToolTier.READ,
+    "get_predictive_alerts": ToolTier.READ,
+    "explain_forecast_breach": ToolTier.READ,
+    "list_automations": ToolTier.READ,
+    "get_automation_history": ToolTier.READ,
+    "recommend_remediation": ToolTier.PROPOSE,
     "execute_remediation": ToolTier.EXECUTE,
 }
 

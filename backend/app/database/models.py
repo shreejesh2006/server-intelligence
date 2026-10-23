@@ -448,6 +448,22 @@ class Notification(Base):
         nullable=False,
     )
 
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="CREATED",
+    )
+
+    delivered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    error: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
     sent_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -482,5 +498,46 @@ class AuditEvent(Base):
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
+    )
+
+
+class SystemLogRecord(Base):
+    __tablename__ = "system_logs"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        index=True,
+    )
+
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    host: Mapped[str] = mapped_column(
+        String(100),
+        index=True,
+        nullable=False,
+    )
+
+    level: Mapped[str] = mapped_column(
+        String(20),
+        index=True,
+        nullable=False,
+        default="INFO",
+    )
+
+    source: Mapped[str] = mapped_column(
+        String(100),
+        index=True,
+        nullable=False,
+        default="system",
+    )
+
+    message: Mapped[str] = mapped_column(
+        String(2000),
+        nullable=False,
     )
 

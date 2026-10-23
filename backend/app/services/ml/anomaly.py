@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 
-from app.services.ml.loader import ml_loader, normalize_host
+from app.services.ml.loader import ml_loader, normalize_host, KNOWN_HOSTS
 from app.services.victoriametrics import VictoriaMetricsService
 from ml.anomaly import METRIC_DISPLAY_NAMES, METRIC_UNITS
 
@@ -47,12 +47,15 @@ class AnomalyService:
             logger.info("Cleared anomaly cache for all hosts")
 
     async def get_anomaly_score(self, host: str | None = None) -> dict:
-        canonical_host = normalize_host(host)
-        if not canonical_host:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Host parameter is required (e.g. ?host=ubuntu).",
-            )
+        if host is None:
+            canonical_host = "ubuntu"
+        else:
+            canonical_host = normalize_host(host)
+            if not canonical_host:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unknown host identifier: '{host}'. Supported hosts: {KNOWN_HOSTS}",
+                )
 
         now = time.time()
         cache_key = canonical_host
@@ -168,12 +171,15 @@ class AnomalyService:
         Evaluates real continuous historical telemetry range from VictoriaMetrics for a host,
         scoring each timestamp using the host's trained anomaly detector.
         """
-        canonical_host = normalize_host(host)
-        if not canonical_host:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Host parameter is required (e.g. ?host=ubuntu).",
-            )
+        if host is None:
+            canonical_host = "ubuntu"
+        else:
+            canonical_host = normalize_host(host)
+            if not canonical_host:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unknown host identifier: '{host}'. Supported hosts: {KNOWN_HOSTS}",
+                )
 
         lookback_mins = LOOKBACK_MINUTES_MAP.get(lookback.lower(), 60)
 

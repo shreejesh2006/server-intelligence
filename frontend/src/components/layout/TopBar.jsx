@@ -16,6 +16,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTimezone } from '../../context/TimezoneContext';
+import { useServer } from '../../context/ServerContext';
 import { getAlertsApi } from '../../services/alerts';
 
 export function TopBar({ 
@@ -30,6 +31,7 @@ export function TopBar({
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const { formatTimestamp } = useTimezone();
+  const { selectedHost } = useServer();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
@@ -48,14 +50,14 @@ export function TopBar({
     setAlertsLoading(true);
     setAlertsError(null);
     try {
-      const data = await getAlertsApi();
+      const data = await getAlertsApi(selectedHost);
       setAlerts(Array.isArray(data) ? data : []);
     } catch (_err) {
       setAlertsError('Failed to load notifications');
     } finally {
       setAlertsLoading(false);
     }
-  }, []);
+  }, [selectedHost]);
 
   useEffect(() => {
     fetchAlerts();

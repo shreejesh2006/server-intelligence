@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 
-from app.services.victoriametrics import VictoriaMetricsService, normalize_host
+from app.services.victoriametrics import VictoriaMetricsService, normalize_host, KNOWN_HOSTS
 
 
 router = APIRouter(
@@ -28,10 +28,13 @@ SUPPORTED_METRICS = {
     "disk_write": "server_disk_write_bytes_per_second",
 
     "processes": "server_process_count",
+    "process_count": "server_process_count",
 
     "iowait": "server_cpu_iowait_percent",
+    "cpu_iowait": "server_cpu_iowait_percent",
 
     "uptime": "server_uptime_seconds",
+    "uptime_seconds": "server_uptime_seconds",
 }
 
 
@@ -68,8 +71,11 @@ METRIC_DB_COLUMN_MAP = {
     "disk_read": "disk_read_bytes_sec",
     "disk_write": "disk_write_bytes_sec",
     "processes": "process_count",
+    "process_count": "process_count",
     "iowait": "cpu_iowait_percent",
+    "cpu_iowait": "cpu_iowait_percent",
     "uptime": "uptime_seconds",
+    "uptime_seconds": "uptime_seconds",
 }
 
 
@@ -79,7 +85,15 @@ async def current_metrics(
     db: Session = Depends(get_db),
 ):
     result = {}
-    target_canonical = normalize_host(host) or "ubuntu"
+    if host is not None:
+        target_canonical = normalize_host(host)
+        if not target_canonical:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown host identifier: '{host}'. Supported hosts: {KNOWN_HOSTS}",
+            )
+    else:
+        target_canonical = "ubuntu"
 
     # 1. Try querying VictoriaMetrics first
     try:
@@ -135,9 +149,10 @@ async def current_metrics(
         }
 
     return {
-        "status": "success",
+        "status": "unavailable",
         "host": host,
-        "metrics": {name: 0.0 for name in SUPPORTED_METRICS.keys()},
+        "metrics": None,
+        "detail": f"No telemetry available for host '{host}' in VictoriaMetrics or database.",
     }
 
 
@@ -167,8 +182,15 @@ async def metric_history(
     step: str = Query(default="30s"),
     db: Session = Depends(get_db),
 ):
-    metric = SUPPORTED_METRICS.get(metric_name)
-    target_canonical = normalize_host(host) or "ubuntu"
+    if host is not None:
+        target_canonical = normalize_host(host)
+        if not target_canonical:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown host identifier: '{host}'. Supported hosts: {KNOWN_HOSTS}",
+            )
+    else:
+        target_canonical = "ubuntu"
 
     if metric is None:
         raise HTTPException(
@@ -198,23 +220,26 @@ async def metric_history(
                 ]
                 if matching:
                     data = matching
+                elif any(item.get("metric", {}).get("host") for item in data):
+                    data = []
 
-            values = [
-                {
-                    "timestamp": float(timestamp),
-                    "value": float(value),
+            if data and len(data) > 0 and "values" in data[0]:
+                values = [
+                    {
+                        "timestamp": float(timestamp),
+                        "value": float(value),
+                    }
+                    for timestamp, value in data[0]["values"]
+                ]
+
+                return {
+                    "metric": metric_name,
+                    "host": host,
+                    "start": start,
+                    "end": end,
+                    "step": step,
+                    "values": values,
                 }
-                for timestamp, value in data[0]["values"]
-            ]
-
-            return {
-                "metric": metric_name,
-                "host": host,
-                "start": start,
-                "end": end,
-                "step": step,
-                "values": values,
-            }
     except Exception:
         pass
 
@@ -242,7 +267,16 @@ async def metric_history(
         )
         .order_by(TelemetrySample.timestamp.asc())
     )
-    db_samples = db.scalars(stmt).all()
+    db_samples = list(db.scalars(stmt).all())
+
+    if not db_samples:
+        stmt_latest = (
+            select(TelemetrySample)
+            .where(TelemetrySample.host == target_canonical)
+            .order_by(TelemetrySample.timestamp.desc())
+            .limit(60)
+        )
+        db_samples = list(reversed(db.scalars(stmt_latest).all()))
 
     values = [
         {

@@ -4,6 +4,7 @@ import TelemetryChart from '../../components/charts/TelemetryChart';
 import { useServer } from '../../context/ServerContext';
 import { useTimezone } from '../../context/TimezoneContext';
 import { getCurrentMetrics, getMetricHistory } from '../../services/metrics';
+import { getDeviceByHost } from '../../services/inventory';
 import { 
   formatNumber, 
   formatPercent, 
@@ -12,7 +13,7 @@ import {
 } from '../../utils/formatters';
 import { 
   Server as ServerIcon, 
-  RefreshCw 
+  RefreshCw
 } from 'lucide-react';
 
 const ADDITIONAL_METRIC_OPTIONS = [
@@ -61,6 +62,10 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
   const [detailChartData, setDetailChartData] = useState([]);
   const [detailChartLoading, setDetailChartLoading] = useState(false);
 
+  // NetBox Infrastructure Inventory state
+  const [inventoryDevice, setInventoryDevice] = useState(null);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+
   // Fetch telemetry for current host
   const fetchHostMetrics = useCallback(async () => {
     setLoading(true);
@@ -78,11 +83,11 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
       }
     } catch (err) {
       setError(err?.message || 'Failed to fetch server metrics');
-      if (propMetrics) setNodeMetrics(propMetrics);
+      setNodeMetrics(null);
     } finally {
       setLoading(false);
     }
-  }, [selectedHost, propMetrics]);
+  }, [selectedHost]);
 
   useEffect(() => {
     fetchHostMetrics();
@@ -108,7 +113,27 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
     return () => { isCancelled = true; };
   }, [selectedDetailMetric, selectedHost, propLastUpdated, lastFetchTime]);
 
-  const activeMetrics = nodeMetrics || propMetrics || {};
+  // Load NetBox infrastructure inventory for current host
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadInventory() {
+      setInventoryLoading(true);
+      try {
+        const res = await getDeviceByHost(selectedHost);
+        if (!isCancelled && res && res.device) {
+          setInventoryDevice(res.device);
+        }
+      } catch (_err) {
+        if (!isCancelled) setInventoryDevice(null);
+      } finally {
+        if (!isCancelled) setInventoryLoading(false);
+      }
+    }
+    loadInventory();
+    return () => { isCancelled = true; };
+  }, [selectedHost]);
+
+  const activeMetrics = nodeMetrics || (!error ? propMetrics : null) || {};
   const isOffline = propOffline || !!error;
 
   // Stale check
@@ -442,6 +467,61 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
             />
           </div>
         </div>
+
+        {/* NetBox Infrastructure Inventory & Hardware Specifications Card */}
+        <div className="telemetry-chart-container font-sans">
+          <div className="chart-header-row">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="chart-title font-sans font-semibold">Infrastructure Inventory</span>
+                <span className="status-pill status-live font-mono">
+                  {inventoryLoading ? 'Syncing...' : 'NetBox Synchronized'}
+                </span>
+              </div>
+              <div className="chart-subtitle font-sans text-muted">
+                Physical rack placement, hardware profile, and network interfaces
+              </div>
+            </div>
+            {inventoryDevice?.site && (
+              <span className="window-pill font-mono text-xs text-muted">{inventoryDevice.site}</span>
+            )}
+          </div>
+
+          <div className="inventory-grid">
+            <div className="inventory-stat-box">
+              <span className="stat-label">DEVICE NAME & ROLE</span>
+              <span className="stat-value font-semibold">{inventoryDevice?.name || activeServer.name}</span>
+              <span className="stat-sub font-mono">{inventoryDevice?.role || 'Compute Node'}</span>
+            </div>
+
+            <div className="inventory-stat-box">
+              <span className="stat-label">PRIMARY IP & SUBNET</span>
+              <span className="stat-value font-mono font-semibold">{inventoryDevice?.primary_ip || activeServer.ip}</span>
+              <span className="stat-sub font-mono">{inventoryDevice?.subnet || '100.x.x.x (Tailscale)'}</span>
+            </div>
+
+            <div className="inventory-stat-box">
+              <span className="stat-label">RACK LOCATION</span>
+              <span className="stat-value font-semibold">{inventoryDevice?.rack || 'Rack-01'}</span>
+              <span className="stat-sub font-mono">{inventoryDevice?.rack_position || 'Standard 1U'}</span>
+            </div>
+
+            <div className="inventory-stat-box">
+              <span className="stat-label">HARDWARE PROFILE</span>
+              <span className="stat-value font-semibold">{inventoryDevice?.hardware || 'Server Node'}</span>
+              <span className="stat-sub font-mono">Status: {inventoryDevice?.status?.toUpperCase() || 'ACTIVE'}</span>
+            </div>
+          </div>
+
+          {inventoryDevice?.interfaces && inventoryDevice.interfaces.length > 0 && (
+            <div className="interfaces-strip font-mono">
+              <span className="text-muted">NETBOX INTERFACES:</span>
+              {inventoryDevice.interfaces.map((iface, i) => (
+                <span key={i} className="iface-pill">{iface}</span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <style>{`
@@ -703,6 +783,72 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           align-items: center;
           gap: 8px;
           padding: 16px 0;
+        }
+
+        .inventory-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+          margin-top: 16px;
+        }
+
+        .inventory-stat-box {
+          background: var(--bg-subtle);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          padding: 10px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .stat-label {
+          font-size: 9px;
+          color: var(--text-muted);
+          letter-spacing: 0.05em;
+        }
+
+        .stat-value {
+          font-size: 13px;
+          color: var(--text-primary);
+        }
+
+        .stat-sub {
+          font-size: 10px;
+          color: var(--text-muted);
+        }
+
+        .interfaces-strip {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 14px;
+          padding-top: 12px;
+          border-top: 1px dashed var(--border-subtle);
+          font-size: 10px;
+        }
+
+        .iface-pill {
+          background: var(--bg-surface-elevated, rgba(255, 255, 255, 0.05));
+          border: 1px solid var(--border-subtle);
+          padding: 2px 8px;
+          border-radius: 4px;
+          color: var(--text-secondary);
+        }
+
+        .status-pill {
+          font-size: 10px;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 12px;
+          letter-spacing: 0.05em;
+        }
+
+        .status-live {
+          background-color: rgba(34, 197, 94, 0.15);
+          color: #22c55e;
+          border: 1px solid rgba(34, 197, 94, 0.3);
         }
 
         .margin-top-sm { margin-top: 8px; }

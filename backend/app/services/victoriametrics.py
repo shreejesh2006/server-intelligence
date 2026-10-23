@@ -28,23 +28,26 @@ METRICS_MAP = {
     "uptime": "server_uptime_seconds",
 }
 
+KNOWN_HOSTS = ["ubuntu"]
+
 HOST_LABEL_MAP = {
-    "ubuntu": 'host=~"ubuntu|100.108.160.2|.*ubuntu.*"',
+    "ubuntu": 'host=~"ubuntu|100.108.160.2|192.168.1.10|.*ubuntu.*"',
 }
 
 
 def normalize_host(host: str | None) -> str | None:
     """
     Normalizes host identifiers and IPs into canonical host strings:
-    - 'ubuntu', 'Ubuntu', '100.108.160.2', etc. -> 'ubuntu'
+    - 'ubuntu', 'Ubuntu', '100.108.160.2', '192.168.1.10', etc. -> 'ubuntu'
+    Returns None for unknown hosts.
     """
     if not host:
         return None
 
     clean = host.strip().lower()
-    if "ubuntu" in clean or clean in ("ubuntu", "100.108.160.2"):
+    if clean in ("ubuntu", "100.108.160.2", "192.168.1.10") or "ubuntu" in clean:
         return "ubuntu"
-    return clean
+    return None
 
 
 from sqlalchemy import select
@@ -59,14 +62,15 @@ class VictoriaMetricsService:
     def build_metric_query(self, metric_name: str, host: str | None = None) -> str:
         """Formats Prometheus/VictoriaMetrics metric selector with explicit host label selector."""
         canonical = normalize_host(host)
-        if not canonical:
-            return metric_name
-
         if canonical in HOST_LABEL_MAP:
             label_expr = HOST_LABEL_MAP[canonical]
             return f"{metric_name}{{{label_expr}}}"
 
-        return f'{metric_name}{{host="{canonical}"}}'
+        if host:
+            clean = host.strip()
+            return f'{metric_name}{{host="{clean}"}}'
+
+        return metric_name
 
     async def query(self, query: str):
         url = f"{self.base_url}/api/v1/query"
@@ -116,14 +120,15 @@ class VictoriaMetricsService:
         Fetches current values for all server telemetry metrics for a given host.
         Falls back to relational database (Supabase/SQLite) if VictoriaMetrics is uncontactable.
         """
-        canonical = normalize_host(host) or "ubuntu"
+        canonical = normalize_host(host) if host is not None else "ubuntu"
+        target_name = canonical or (host.strip() if host else "ubuntu")
 
         result = {}
         latest_ts = None
 
         # 1. Try querying VictoriaMetrics
         for name, base_metric in METRICS_MAP.items():
-            query_str = self.build_metric_query(base_metric, canonical)
+            query_str = self.build_metric_query(base_metric, host=target_name)
             try:
                 data = await self.query(query_str)
                 if data and len(data) > 0 and "value" in data[0]:
@@ -146,7 +151,7 @@ class VictoriaMetricsService:
         try:
             stmt = (
                 select(TelemetrySample)
-                .where(TelemetrySample.host == canonical)
+                .where(TelemetrySample.host == target_name)
                 .order_by(TelemetrySample.timestamp.desc())
                 .limit(1)
             )
@@ -188,7 +193,8 @@ class VictoriaMetricsService:
         Fetches continuous historical telemetry for the requested host.
         Falls back to relational database (Supabase/SQLite) if VictoriaMetrics is uncontactable.
         """
-        canonical = normalize_host(host) or "ubuntu"
+        canonical = normalize_host(host) if host is not None else "ubuntu"
+        target_name = canonical or (host.strip() if host else "ubuntu")
 
         now_dt = datetime.now(timezone.utc)
         end_dt = now_dt
@@ -202,7 +208,7 @@ class VictoriaMetricsService:
 
         # 1. Try querying VictoriaMetrics
         for name, base_metric in METRICS_MAP.items():
-            query_str = self.build_metric_query(base_metric, canonical)
+            query_str = self.build_metric_query(base_metric, host=target_name)
             try:
                 data = await self.query_range(query_str, start=start_str, end=end_str, step=step)
                 if data and len(data) > 0 and "values" in data[0]:
@@ -234,7 +240,7 @@ class VictoriaMetricsService:
         try:
             stmt = (
                 select(TelemetrySample)
-                .where(TelemetrySample.host == canonical)
+                .where(TelemetrySample.host == target_name)
                 .order_by(TelemetrySample.timestamp.desc())
                 .limit(100)
             )

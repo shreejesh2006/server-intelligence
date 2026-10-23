@@ -24,11 +24,9 @@ Managing heterogeneous Linux environments (e.g., Ubuntu enterprise nodes and Kal
 
 | Component / Feature | Implementation Status | Technical Details in Codebase |
 | :--- | :---: | :--- |
-| **Dockerized Infrastructure** | **COMPLETED** | `docker-compose.yml` configures `backend`, `frontend`, `victoriametrics`, and `grafana`. |
-| **Multi-Server Telemetry** | **COMPLETED** | Host-labeled ingestion for `ubuntu` and `Kali`. |
+| **Linux Telemetry** | **COMPLETED** | Host-labeled ingestion for `ubuntu`. |
 | **Ubuntu Collector** | **COMPLETED** | Daemon running on `100.108.160.2` publishing to VictoriaMetrics. |
-| **Kali Collector** | **COMPLETED** | Daemon running on `100.115.122.92` publishing to VictoriaMetrics. |
-| **Tailscale Networking** | **COMPLETED** | Mesh VPN connectivity established across Linux VMs and dev host. |
+| **Tailscale Networking** | **COMPLETED** | Mesh VPN connectivity established across Linux VM and dev host. |
 | **VictoriaMetrics TSDB** | **COMPLETED** | Ingesting via `/api/v1/import/prometheus` with 90-day retention. |
 | **FastAPI Backend Gateway** | **COMPLETED** | Async Python backend exposing `/api/metrics`, `/api/auth`, `/api/intelligence`, `/api/assistant`. |
 | **React Frontend Console** | **COMPLETED** | React 19 + Vite 8 SPA styled in Light/Dark Industrial Neumorphic theme. |
@@ -58,21 +56,20 @@ Managing heterogeneous Linux environments (e.g., Ubuntu enterprise nodes and Kal
 ---
 
 ## 4. SERVERS
+ 
+The platform actively monitors the production Linux server node:
 
-The platform actively monitors two Linux virtual machine nodes:
-
-| Server Name | Operating System | Tailscale IP | VictoriaMetrics Host Label | Role |
+| Server Name | Operating System | Tailscale IP / LAN IP | VictoriaMetrics Host Label | Role |
 | :--- | :--- | :--- | :--- | :--- |
-| **Ubuntu** | Ubuntu 22.04 LTS / Linux (x86_64) | `100.108.160.2` | `ubuntu` | Primary Telemetry Host & VictoriaMetrics Server |
-| **Kali** | Kali Linux Rolling (x86_64) | `100.115.122.92` | `Kali` | Monitored Target Node |
+| **Ubuntu** | Ubuntu 24.04 LTS / Linux (x86_64) | `100.108.160.2` / `192.168.1.10` | `ubuntu` | Primary Telemetry Host & Monitored Production Target |
 
 > [!IMPORTANT]
 > **Host Label Sensitivity**:
 > - **Hostname**: OS-level hostname returned by `socket.gethostname()`.
-> - **Tailscale IP**: Private mesh network IP assigned to the VM interface.
-> - **VictoriaMetrics Host Label (`host`)**: Exact label string embedded in metrics exposition headers (e.g., `host="ubuntu"` and `host="Kali"`).
+> - **Tailscale / LAN IP**: Network IPs (`100.108.160.2`, `192.168.1.10`) assigned to the VM interface.
+> - **VictoriaMetrics Host Label (`host`)**: Exact label string embedded in metrics exposition headers (`host="ubuntu"`).
 >
-> All backend PromQL queries and frontend server context parameters **must** use the exact VictoriaMetrics host label string (`ubuntu` or `Kali`).
+> All backend PromQL queries and frontend server context parameters use the canonical VictoriaMetrics host label string (`ubuntu`).
 
 ---
 
@@ -81,7 +78,7 @@ The platform actively monitors two Linux virtual machine nodes:
 ### Tailscale Mesh Connectivity
 The infrastructure relies on **Tailscale** to create an encrypted 100.x.x.x overlay mesh network between monitored nodes and the developer environment.
 
-- **Kali → Ubuntu VictoriaMetrics**: The collector daemon on Kali (`100.115.122.92`) publishes metrics across Tailscale directly to VictoriaMetrics running on Ubuntu (`100.108.160.2:8428`).
+- **Ubuntu → VictoriaMetrics**: The collector daemon on Ubuntu (`100.108.160.2`) publishes metrics across Tailscale directly to VictoriaMetrics running on port `8428`.
 - **FastAPI Backend → VictoriaMetrics**: The FastAPI backend communicates with VictoriaMetrics via internal Docker network (`http://victoriametrics:8428`) or local loopback (`http://localhost:8428`).
 - **React Frontend → Backend**: The React frontend issues requests to `/api/*` which Vite reverse-proxies to `http://localhost:8000` (or `http://192.168.64.22:8000` in production VM environments).
 
@@ -132,11 +129,11 @@ VictoriaMetrics is deployed as a single-binary TSDB providing high compression a
 # Query latest CPU usage for Ubuntu node
 server_cpu_usage_percent{host="ubuntu"}
 
-# Query 1-hour memory history for Kali node with 30s resolution
-server_memory_usage_percent{host="Kali"}
+# Query 1-hour memory history for Ubuntu node with 30s resolution
+server_memory_usage_percent{host="ubuntu"}
 
-# Query 1-minute system load across all registered hosts
-server_load_1m
+# Query 1-minute system load across monitored target
+server_load_1m{host="ubuntu"}
 ```
 
 ---
@@ -192,7 +189,7 @@ backend/app/
 ### The Multi-Server Disambiguation Problem
 When multiple Linux VMs publish telemetry to a single VictoriaMetrics instance, querying an unlabelled metric (e.g., `server_cpu_usage_percent`) returns an array of multiple series—one per host. 
 
-If backend query code naively accesses index `data[0]` without filtering, the API arbitrarily returns whichever VM's metric series VictoriaMetrics evaluated first. This causes Ubuntu and Kali metrics to appear duplicate or swap unexpectedly on the UI.
+If backend query code naively accesses index `data[0]` without filtering, the API arbitrarily returns whichever metric series VictoriaMetrics evaluated first. Explicit host scoping ensures Ubuntu metrics are consistently matched.
 
 ### Implementation Solution ([`backend/app/api/metrics.py`](file:///Users/shreejesh2006/Projects/server-intelligence/backend/app/api/metrics.py))
 1. **Query Construction**:
@@ -223,7 +220,7 @@ Located in [`/frontend`](file:///Users/shreejesh2006/Projects/server-intelligenc
 ### Component & Context Hierarchy
 - **State Contexts**:
   - `AuthContext`: Manages login session, JWT local storage, active user, and role validation.
-  - `ServerContext`: Manages active server target selection (`ubuntu` vs `Kali`).
+  - `ServerContext`: Manages active server target selection (`ubuntu`).
   - `ThemeContext`: Toggles between `light` and `dark` Industrial Neumorphic color schemes.
   - `TimezoneContext`: Manages display timezone formatting (`UTC`, `EST`, `PST`, `IST`).
 - **Telemetry Hook (`useMetrics`)**: Polls `GET /api/metrics/current?host=<activeHost>` every 30 seconds with automatic stale state detection and error recovery.
@@ -280,7 +277,7 @@ The platform includes an embedded AI copilot ([`backend/app/services/ai`](file:/
 ### Telemetry Context Injection
 Before sending a user query to the selected LLM, [`backend/app/services/ai/context.py`](file:///Users/shreejesh2006/Projects/server-intelligence/backend/app/services/ai/context.py) automatically generates a structured system prompt containing:
 - Monitored server list and active node hardware specs.
-- Current CPU, RAM, Disk, Load, and Network metrics for `ubuntu` and `Kali`.
+- Current CPU, RAM, Disk, Load, and Network metrics for the monitored node (`ubuntu`).
 - Active machine learning capacity predictions (5m to 3h).
 - Current Isolation Forest anomaly score and severity rating.
 
@@ -428,7 +425,7 @@ Configure variables in a `.env` file at the root of the project:
 ### DO
 - **Inspect Before Modifying**: Read existing API contracts and component structures before introducing changes.
 - **Maintain Host Filtering**: Always pass and validate the `host` query parameter on metric endpoints.
-- **Test Both Hosts**: Verify that UI changes render correctly for both `ubuntu` and `Kali` node selections.
+- **Test Monitored Host**: Verify that UI changes render correctly for the monitored `ubuntu` node selection.
 - **Preserve Defensive Fallbacks**: Maintain null checks and safe default values in React state contexts.
 
 ### DO NOT
@@ -469,7 +466,7 @@ To add a third monitored VM (e.g., `Debian Server`):
 | Symptom | Probable Cause | Diagnostic & Resolution Steps |
 | :--- | :--- | :--- |
 | **API OFFLINE banner on UI** | FastAPI backend unreachable or crashed. | Check backend process: `curl http://localhost:8000/health`. Check logs: `docker logs server-intelligence-backend`. |
-| **Metrics show identical data on Ubuntu & Kali** | Host query filter missing or bypassed. | Verify URL contains `?host=ubuntu` or `?host=Kali`. Inspect Network tab in developer tools. |
+| **Metrics query parameter missing or invalid** | Host query filter missing or unknown host queried. | Verify request contains `?host=ubuntu`. Unknown hosts (e.g., decommissioned Kali) will return 400 Bad Request. |
 | **VictoriaMetrics ingestion failure** | Collector process stopped or port 8428 blocked. | Test connectivity: `curl http://100.108.160.2:8428/api/v1/query?query=up`. Restart collector daemon on target VM. |
 | **AI Assistant returns 502 / Error** | Ollama daemon unreachable or API key missing. | Verify Ollama status: `curl http://localhost:11434/api/tags`. Check Settings page AI configuration. |
 | **ML Models show 'Unavailable'** | Model files missing from `/ml/models/`. | Verify `.joblib` and `.json` metadata exist in `/ml/models/forecasting` and `/ml/models/anomaly`. |
@@ -500,7 +497,7 @@ To add a third monitored VM (e.g., `Debian Server`):
 ## 23. PROJECT ROADMAP
 
 - [x] **PHASE 1 — Infrastructure**: Dockerized VictoriaMetrics, FastAPI backend, and React baseline UI setup.
-- [x] **PHASE 2 — Multi-Server Telemetry**: Wall-clock aligned collector daemon deployed on Ubuntu (`100.108.160.2`) and Kali (`100.115.122.92`) with host-aware filtering.
+- [x] **PHASE 2 — Telemetry Pipeline**: Wall-clock aligned collector daemon deployed on Ubuntu (`100.108.160.2` / `192.168.1.10`) with host-aware filtering.
 - [x] **PHASE 3 — System Intelligence**: Integrated PatchTST forecasting and Isolation Forest anomaly detection pipelines.
 - [x] **PHASE 4 — AI-Assisted Copilot**: Multi-provider AI Assistant workspace with live telemetry context injection.
 - [x] **PHASE 5 — User Management & RBAC**: JWT authentication, SQLite user database, and role-based permissions (`ADMIN`, `OPERATOR`, `VIEWER`).
@@ -517,7 +514,7 @@ To add a third monitored VM (e.g., `Debian Server`):
 DAY 1: System Familiarization
  ├── Clone repository and launch local frontend (`npm run dev`)
  ├── Run FastAPI backend and inspect Swagger docs at `http://localhost:8000/docs`
- └── Test switching between `ubuntu` and `Kali` server targets on the UI
+ └── Verify live telemetry and predictive alerts for the `ubuntu` server target on the UI
 
 DAY 2: Architecture Deep Dive
  ├── Inspect collector daemon (`/collector/collector.py`) and metrics mapping

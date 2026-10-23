@@ -93,25 +93,21 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
   };
 
   const isAnomaly = anomalyData?.is_anomaly ?? false;
-  const severity = anomalyData?.severity || (isAnomaly ? 'WARNING' : 'NORMAL');
+  const rawSeverity = (anomalyData?.severity || 'NORMAL').toUpperCase();
+  const severity = isAnomaly ? (rawSeverity === 'NORMAL' ? 'WARNING' : rawSeverity) : 'NORMAL';
   const anomalyScore = anomalyData?.anomaly_score ?? 0.0;
-  const primaryReason = anomalyData?.primary_reason || 'Operating within normal bounds.';
+  const primaryReason = anomalyData?.primary_reason || (isAnomaly ? 'Multivariate telemetry anomaly detected.' : 'Operating within normal bounds.');
   const telemetryTimestamp = anomalyData?.telemetry_timestamp;
 
-  const signals = anomalyData?.contributing_signals?.length > 0
-    ? anomalyData.contributing_signals
-    : anomalyData?.all_metrics_evaluated || [];
+  const contributingSignals = anomalyData?.contributing_signals || [];
+  const allEvaluated = anomalyData?.all_metrics_evaluated || [];
+  const signals = contributingSignals.length > 0 ? contributingSignals : allEvaluated;
 
   const historyPoints = historyData?.points || [];
 
-  const hasCriticalSignal = signals.some((s) => s.status === 'CRITICAL' || s.status === 'HIGH');
-  const hasWarningSignal = signals.some((s) => s.status === 'WARNING' || s.status === 'ELEVATED' || s.status === 'MEDIUM');
+  const isAnomalousState = isAnomaly || severity !== 'NORMAL';
 
-  const isAnomalousState = isAnomaly || severity === 'CRITICAL' || severity === 'WARNING' || hasCriticalSignal || hasWarningSignal;
-
-  const effectiveSeverity = isAnomaly || hasCriticalSignal
-    ? (severity === 'CRITICAL' || hasCriticalSignal ? 'CRITICAL' : 'WARNING')
-    : (hasWarningSignal ? 'WARNING' : (severity && severity !== 'NORMAL' ? severity : 'NORMAL'));
+  const effectiveSeverity = isAnomalousState ? severity : 'NORMAL';
 
   const statusBadgeClass = isAnomalousState
     ? (effectiveSeverity === 'CRITICAL' ? 'badge-critical' : 'badge-warning')
@@ -121,7 +117,7 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
     ? (effectiveSeverity === 'CRITICAL' ? 'dot-critical' : 'dot-warning')
     : 'dot-healthy';
 
-  const displayScore = formatNumber(Math.max(0, anomalyScore), 4);
+  const displayScore = formatNumber(anomalyScore, 4);
 
   const chartTimeline = historyPoints.map((pt) => {
     const tsNum = typeof pt.timestamp === 'number'

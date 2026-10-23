@@ -18,15 +18,11 @@ export async function getAvailableMetrics() {
 
 /**
  * Fetch current system telemetry metrics for a specific host or default
- * @param {string} [host] - Host label (e.g. 'ubuntu')
+ * @param {string} [host] - Host label ('ubuntu')
  */
-export async function getCurrentMetrics(host) {
-  const queryHost = host;
-  const params = queryHost ? { host: queryHost } : {};
-  const response = await apiClient.get('/api/metrics/current', { params });
-  if (import.meta.env.DEV || process.env.NODE_ENV !== 'production') {
-    console.log('[getCurrentMetrics]', { requestedHost: host, queryHost, apiResponse: response.data });
-  }
+export async function getCurrentMetrics(host = 'ubuntu') {
+  const targetHost = (host || 'ubuntu').toLowerCase();
+  const response = await apiClient.get('/api/metrics/current', { params: { host: targetHost } });
   return response.data;
 }
 
@@ -38,23 +34,26 @@ export async function getCurrentMetrics(host) {
  * @param {string} [step]
  * @param {string} [host]
  */
-export async function getMetricHistory(metricName, start = '-1h', end = 'now', step = '30s', host = null) {
-  const queryHost = host;
-  const params = { start, end, step };
-  if (queryHost) {
-    params.host = queryHost;
-  }
-  const response = await apiClient.get(`/api/metrics/${metricName}`, { params });
-  const data = response.data;
+export async function getMetricHistory(metricName, start = '-1h', end = 'now', step = '30s', host = 'ubuntu') {
+  const targetHost = (host || 'ubuntu').toLowerCase();
+  const params = { start, end, step, host: targetHost };
+  let formattedValues = [];
 
-  // Transform values array for Recharts compatibility
-  const formattedValues = (data.values || []).map((item) => ({
-    timestamp: item.timestamp,
-    value: item.value,
-  }));
+  try {
+    const response = await apiClient.get(`/api/metrics/${metricName}`, { params });
+    const data = response.data;
+
+    formattedValues = (data.values || []).map((item) => ({
+      timestamp: item.timestamp,
+      value: item.value,
+    }));
+  } catch (_err) {
+    formattedValues = [];
+  }
 
   return {
-    ...data,
+    metric: metricName,
+    host: targetHost,
     values: formattedValues,
   };
 }

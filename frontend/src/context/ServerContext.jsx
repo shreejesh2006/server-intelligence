@@ -5,9 +5,9 @@ export const MONITORED_SERVERS = [
     id: 'ubuntu',
     host: 'ubuntu',
     name: 'Ubuntu Monitored Server',
-    ip: '192.168.64.22',
+    ip: '100.108.160.2',
     os: 'Ubuntu 24.04 LTS (x86_64)',
-    role: 'Monitored Target Node',
+    role: 'Primary Production Target Node',
     tag: 'ACTIVE TARGET',
   },
 ];
@@ -15,7 +15,13 @@ export const MONITORED_SERVERS = [
 const ServerContext = createContext(null);
 
 export function ServerProvider({ children }) {
-  const [selectedHost, setSelectedHost] = useState('ubuntu');
+  const [selectedHost, setSelectedHost] = useState(() => {
+    const saved = localStorage.getItem('netra_selected_host');
+    if (saved && MONITORED_SERVERS.some((s) => s.host === saved.toLowerCase())) {
+      return saved.toLowerCase();
+    }
+    return 'ubuntu';
+  });
 
   const activeServer =
     MONITORED_SERVERS.find((s) => s.host === selectedHost.toLowerCase()) || MONITORED_SERVERS[0];
@@ -28,6 +34,7 @@ export function ServerProvider({ children }) {
     );
     if (found) {
       setSelectedHost(found.host);
+      localStorage.setItem('netra_selected_host', found.host);
     }
   };
 

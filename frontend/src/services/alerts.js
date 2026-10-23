@@ -2,11 +2,22 @@ import apiClient from './api';
 
 /**
  * Fetch list of incident alerts with optional filters
- * @param {Object} params - { status, severity, server }
+ * @param {Object|string} paramsOrHost - { status, severity, server, host } or host string
  */
-export async function getAlertsApi(params = {}) {
-  const response = await apiClient.get('/api/alerts', { params });
-  return response.data;
+export async function getAlertsApi(paramsOrHost = {}) {
+  const queryParams = {};
+
+  if (typeof paramsOrHost === 'string') {
+    queryParams.server = paramsOrHost;
+  } else if (paramsOrHost && typeof paramsOrHost === 'object') {
+    if (paramsOrHost.status) queryParams.status = paramsOrHost.status;
+    if (paramsOrHost.severity) queryParams.severity = paramsOrHost.severity;
+    if (paramsOrHost.server) queryParams.server = paramsOrHost.server;
+    if (paramsOrHost.host) queryParams.server = paramsOrHost.host;
+  }
+
+  const response = await apiClient.get('/api/alerts', { params: queryParams });
+  return Array.isArray(response.data) ? response.data : [];
 }
 
 /**
@@ -55,3 +66,16 @@ export async function evaluateAlertsApi(host) {
   });
   return response.data;
 }
+
+/**
+ * Trigger forecast-driven predictive alert evaluation
+ * @param {string} [host] - Optional host filter ('ubuntu')
+ */
+export async function evaluatePredictiveAlertsApi(host) {
+  const params = host && host !== 'all' ? { host } : {};
+  const response = await apiClient.post('/api/alerts/evaluate-predictive', null, {
+    params,
+  });
+  return response.data;
+}
+

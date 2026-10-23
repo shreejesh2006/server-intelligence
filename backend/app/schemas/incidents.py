@@ -14,6 +14,7 @@ class IncidentUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
     severity: str | None = None
+    status: str | None = None
     server: str | None = None
 
 

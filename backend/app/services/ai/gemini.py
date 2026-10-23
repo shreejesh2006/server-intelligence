@@ -10,11 +10,13 @@ class GeminiProvider(LLMProvider):
         api_key: str,
         system_prompt: str | None = None
     ) -> str:
-        raw_model = model.strip() if model and model.strip() else "gemini-3.6-flash"
+        raw_model = model.strip() if model and model.strip() else "gemini-2.5-flash"
         
-        # Map non-existent model names (e.g. gemini-2.5-flash) to default gemini-3.6-flash
-        if raw_model in ("gemini-2.5-flash", "gemini-2.5-pro"):
-            effective_model = "gemini-3.6-flash"
+        # Map model aliases to official Google Gemini API model identifiers
+        if raw_model in ("gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-flash"):
+            effective_model = "gemini-2.5-flash"
+        elif raw_model in ("gemini-pro", "gemini-3.5-pro"):
+            effective_model = "gemini-2.5-pro"
         else:
             effective_model = raw_model
 

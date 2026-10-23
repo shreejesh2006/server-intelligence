@@ -117,6 +117,17 @@ async def trigger_host_alert_evaluation(
     }
 
 
+@router.post("/evaluate-predictive", dependencies=[Depends(require_operator)])
+async def trigger_predictive_alert_evaluation(
+    host: str | None = Query(default=None, description="Optional target server host (e.g. ubuntu)"),
+    db: Session = Depends(get_db),
+):
+    from app.services.predictive_alerts import evaluate_predictive_alerts
+
+    eval_result = await evaluate_predictive_alerts(db=db, host=host)
+    return eval_result
+
+
 @router.get("/{alert_id}")
 def read_alert(
     alert_id: int,

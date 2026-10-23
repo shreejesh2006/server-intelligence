@@ -41,10 +41,7 @@ class AgentOrchestrator:
 
         # Detect host mention in user prompt or fall back to tracked host
         lower_query = last_query.lower()
-        if "kali" in lower_query:
-            active_host = "kali"
-            memory_store.track_host(session_id, "kali")
-        elif "ubuntu" in lower_query:
+        if "ubuntu" in lower_query:
             active_host = "ubuntu"
             memory_store.track_host(session_id, "ubuntu")
         else:

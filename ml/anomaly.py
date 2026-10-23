@@ -105,7 +105,7 @@ class AnomalyDetector:
 
         X_df = df_obs[features].iloc[[0]]
 
-        anomaly_score = 0.0
+        raw_score = 0.0
         is_anomaly = False
         preprocessor = None
         model = None
@@ -116,28 +116,34 @@ class AnomalyDetector:
                 model = self.pipeline.named_steps['model']
 
                 X_processed = preprocessor.transform(X_df)
-                anomaly_score = float(-model.decision_function(X_processed)[0])
+                raw_score = float(-model.decision_function(X_processed)[0])
                 is_anomaly = bool(model.predict(X_processed)[0] == -1)
             except Exception as exc:
                 logger.warning("Anomaly inference pipeline scoring error: %s", exc)
 
-        # 1. Determine Overall Severity Category from learned training score thresholds
-        thresholds = self.metadata.get("severity_thresholds", {}) if self.metadata else {}
-        low_t = thresholds.get("LOW", 0.0)
-        med_t = thresholds.get("MEDIUM", 0.15)
-        high_t = thresholds.get("HIGH", 0.30)
-        crit_t = thresholds.get("CRITICAL", 0.45)
-
-        if anomaly_score >= crit_t:
-            severity = "CRITICAL"
-        elif anomaly_score >= high_t:
-            severity = "HIGH"
-        elif anomaly_score >= med_t:
-            severity = "MEDIUM"
-        elif anomaly_score >= low_t:
-            severity = "LOW"
-        else:
+        # Normalize raw score to a clean, positive 0.0 - 1.0 anomaly index range:
+        if raw_score <= 0.0 or not is_anomaly:
+            # Baseline nominal operation: map raw_score in [-0.5, 0.0] to [0.0100, 0.0450]
+            anomaly_score = round(max(0.0100, 0.0450 + raw_score * 0.10), 4)
+            is_anomaly = False
             severity = "NORMAL"
+        else:
+            # Anomalous operation: map positive raw_score [0.0, 0.5] to [0.1500, 1.0000]
+            anomaly_score = round(min(1.0000, 0.1500 + raw_score * 1.70), 4)
+            
+            thresholds = self.metadata.get("severity_thresholds", {}) if self.metadata else {}
+            med_t = thresholds.get("MEDIUM", 0.15)
+            high_t = thresholds.get("HIGH", 0.30)
+            crit_t = thresholds.get("CRITICAL", 0.45)
+
+            if raw_score >= crit_t:
+                severity = "CRITICAL"
+            elif raw_score >= high_t:
+                severity = "HIGH"
+            elif raw_score >= med_t:
+                severity = "MEDIUM"
+            else:
+                severity = "WARNING"
 
         # 2. Extract Baselines & Evaluate Metric-Level Deviations
         metric_evaluations = []

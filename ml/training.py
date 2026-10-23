@@ -49,8 +49,7 @@ METRICS_PROMPQL_MAP = {
 }
 
 HOST_LABEL_MAP = {
-    "ubuntu": 'host=~"ubuntu|100.108.160.2"',
-    "kali": 'host=~"kali|Kali|100.115.122.92"',
+    "ubuntu": 'host=~"ubuntu|100.108.160.2|192.168.1.10"',
 }
 
 
@@ -58,10 +57,8 @@ def normalize_host(host: str | None) -> str | None:
     if not host:
         return None
     clean = host.strip().lower()
-    if clean in ("ubuntu", "100.108.160.2"):
+    if clean in ("ubuntu", "100.108.160.2", "192.168.1.10"):
         return "ubuntu"
-    elif clean in ("kali", "100.115.122.92"):
-        return "kali"
     return clean
 
 

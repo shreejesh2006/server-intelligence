@@ -53,21 +53,27 @@ async def chat_with_assistant(
     provider_name = (setting.provider or "ollama").strip().lower()
     api_key = ""
 
+    import os
     if provider_name != "ollama":
-        if not setting.encrypted_api_key or not setting.encrypted_api_key.strip():
+        if setting.encrypted_api_key and setting.encrypted_api_key.strip():
+            try:
+                api_key = decrypt_api_key(setting.encrypted_api_key)
+            except ValueError as err:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=str(err),
+                )
+        elif provider_name in ("gemini", "google", "google-gemini") and os.getenv("GEMINI_API_KEY"):
+            api_key = os.getenv("GEMINI_API_KEY")
+        elif provider_name == "openai" and os.getenv("OPENAI_API_KEY"):
+            api_key = os.getenv("OPENAI_API_KEY")
+        else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "code": "AI_NOT_CONFIGURED",
-                    "message": "AI Assistant API credentials have not been configured.",
+                    "message": f"AI Assistant API credentials for '{provider_name}' have not been configured. Please set your API key in Settings or export GEMINI_API_KEY.",
                 },
-            )
-        try:
-            api_key = decrypt_api_key(setting.encrypted_api_key)
-        except ValueError as err:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(err),
             )
 
     try:

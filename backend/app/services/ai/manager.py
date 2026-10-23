@@ -11,8 +11,15 @@ class AIManager:
         if clean_name == "ollama":
             return OllamaProvider()
 
-        if clean_name == "gemini":
+        if clean_name in ("gemini", "google", "google-gemini"):
             return GeminiProvider()
+
+        if clean_name == "openai":
+            try:
+                from app.services.ai.openai import OpenAIProvider
+                return OpenAIProvider()
+            except ImportError:
+                pass
 
         raise ValueError(
             f"AI Provider '{provider_name}' is not currently supported."

@@ -157,19 +157,11 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
 
   const activeMetricObj = ALL_METRICS_LIST.find((m) => m.id === trendMetric) || ALL_METRICS_LIST[0];
 
-  const forecastHorizons = ['5m', '15m', '30m', '1h', '3h', '6h', '12h', '24h'];
+  const forecastHorizons = ['5m', '15m', '30m', '1h', '3h'];
 
   const getPredictionValue = (h) => {
     if (currentFc?.predictions?.[h] != null) {
       return currentFc.predictions[h];
-    }
-    const base3h = currentFc?.predictions?.['3h'];
-    if (base3h != null) {
-      const actualVal = forecastMetric === 'cpu' ? cpuVal : forecastMetric === 'memory' ? memVal : loadVal;
-      const diff = base3h - actualVal;
-      if (h === '6h') return Math.max(0, base3h + diff * 0.2);
-      if (h === '12h') return Math.max(0, base3h + diff * 0.4);
-      if (h === '24h') return Math.max(0, base3h + diff * 0.6);
     }
     return null;
   };
@@ -181,7 +173,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
       {/* 1. PAGE HEADING WITH ACTIVE HOST SELECTOR */}
       <div className="dashboard-main-header">
         <div>
-          <h1 className="header-page-title font-sans">Overview</h1>
+          <h1 className="header-page-title font-sans">Hello {user?.name || user?.username || 'Admin'}</h1>
         </div>
 
         <div className="server-host-selector">

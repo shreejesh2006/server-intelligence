@@ -6,6 +6,10 @@ import {
   Server, 
   TrendingUp, 
   AlertTriangle, 
+  Bell,
+  ShieldAlert,
+  Zap,
+  ScrollText,
   Users,
   ChevronLeft,
   ChevronRight
@@ -16,7 +20,11 @@ const NAV_ITEMS = [
   { name: 'Servers', path: '/servers', icon: Server },
   { name: 'Forecasts', path: '/forecasts', icon: TrendingUp },
   { name: 'Anomalies', path: '/anomalies', icon: AlertTriangle },
-  { name: 'Users', path: '/users', icon: Users },
+  { name: 'Alerts', path: '/alerts', icon: Bell },
+  { name: 'Incidents', path: '/incidents', icon: ShieldAlert },
+  { name: 'Automations', path: '/automations', icon: Zap },
+  { name: 'Logs', path: '/logs', icon: ScrollText },
+  { name: 'Users', path: '/users', icon: Users, role: 'ADMIN' },
 ];
 
 export function Sidebar() {
@@ -54,7 +62,7 @@ export function Sidebar() {
       </div>
 
       <nav className="sidebar-nav font-sans">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !item.role || user?.role === item.role).map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
