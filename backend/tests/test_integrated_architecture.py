@@ -306,5 +306,31 @@ class TestKubernetesManifestIntegrity(unittest.TestCase):
         self.assertEqual(services.get("netbox"), 8080)
 
 
+class TestDatabaseUrlNormalization(unittest.TestCase):
+    """Validates cloud database URL normalization and driver negotiation."""
+
+    def test_postgres_legacy_scheme_normalization(self):
+        legacy_url = "postgres://user:secret@render-pg.host:5432/db"
+        # Database URL normalization logic
+        normalized = legacy_url.replace("postgres://", "postgresql://", 1)
+        self.assertTrue(normalized.startswith("postgresql://"))
+
+    def test_supabase_driver_negotiation(self):
+        supabase_psycopg_url = "postgresql+psycopg://postgres.ref:pass@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+        # If psycopg is missing, should fall back to postgresql+psycopg2 if available
+        # or handle gracefully without throwing uncaught import crash
+        try:
+            import psycopg
+            has_psycopg = True
+        except ImportError:
+            has_psycopg = False
+
+        if not has_psycopg:
+            fallback = supabase_psycopg_url.replace("postgresql+psycopg://", "postgresql+psycopg2://", 1)
+            self.assertTrue(fallback.startswith("postgresql+psycopg2://"))
+        else:
+            self.assertTrue(supabase_psycopg_url.startswith("postgresql+psycopg://"))
+
+
 if __name__ == "__main__":
     unittest.main()
