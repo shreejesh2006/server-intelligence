@@ -157,7 +157,8 @@ app.include_router(
     inventory_router,
     prefix="/api",
 )
-
+app.include_router
+(telemetry_router)
 
 
 @app.get("/")

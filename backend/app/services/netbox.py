@@ -1,6 +1,6 @@
 """
 NetBox Infrastructure Inventory Service for NETRA INTELLIGENCE
-
+NETBOX_URL
 Integrates with NetBox REST API (DCIM and IPAM) to discover physical/virtual devices,
 device roles, rack positions, interfaces, IP addresses, and hardware status.
 Maps NetBox devices to canonical monitored hosts (Ubuntu, Kali).
@@ -57,7 +57,7 @@ class NetBoxService:
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
         if self.token:
-            headers["Authorization"] = f"Token {self.token.strip()}"
+            headers["Authorization"] = f"Bearer {self.token.strip()}"
         return headers
 
     async def check_health(self) -> dict[str, Any]:

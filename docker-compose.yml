@@ -8,14 +8,15 @@ services:
     container_name: server-intelligence-backend
 
     restart: unless-stopped
-    
+
     env_file:
-      - .env 
+      - .env
+
     ports:
-      - "8000:8000"
+      - "8001:8000"
 
     volumes:
-      - ./backend/server_intelligence.db:/app/server_intelligence.db
+      - server-intelligence-db:/app/data
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -88,6 +89,7 @@ services:
 
 
 volumes:
+  server-intelligence-db:
 
   victoria-metrics-data:
     external: true

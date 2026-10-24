@@ -1,6 +1,10 @@
 import json
 import time
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from batcher import TelemetryBatcher
 from config import config
 from metrics import SystemMetrics
