@@ -119,7 +119,7 @@ async def ingest_batch(
             detail="Payload must contain a non-empty 'samples' list.",
         )
 
-    batch_hostname = batch_payload.get("hostname", "unknown")
+    batch_hostname = batch_payload.get("hostname") or batch_payload.get("host") or "unknown"
     prom_lines = []
 
     # 1. Save samples to relational Database (Supabase PostgreSQL / SQLite)
@@ -127,7 +127,7 @@ async def ingest_batch(
     try:
         now_dt = datetime.now(timezone.utc)
         for sample in samples:
-            raw_sample_hostname = sample.get("hostname", batch_hostname)
+            raw_sample_hostname = sample.get("hostname") or sample.get("host") or batch_hostname
             canonical_host = normalize_host(raw_sample_hostname) or raw_sample_hostname.strip().lower()
             ts_str = sample.get("timestamp")
 

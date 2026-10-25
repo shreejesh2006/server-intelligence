@@ -10,6 +10,7 @@ data:
   DB_HOST: "server-intelligence-db-rw.netra.svc.cluster.local"
   DB_NAME: "netbox"
   DB_USER: "netra"
+  DB_WAIT_DEBUG: "1"
   REDIS_HOST: "netbox-redis.netra.svc.cluster.local"
   REDIS_PORT: "6379"
   ALLOWED_HOSTS: "*"
