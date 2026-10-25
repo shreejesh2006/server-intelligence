@@ -8,7 +8,7 @@ class CollectorConfig:
     def __init__(self):
         self.mac_receiver_url = os.getenv(
             "MAC_RECEIVER_URL",
-            "http://localhost:8000/api/v1/telemetry/ingest",
+            "http://localhost:8001/api/v1/telemetry/ingest",
         ).rstrip("/")
 
         self.telemetry_secret_token = os.getenv(

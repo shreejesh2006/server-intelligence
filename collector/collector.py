@@ -60,9 +60,14 @@ def main():
 
     try:
         while True:
-            # Synchronize to wall-clock boundary
+            print("Waiting for next collection...", flush=True)
+
             sleep_duration = seconds_until_next_interval(config.collection_interval_seconds)
+            print(f"Sleeping for {sleep_duration:.2f} seconds", flush=True)
+
             time.sleep(sleep_duration)
+
+            print("Calling metrics.collect()", flush=True)
 
             try:
                 sample = metrics.collect()
