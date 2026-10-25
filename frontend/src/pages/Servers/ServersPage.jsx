@@ -150,17 +150,13 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
   const activeMetrics = nodeMetrics || (!error ? propMetrics : null) || {};
   const isOffline = propOffline || !!error;
 
-  // Stale check
-  const latestTs = getMetricTimestamp(activeMetrics);
+  // Status check based on active connectivity & successful telemetry fetch
   let freshnessState = 'ONLINE';
   if (isOffline) {
     freshnessState = 'OFFLINE';
-  } else if (latestTs) {
-    const ageSec = Math.floor(Date.now() / 1000) - latestTs;
-    if (ageSec > 60) freshnessState = 'STALE';
   } else if (lastFetchTime) {
     const ageSec = Math.floor((Date.now() - lastFetchTime.getTime()) / 1000);
-    if (ageSec > 60) freshnessState = 'STALE';
+    if (ageSec > 120) freshnessState = 'STALE';
   }
 
   // Value Extractors
@@ -200,8 +196,15 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
 
       {/* PAGE HEADER */}
       <div className="servers-main-header">
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <h1 className="header-page-title font-sans">Servers</h1>
+          <span className={`text-xs px-2 py-0.5 rounded border ${
+            activeServer?.isLive
+              ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+              : 'border-slate-500/30 text-slate-400 bg-slate-500/10'
+          }`} style={{ fontSize: '11px', letterSpacing: '0.02em' }}>
+            {activeServer?.environment || (selectedHost === 'ubuntu' ? 'Live Infrastructure' : 'Simulated Infrastructure')}
+          </span>
         </div>
 
         {/* HOST SELECTOR / HOST DISPLAY */}

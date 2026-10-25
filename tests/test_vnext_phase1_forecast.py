@@ -118,6 +118,7 @@ class TestVNextPhase1Forecasting(unittest.TestCase):
 
         failing_adapter = MagicMock()
         failing_adapter.predict.side_effect = RuntimeError("Simulated GPU OOM or PyTorch error")
+        failing_adapter.predict_with_uncertainty.side_effect = RuntimeError("Simulated GPU OOM or PyTorch error")
 
         with patch.object(ml_loader, "get_itransformer_model", return_value=failing_adapter):
             import asyncio

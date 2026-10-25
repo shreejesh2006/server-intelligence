@@ -46,7 +46,7 @@ const ALL_METRICS_LIST = [
 ];
 
 export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
-  const { servers, selectedHost, selectServer } = useServer();
+  const { servers, selectedHost, selectedServer, selectServer } = useServer();
   const { formatTimestamp } = useTimezone();
 
   // Unified trend time window selector (8 options: 5m, 15m, 30m, 1h, 3h, 6h, 12h, 24h)
@@ -154,7 +154,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
 
   const activeMetricObj = ALL_METRICS_LIST.find((m) => m.id === trendMetric) || ALL_METRICS_LIST[0];
 
-  const forecastHorizons = ['5m', '15m', '30m', '1h', '3h'];
+  const forecastHorizons = ['5m', '15m', '30m', '1h', '3h', '6h', '12h', '24h', '48h', '72h'];
 
   const getPredictionValue = (h) => {
     if (currentFc?.predictions?.[h] != null) {
@@ -169,8 +169,15 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
 
       {/* 1. PAGE HEADING WITH ACTIVE HOST SELECTOR */}
       <div className="dashboard-main-header">
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <h1 className="header-page-title font-sans">Overview</h1>
+          <span className={`text-xs px-2 py-0.5 rounded border ${
+            selectedServer?.isLive
+              ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+              : 'border-slate-500/30 text-slate-400 bg-slate-500/10'
+          }`} style={{ fontSize: '11px', letterSpacing: '0.02em' }}>
+            {selectedServer?.environment || (selectedHost === 'ubuntu' ? 'Live Infrastructure' : 'Simulated Infrastructure')}
+          </span>
         </div>
 
         <div className="server-host-selector">
@@ -257,7 +264,12 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
           {/* 3. FORECAST OUTLOOK BLOCK */}
           <div className="netra-panel forecast-panel">
             <div className="panel-title-bar">
-              <h2 className="panel-title font-sans">Forecast Outlook</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 className="panel-title font-sans">Forecast Outlook</h2>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }} className="font-sans">
+                  {forecastData?.model ? `(${forecastData.model})` : '(iTransformer)'}
+                </span>
+              </div>
 
               {/* Forecast Metric Selector */}
               <div className="segmented-tabs font-sans">
@@ -806,11 +818,17 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
           color: var(--text-muted);
         }
 
-        /* 4x2 Horizon Cards Grid */
+        /* 5x2 Horizon Cards Grid */
         .horizon-cards-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(5, 1fr);
           gap: 6px;
+        }
+
+        @media (max-width: 600px) {
+          .horizon-cards-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
         }
 
         .horizon-card-compact {

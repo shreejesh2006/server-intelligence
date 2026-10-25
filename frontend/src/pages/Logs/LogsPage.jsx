@@ -1,58 +1,52 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useServer } from '../../context/ServerContext';
 import { useTimezone } from '../../context/TimezoneContext';
-import { queryLogs, getLogsHealth } from '../../services/logs';
+import { queryLogs } from '../../services/logs';
 import {
   Search,
   RefreshCw,
-  Server,
-  Filter,
-  Clock,
+  Server as ServerIcon,
   Terminal,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
 
-const SEVERITY_LEVELS = ['ALL', 'CRITICAL', 'ERROR', 'WARN', 'INFO', 'DEBUG'];
+const SEVERITY_LEVELS = ['ALL', 'CRITICAL', 'ERROR', 'WARN', 'INFO'];
 const TIME_RANGES = [
-  { label: 'Last 15m', value: '-15m' },
-  { label: 'Last 1h', value: '-1h' },
-  { label: 'Last 6h', value: '-6h' },
-  { label: 'Last 24h', value: '-24h' },
+  { label: '15m', value: '-15m' },
+  { label: '1h', value: '-1h' },
+  { label: '6h', value: '-6h' },
+  { label: '24h', value: '-24h' },
 ];
 
 export function LogsPage() {
-  const { selectedHost, servers } = useServer();
+  const { selectedHost, servers, selectServer, activeServer } = useServer();
   const { formatTimestamp } = useTimezone();
 
   const [logs, setLogs] = useState([]);
-  const [_totalCount, setTotalCount] = useState(0);
-  const [logSource, setLogSource] = useState('none');
+  const [logSource, setLogSource] = useState('victorialogs');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [hostFilter, setHostFilter] = useState(selectedHost || 'all');
   const [levelFilter, setLevelFilter] = useState('ALL');
   const [timeRange, setTimeRange] = useState('-1h');
   const [expandedLogId, setExpandedLogId] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
 
-  // Fetch logs
+  // Fetch logs for currently selected host
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params = {
+        host: selectedHost,
         start: timeRange,
         end: 'now',
         limit: 150,
       };
-      if (hostFilter && hostFilter !== 'all') {
-        params.host = hostFilter;
-      }
       if (levelFilter && levelFilter !== 'ALL') {
         params.level = levelFilter;
       }
@@ -60,32 +54,27 @@ export function LogsPage() {
         params.query = searchQuery.trim();
       }
 
-      const [logsRes, healthRes] = await Promise.all([
-        queryLogs(params),
-        getLogsHealth().catch(() => ({ status: 'unavailable' })),
-      ]);
+      const logsRes = await queryLogs(params);
 
       if (logsRes && logsRes.status === 'success') {
         setLogs(logsRes.logs || []);
-        setTotalCount(logsRes.total || (logsRes.logs ? logsRes.logs.length : 0));
         setLogSource(logsRes.source || 'victorialogs');
       } else {
         setLogs([]);
-        setTotalCount(0);
       }
     } catch (err) {
-      setError(err?.message || 'Failed to fetch logs from server');
+      setError(err?.response?.data?.detail || err?.message || 'Failed to fetch logs from server');
       setLogs([]);
     } finally {
       setLoading(false);
     }
-  }, [hostFilter, levelFilter, timeRange, searchQuery]);
+  }, [selectedHost, levelFilter, timeRange, searchQuery]);
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
-  // Optional auto-refresh interval
+  // Live polling stream
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(() => {
@@ -98,117 +87,137 @@ export function LogsPage() {
     setExpandedLogId(expandedLogId === id ? null : id);
   };
 
-  const getLevelBadgeClass = (level) => {
+  const getLevelBadge = (level) => {
     const l = (level || '').toUpperCase();
-    if (l === 'CRITICAL') return 'badge-critical';
-    if (l === 'ERROR') return 'badge-error';
-    if (l === 'WARN' || l === 'WARNING') return 'badge-warning';
-    return 'badge-info';
+    if (l === 'CRITICAL') return { label: 'CRIT', class: 'badge-critical' };
+    if (l === 'ERROR') return { label: 'ERR', class: 'badge-critical' };
+    if (l === 'WARN' || l === 'WARNING') return { label: 'WARN', class: 'badge-warning' };
+    return { label: 'INFO', class: 'badge-info' };
   };
 
   return (
-    <div className="logs-page">
-      {/* Top Header */}
-      <div className="page-header font-sans">
-        <div>
-          <h1 className="page-title font-sans">Logs</h1>
+    <div className="netra-logs-page font-sans">
+      {/* 1. PAGE HEADER WITH ACTIVE HOST SELECTOR */}
+      <div className="dashboard-main-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h1 className="header-page-title font-sans">Logs</h1>
+          <span
+            className={`text-xs px-2 py-0.5 rounded border ${
+              activeServer?.isLive
+                ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+                : 'border-slate-500/30 text-slate-400 bg-slate-500/10'
+            }`}
+            style={{ fontSize: '11px', letterSpacing: '0.02em' }}
+          >
+            {activeServer?.environment || (selectedHost === 'ubuntu' ? 'Live Infrastructure' : 'Simulated Infrastructure')}
+          </span>
         </div>
 
-        <div className="header-actions font-sans">
-          <button
-            type="button"
-            className={`btn-ghost ${autoRefresh ? 'active-pulse' : ''}`}
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            title="Auto-refresh logs every 10 seconds"
-          >
-            Live Poll {autoRefresh ? 'ON' : 'OFF'}
-          </button>
-          <button
-            type="button"
-            className="btn-primary flex items-center gap-2"
-            onClick={fetchLogs}
-            disabled={loading}
-          >
-            <RefreshCw size={14} className={loading ? 'spinning' : ''} />
-            <span>Refresh</span>
-          </button>
+        <div className="server-host-selector font-sans">
+          <span className="selector-label font-sans">Host:</span>
+          {servers.map((s) => (
+            <button
+              key={s.host}
+              type="button"
+              onClick={() => selectServer(s.host)}
+              className={`host-tab-btn ${selectedHost === s.host ? 'active' : ''}`}
+            >
+              <ServerIcon size={12} />
+              <span>{s.name}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="filters-card">
-        <div className="filter-group-main">
+      {/* 2. FILTER & SEARCH CONTROL STRIP */}
+      <div className="netra-panel filter-panel">
+        <div className="filter-controls-row">
+          {/* Keyword Search */}
           <div className="search-box">
             <Search size={14} className="search-icon" />
             <input
               type="text"
-              placeholder="Filter by keyword, service, error message..."
+              placeholder="Search log messages, services, or events..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
+              className="search-input font-sans"
             />
           </div>
 
-          <div className="select-wrapper">
-            <Server size={14} className="select-icon" />
-            <select
-              value={hostFilter}
-              onChange={(e) => setHostFilter(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">All Monitored Hosts</option>
-              {servers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.id})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="select-wrapper">
-            <Filter size={14} className="select-icon" />
-            <select
-              value={levelFilter}
-              onChange={(e) => setLevelFilter(e.target.value)}
-              className="filter-select"
-            >
+          {/* Severity Tabs */}
+          <div className="filter-section">
+            <span className="filter-label">Severity:</span>
+            <div className="segmented-tabs font-sans">
               {SEVERITY_LEVELS.map((lvl) => (
-                <option key={lvl} value={lvl}>
-                  Severity: {lvl}
-                </option>
+                <button
+                  key={lvl}
+                  type="button"
+                  onClick={() => setLevelFilter(lvl)}
+                  className={`tab-btn ${levelFilter === lvl ? 'active' : ''}`}
+                >
+                  {lvl}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
-          <div className="select-wrapper">
-            <Clock size={14} className="select-icon" />
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
-              className="filter-select"
-            >
+          {/* Time Window Tabs */}
+          <div className="filter-section">
+            <span className="filter-label">Window:</span>
+            <div className="segmented-tabs font-sans">
               {TIME_RANGES.map((tr) => (
-                <option key={tr.value} value={tr.value}>
+                <button
+                  key={tr.value}
+                  type="button"
+                  onClick={() => setTimeRange(tr.value)}
+                  className={`tab-btn ${timeRange === tr.value ? 'active' : ''}`}
+                >
                   {tr.label}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
+          </div>
+
+          {/* Live Stream & Refresh */}
+          <div className="filter-actions">
+            <button
+              type="button"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`stream-toggle-btn font-sans ${autoRefresh ? 'active' : ''}`}
+              title="Toggle automatic 10-second polling"
+            >
+              <span className={`stream-dot ${autoRefresh ? 'dot-active' : ''}`} />
+              Live Stream
+            </button>
+
+            <button
+              type="button"
+              onClick={fetchLogs}
+              disabled={loading}
+              className="refresh-btn font-sans"
+              title="Refresh logs"
+            >
+              <RefreshCw size={13} className={loading ? 'spinning' : ''} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Main Log Viewer */}
-      <div className="log-viewer-container font-sans">
-        <div className="viewer-meta-bar font-sans">
-          <span className="meta-text font-sans">
-            Showing {logs.length} log events · Source: {logSource}
-          </span>
-          {loading && <span className="meta-text font-sans animate-pulse">Loading...</span>}
+      {/* 3. LOG VIEWER PANEL */}
+      <div className="netra-panel logs-panel">
+        <div className="panel-title-bar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h2 className="panel-title font-sans">System & Application Logs</h2>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              {logs.length} events · Source: {logSource}
+            </span>
+          </div>
+          {loading && <span className="loading-text font-sans">Syncing...</span>}
         </div>
 
         {error && (
           <div className="error-banner font-sans">
-            <AlertTriangle size={16} />
+            <AlertTriangle size={15} />
             <span>{error}</span>
           </div>
         )}
@@ -216,8 +225,8 @@ export function LogsPage() {
         {logs.length === 0 && !loading && (
           <div className="empty-state font-sans">
             <Terminal size={32} className="empty-icon" />
-            <h3>No Logs Found</h3>
-            <p>No log events matched the active filters.</p>
+            <h3 className="empty-title">No Logs Found</h3>
+            <p className="empty-desc">No log events match the active filter criteria for {activeServer?.name || selectedHost}.</p>
           </div>
         )}
 
@@ -225,24 +234,25 @@ export function LogsPage() {
           {logs.map((entry, idx) => {
             const entryId = entry.id || idx;
             const isExpanded = expandedLogId === entryId;
+            const badge = getLevelBadge(entry.level);
 
             return (
               <div key={entryId} className={`log-row ${isExpanded ? 'log-row-expanded' : ''}`}>
                 <div className="log-row-summary" onClick={() => toggleExpand(entryId)}>
-                  <button type="button" className="expand-chevron">
-                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <button type="button" className="expand-chevron" aria-label="Toggle details">
+                    {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                   </button>
 
-                  <span className="log-ts">
-                    {entry.timestamp ? formatTimestamp(entry.timestamp) : 'N/A'}
+                  <span className="log-ts tabular-nums">
+                    {entry.timestamp ? formatTimestamp(entry.timestamp, true, false) : '—'}
                   </span>
 
-                  <span className={`log-badge ${getLevelBadgeClass(entry.level)}`}>
-                    {entry.level || 'INFO'}
+                  <span className={`nokia-badge ${badge.class} log-badge-pill`}>
+                    {badge.label}
                   </span>
 
-                  <span className="log-host font-semibold">
-                    {entry.host || 'ubuntu'}
+                  <span className="log-host font-medium">
+                    {entry.host || selectedHost}
                   </span>
 
                   <span className="log-source">
@@ -255,28 +265,28 @@ export function LogsPage() {
                 </div>
 
                 {isExpanded && (
-                  <div className="log-detail-drawer">
+                  <div className="log-detail-drawer font-sans">
                     <div className="detail-grid">
                       <div className="detail-item">
-                        <span className="detail-label">HOST IDENTIFIER</span>
-                        <span className="detail-val">{entry.host}</span>
+                        <span className="detail-label">HOST</span>
+                        <span className="detail-val font-medium">{entry.host || selectedHost}</span>
                       </div>
                       <div className="detail-item">
-                        <span className="detail-label">EXACT TIMESTAMP</span>
-                        <span className="detail-val">{entry.timestamp}</span>
+                        <span className="detail-label">TIMESTAMP</span>
+                        <span className="detail-val tabular-nums">{entry.timestamp}</span>
                       </div>
                       <div className="detail-item">
-                        <span className="detail-label">SOURCE COMPONENT</span>
-                        <span className="detail-val">{entry.source}</span>
+                        <span className="detail-label">COMPONENT</span>
+                        <span className="detail-val font-medium">{entry.source || 'system'}</span>
                       </div>
                       <div className="detail-item">
-                        <span className="detail-label">SEVERITY LEVEL</span>
-                        <span className="detail-val">{entry.level}</span>
+                        <span className="detail-label">SEVERITY</span>
+                        <span className="detail-val font-medium">{entry.level || 'INFO'}</span>
                       </div>
                     </div>
                     <div className="raw-msg-block">
-                      <div className="raw-msg-title">SANITIZED LOG MESSAGE</div>
-                      <pre className="raw-msg-text">{entry.message}</pre>
+                      <div className="raw-msg-title">SANITIZED MESSAGE</div>
+                      <pre className="raw-msg-text font-sans">{entry.message}</pre>
                     </div>
                   </div>
                 )}
@@ -287,95 +297,243 @@ export function LogsPage() {
       </div>
 
       <style>{`
-        .logs-page {
-          padding: 24px 32px;
+        .netra-logs-page {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 16px;
         }
 
-        .page-header {
+        .dashboard-main-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          padding-bottom: 2px;
         }
 
-        .page-title {
-          font-size: 20px;
+        .header-page-title {
+          font-size: 24px;
           font-weight: 600;
+          letter-spacing: -0.02em;
           color: var(--text-primary);
-          margin: 0;
+          line-height: 1.2;
         }
 
-        .page-subtitle {
-          font-size: 11px;
-          color: var(--text-muted);
-          margin-top: 4px;
-        }
-
-        .status-pill {
-          font-size: 10px;
-          font-weight: 600;
-          padding: 2px 8px;
-          border-radius: 12px;
-          letter-spacing: 0.05em;
-        }
-
-        .status-live {
-          background-color: rgba(34, 197, 94, 0.15);
-          color: #22c55e;
-          border: 1px solid rgba(34, 197, 94, 0.3);
-        }
-
-        .status-fallback {
-          background-color: rgba(59, 130, 246, 0.15);
-          color: #3b82f6;
-          border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-
-        .header-actions {
+        .server-host-selector {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 4px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          padding: 3px 4px;
         }
 
-        .btn-ghost {
-          background: transparent;
-          border: 1px solid var(--border-subtle);
-          color: var(--text-secondary);
-          padding: 6px 14px;
-          border-radius: var(--radius-sm);
+        .selector-label {
+          font-size: 11px;
+          color: var(--text-muted);
+          padding: 0 6px;
+          font-weight: 500;
+        }
+
+        .host-tab-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: var(--radius-xs);
           font-size: 12px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          background: transparent;
+          border: none;
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
-        .btn-ghost:hover {
-          background: var(--bg-subtle);
+        .host-tab-btn:hover {
+          color: var(--text-primary);
+          background: var(--bg-surface-hover);
+        }
+
+        .host-tab-btn.active {
+          color: var(--text-primary);
+          background: var(--bg-inset);
+          font-weight: 600;
+        }
+
+        /* Netra Panels */
+        .netra-panel {
+          background-color: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          overflow: hidden;
+        }
+
+        .panel-title-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 14px;
+          border-bottom: 1px solid var(--border-subtle);
+          background-color: var(--bg-surface);
+        }
+
+        .panel-title {
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: -0.01em;
           color: var(--text-primary);
         }
 
-        .active-pulse {
-          border-color: var(--accent);
-          color: var(--accent);
+        .loading-text {
+          font-size: 11px;
+          color: var(--text-muted);
+          animation: pulse 1.5s infinite;
         }
 
-        .btn-primary {
-          background: var(--accent);
-          color: #ffffff;
-          border: none;
-          padding: 6px 14px;
-          border-radius: var(--radius-sm);
+        /* Filter Controls */
+        .filter-panel {
+          padding: 10px 14px;
+        }
+
+        .filter-controls-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .search-box {
+          position: relative;
+          flex: 1;
+          min-width: 260px;
+        }
+
+        .search-icon {
+          position: absolute;
+          left: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--text-muted);
+          pointer-events: none;
+        }
+
+        .search-input {
+          width: 100%;
+          padding: 6px 12px 6px 30px;
+          background: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-xs);
+          color: var(--text-primary);
           font-size: 12px;
-          font-weight: 500;
-          cursor: pointer;
+          outline: none;
+          transition: border-color 0.15s ease;
+        }
+
+        .search-input:focus {
+          border-color: var(--border-strong);
+        }
+
+        .filter-section {
           display: flex;
           align-items: center;
           gap: 6px;
         }
 
-        .btn-primary:hover:not(:disabled) {
-          opacity: 0.9;
+        .filter-label {
+          font-size: 11px;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+
+        .segmented-tabs {
+          display: flex;
+          gap: 2px;
+          background-color: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-xs);
+          padding: 2px;
+        }
+
+        .tab-btn {
+          padding: 3px 8px;
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          background: transparent;
+          border: none;
+          border-radius: var(--radius-xs);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .tab-btn:hover {
+          color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+          background-color: var(--bg-surface);
+          color: var(--text-primary);
+          font-weight: 600;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .filter-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-left: auto;
+        }
+
+        .stream-toggle-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-xs);
+          padding: 4px 10px;
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .stream-toggle-btn.active {
+          color: var(--status-healthy);
+          border-color: rgba(34, 197, 94, 0.3);
+          background: rgba(34, 197, 94, 0.05);
+        }
+
+        .stream-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--text-muted);
+        }
+
+        .stream-dot.dot-active {
+          background: var(--status-healthy);
+          box-shadow: 0 0 6px var(--status-healthy);
+        }
+
+        .refresh-btn {
+          background: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-xs);
+          padding: 5px 8px;
+          color: var(--text-secondary);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+        }
+
+        .refresh-btn:hover:not(:disabled) {
+          color: var(--text-primary);
+          background: var(--bg-surface-hover);
         }
 
         .spinning {
@@ -386,92 +544,19 @@ export function LogsPage() {
           100% { transform: rotate(360deg); }
         }
 
-        .filters-card {
-          background: var(--bg-surface);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-sm);
-          padding: 12px 16px;
-        }
-
-        .filter-group-main {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          align-items: center;
-        }
-
-        .search-box {
-          position: relative;
-          flex: 1;
-          min-width: 250px;
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--text-muted);
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 6px 12px 6px 32px;
-          background: var(--bg-surface-elevated, #ffffff);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-sm);
-          color: var(--text-primary);
-          font-size: 12px;
-        }
-
-        .select-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .select-icon {
-          position: absolute;
-          left: 10px;
-          color: var(--text-muted);
-          pointer-events: none;
-        }
-
-        .filter-select {
-          padding: 6px 12px 6px 30px;
-          background: var(--bg-surface-elevated, #ffffff);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-sm);
-          color: var(--text-primary);
-          font-size: 12px;
-          cursor: pointer;
-        }
-
-        .log-viewer-container {
-          background: var(--bg-surface);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-sm);
-          overflow: hidden;
+        /* Log Entries List */
+        .logs-panel {
+          min-height: 480px;
           display: flex;
           flex-direction: column;
-        }
-
-        .viewer-meta-bar {
-          background: var(--bg-subtle);
-          padding: 8px 16px;
-          display: flex;
-          justify-content: space-between;
-          border-bottom: 1px solid var(--border-subtle);
-          font-size: 10px;
-          color: var(--text-muted);
-          letter-spacing: 0.05em;
         }
 
         .log-entries-list {
+          flex: 1;
           display: flex;
           flex-direction: column;
-          font-size: 11px;
-          max-height: 650px;
+          font-size: 12px;
+          max-height: 700px;
           overflow-y: auto;
         }
 
@@ -481,13 +566,13 @@ export function LogsPage() {
         }
 
         .log-row:hover {
-          background: var(--bg-subtle);
+          background-color: var(--bg-surface-hover);
         }
 
         .log-row-summary {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           padding: 8px 14px;
           cursor: pointer;
         }
@@ -500,63 +585,40 @@ export function LogsPage() {
           display: flex;
           align-items: center;
           padding: 0;
+          flex-shrink: 0;
         }
 
         .log-ts {
           color: var(--text-muted);
-          font-size: 10px;
+          font-size: 11px;
           white-space: nowrap;
-          width: 130px;
+          width: 140px;
           flex-shrink: 0;
         }
 
-        .log-badge {
-          font-size: 9px;
-          font-weight: 700;
-          padding: 1px 6px;
-          border-radius: 4px;
-          width: 55px;
-          text-align: center;
+        .log-badge-pill {
+          width: 44px;
+          justify-content: center;
+          padding: 1px 4px;
+          font-size: 10px;
           flex-shrink: 0;
-        }
-
-        .badge-critical {
-          background-color: rgba(239, 68, 68, 0.2);
-          color: #ef4444;
-          border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-
-        .badge-error {
-          background-color: rgba(249, 115, 22, 0.2);
-          color: #f97316;
-          border: 1px solid rgba(249, 115, 22, 0.3);
-        }
-
-        .badge-warning {
-          background-color: rgba(234, 179, 8, 0.2);
-          color: #eab308;
-          border: 1px solid rgba(234, 179, 8, 0.3);
-        }
-
-        .badge-info {
-          background-color: rgba(59, 130, 246, 0.15);
-          color: #3b82f6;
-          border: 1px solid rgba(59, 130, 246, 0.25);
         }
 
         .log-host {
           color: var(--text-secondary);
-          width: 70px;
+          width: 75px;
           flex-shrink: 0;
+          font-size: 11px;
         }
 
         .log-source {
           color: var(--text-muted);
-          width: 100px;
+          width: 120px;
           flex-shrink: 0;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          font-size: 11px;
         }
 
         .log-msg {
@@ -565,11 +627,12 @@ export function LogsPage() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          font-size: 12px;
         }
 
         .log-detail-drawer {
-          background: var(--bg-subtle);
-          padding: 12px 20px 14px 40px;
+          background: var(--bg-canvas);
+          padding: 12px 16px 14px 42px;
           border-top: 1px dashed var(--border-subtle);
         }
 
@@ -577,7 +640,7 @@ export function LogsPage() {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           gap: 12px;
-          margin-bottom: 12px;
+          margin-bottom: 10px;
         }
 
         .detail-item {
@@ -587,27 +650,28 @@ export function LogsPage() {
         }
 
         .detail-label {
-          font-size: 9px;
+          font-size: 10px;
           color: var(--text-muted);
-          letter-spacing: 0.05em;
+          font-weight: 500;
         }
 
         .detail-val {
-          font-size: 11px;
+          font-size: 12px;
           color: var(--text-primary);
         }
 
         .raw-msg-block {
           background: var(--bg-surface);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-xs);
           padding: 8px 12px;
         }
 
         .raw-msg-title {
-          font-size: 9px;
+          font-size: 10px;
           color: var(--text-muted);
           margin-bottom: 4px;
+          font-weight: 500;
         }
 
         .raw-msg-text {
@@ -616,6 +680,7 @@ export function LogsPage() {
           word-break: break-all;
           font-size: 11px;
           color: var(--text-primary);
+          line-height: 1.4;
         }
 
         .empty-state {
@@ -623,24 +688,38 @@ export function LogsPage() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 48px 16px;
+          padding: 60px 16px;
           color: var(--text-muted);
           text-align: center;
         }
 
         .empty-icon {
           margin-bottom: 12px;
-          opacity: 0.4;
+          opacity: 0.3;
+        }
+
+        .empty-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin-bottom: 4px;
+        }
+
+        .empty-desc {
+          font-size: 12px;
+          max-width: 380px;
+          line-height: 1.4;
         }
 
         .error-banner {
-          background: rgba(239, 68, 68, 0.1);
-          color: #ef4444;
-          padding: 10px 16px;
+          background: rgba(239, 68, 68, 0.08);
+          color: var(--status-critical);
+          padding: 8px 14px;
           display: flex;
           align-items: center;
           gap: 8px;
           font-size: 12px;
+          border-bottom: 1px solid rgba(239, 68, 68, 0.2);
         }
       `}</style>
     </div>

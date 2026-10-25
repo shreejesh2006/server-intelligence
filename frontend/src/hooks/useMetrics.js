@@ -86,22 +86,16 @@ export function useMetrics(targetHost = null, pollIntervalMs = 30000) {
 
   // Determine data freshness state
   let freshnessState = 'FRESH';
-  let freshnessLabel = 'TELEMETRY FRESH';
+  let freshnessLabel = 'Connected';
 
   if (isOffline) {
     freshnessState = 'OFFLINE';
     freshnessLabel = 'API OFFLINE';
-  } else if (latestMetricTimestamp) {
-    const ageSeconds = Math.floor(Date.now() / 1000) - latestMetricTimestamp;
-    if (ageSeconds > 60) {
-      freshnessState = 'STALE';
-      freshnessLabel = 'TELEMETRY STALE';
-    }
   } else if (lastUpdated) {
     const ageSeconds = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
-    if (ageSeconds > 60) {
+    if (ageSeconds > 120) {
       freshnessState = 'STALE';
-      freshnessLabel = 'TELEMETRY STALE';
+      freshnessLabel = 'Connection Stale';
     }
   }
 

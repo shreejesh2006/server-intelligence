@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from app.services.victoriametrics import VictoriaMetricsService, normalize_host, KNOWN_HOSTS
+from app.services.synthetic_profiles import synthetic_telemetry
 
 
 router = APIRouter(
@@ -95,6 +96,10 @@ async def current_metrics(
     else:
         target_canonical = "ubuntu"
 
+    # Route simulated server profiles to isolated synthetic telemetry provider
+    if target_canonical in ("windows", "kali"):
+        return synthetic_telemetry.get_current_metrics(target_canonical)
+
     # 1. Try querying VictoriaMetrics first
     try:
         vm_has_data = False
@@ -121,7 +126,10 @@ async def current_metrics(
         if vm_has_data:
             return {
                 "status": "success",
-                "host": host,
+                "host": host or target_canonical,
+                "provenance": "live_agent",
+                "environment": "Live Infrastructure",
+                "is_connected_agent": True,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "metrics": result,
             }
@@ -144,15 +152,21 @@ async def current_metrics(
 
         return {
             "status": "success",
-            "host": host,
+            "host": host or target_canonical,
+            "provenance": "live_agent",
+            "environment": "Live Infrastructure",
+            "is_connected_agent": True,
             "source": "database",
-            "timestamp": latest_sample.timestamp.isoformat() if latest_sample.timestamp else None,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "sample_timestamp": latest_sample.timestamp.isoformat() if latest_sample.timestamp else None,
             "metrics": result,
         }
 
     return {
         "status": "unavailable",
-        "host": host,
+        "host": host or target_canonical,
+        "provenance": "live_agent",
+        "environment": "Live Infrastructure",
         "metrics": None,
         "detail": f"No telemetry available for host '{host}' in VictoriaMetrics or database.",
     }
@@ -201,6 +215,31 @@ async def metric_history(
             detail=f"Unknown metric: {metric_name}",
         )
 
+    # Route simulated profiles to isolated synthetic telemetry provider
+    if target_canonical in ("windows", "kali"):
+        try:
+            start_ts = float(parse_relative_time(start))
+            end_ts = float(parse_relative_time(end))
+        except Exception:
+            start_ts = time.time() - 3600
+            end_ts = time.time()
+
+        step_seconds = 30
+        if step:
+            m_step = re.match(r"^(\d+)([smhd])$", step)
+            if m_step:
+                val, unit = int(m_step.group(1)), m_step.group(2)
+                seconds_map = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+                step_seconds = max(1, val * seconds_map.get(unit, 1))
+
+        return synthetic_telemetry.get_metric_history(
+            metric_name=metric_name,
+            start_ts=start_ts,
+            end_ts=end_ts,
+            step_seconds=step_seconds,
+            host=target_canonical,
+        )
+
     # 1. Try VictoriaMetrics range query
     try:
         query = build_query(metric, host)
@@ -237,7 +276,9 @@ async def metric_history(
 
                 return {
                     "metric": metric_name,
-                    "host": host,
+                    "host": host or target_canonical,
+                    "provenance": "live_agent",
+                    "environment": "Live Infrastructure",
                     "start": start,
                     "end": end,
                     "step": step,
@@ -345,7 +386,9 @@ async def metric_history(
 
     return {
         "metric": metric_name,
-        "host": host,
+        "host": host or target_canonical,
+        "provenance": "live_agent",
+        "environment": "Live Infrastructure",
         "source": "database",
         "start": start,
         "end": end,

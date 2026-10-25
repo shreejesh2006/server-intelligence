@@ -15,7 +15,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-const FORECAST_HORIZONS = ['5m', '15m', '30m', '1h', '3h'];
+const FORECAST_HORIZONS = ['5m', '15m', '30m', '1h', '3h', '6h', '12h', '24h', '48h', '72h'];
 
 export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
   const { servers, selectedHost, selectServer, activeServer } = useServer();
@@ -84,6 +84,9 @@ export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
       <div className="page-header-block">
         <div>
           <h1 className="page-title font-sans">Forecasts</h1>
+          <div className="text-muted text-xs font-sans font-medium" style={{ marginTop: '2px' }}>
+            {activeServer?.isLive ? 'Live Infrastructure' : 'Simulated Infrastructure'} · Model: {primaryModel || 'iTransformer'}
+          </div>
         </div>
 
         {/* Active Host Selector */}
@@ -160,7 +163,7 @@ export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
                     </div>
                   </div>
 
-                  {/* 5 HORIZONS READOUT GRID */}
+                  {/* 10 HORIZONS READOUT GRID */}
                   <div className="horizons-row-grid">
                     {FORECAST_HORIZONS.map((h) => {
                       const predVal = predictions[h];
@@ -168,6 +171,7 @@ export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
                       const diff = hasVal ? predVal - curVal : null;
                       const isUp = hasVal && predVal > curVal;
                       const isSame = hasVal && Math.abs(diff) < 0.001;
+                      const uncertObj = target.forecastObj?.uncertainty?.[h];
 
                       return (
                         <div key={h} className="horizon-readout-card font-sans">
@@ -193,6 +197,11 @@ export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
                               </span>
                             ) : (
                               <span className="text-muted">—</span>
+                            )}
+                            {uncertObj && uncertObj.std_error != null && !isNaN(uncertObj.std_error) && (
+                              <span className="text-muted text-xs font-sans" style={{ opacity: 0.75 }}>
+                                ±{formatNumber(uncertObj.std_error, target.decimals)}
+                              </span>
                             )}
                           </div>
                         </div>

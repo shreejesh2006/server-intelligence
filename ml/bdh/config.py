@@ -39,6 +39,11 @@ HORIZONS_MAP = {
     "30m": 60,
     "1h": 120,
     "3h": 360,
+    "6h": 720,
+    "12h": 1440,
+    "24h": 2880,
+    "48h": 5760,
+    "72h": 8640,
 }
 
 DEFAULT_SAMPLING_INTERVAL_SECONDS = 30

@@ -16,13 +16,18 @@ logger = logging.getLogger(__name__)
 
 # Common Benchmark Contract Constants
 TARGET_COLUMNS = ["cpu", "memory", "load_1m"]
-HORIZONS = ["5m", "15m", "30m", "1h", "3h"]
+HORIZONS = ["5m", "15m", "30m", "1h", "3h", "6h", "12h", "24h", "48h", "72h"]
 HORIZON_STEPS_MAP = {
     "5m": 10,
     "15m": 30,
     "30m": 60,
     "1h": 120,
     "3h": 360,
+    "6h": 720,
+    "12h": 1440,
+    "24h": 2880,
+    "48h": 5760,
+    "72h": 8640,
 }
 
 # Index mapping for canonical features

@@ -25,8 +25,10 @@ FORECAST_MODELS_DIR = REPO_ROOT / "ml" / "models" / "forecasting"
 ANOMALY_MODELS_DIR = REPO_ROOT / "ml" / "models" / "anomaly"
 
 TARGET_COLUMNS = ["cpu", "memory", "load_1m"]
-HORIZONS = ["5m", "15m", "30m", "1h", "3h"]
-KNOWN_HOSTS = ["ubuntu"]
+HORIZONS = ["5m", "15m", "30m", "1h", "3h", "6h", "12h", "24h", "48h", "72h"]
+KNOWN_HOSTS = ["ubuntu", "windows", "kali"]
+ACTUAL_HOSTS = ["ubuntu"]
+SIMULATED_HOSTS = ["windows", "kali"]
 
 
 def normalize_host(host: str | None) -> str | None:
@@ -35,6 +37,10 @@ def normalize_host(host: str | None) -> str | None:
     clean = host.strip().lower()
     if clean in ("ubuntu", "100.108.160.2", "192.168.1.10") or "ubuntu" in clean:
         return "ubuntu"
+    if clean in ("windows", "win", "10.0.12.44") or "win" in clean:
+        return "windows"
+    if clean in ("kali", "10.0.14.88") or "kali" in clean:
+        return "kali"
     return None
 
 

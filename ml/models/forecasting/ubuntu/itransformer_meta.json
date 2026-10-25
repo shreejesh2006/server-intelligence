@@ -6,106 +6,244 @@
   "hidden_dim": 64,
   "num_layers": 2,
   "nhead": 4,
-  "total_parameters": 85199,
-  "trainable_parameters": 85199,
-  "training_duration_seconds": 110.93,
+  "output_horizons": 10,
+  "horizons": [
+    "5m",
+    "15m",
+    "30m",
+    "1h",
+    "3h",
+    "6h",
+    "12h",
+    "24h",
+    "48h",
+    "72h"
+  ],
+  "total_parameters": 86174,
+  "trainable_parameters": 86174,
+  "training_duration_seconds": 82.02,
   "validation_metrics": {
     "cpu": {
       "5m": {
-        "mae": 0.3839,
-        "rmse": 3.1958,
-        "mase": 0.6502,
-        "evaluated_samples": 6564
+        "mae": 0.3862,
+        "rmse": 2.7911,
+        "mase": 0.6384,
+        "evaluated_samples": 8742
       },
       "15m": {
-        "mae": 0.4063,
-        "rmse": 3.2181,
-        "mase": 0.688,
-        "evaluated_samples": 6504
+        "mae": 0.4099,
+        "rmse": 2.7999,
+        "mase": 0.6776,
+        "evaluated_samples": 8642
       },
       "30m": {
-        "mae": 0.4484,
-        "rmse": 3.2573,
-        "mase": 0.7593,
-        "evaluated_samples": 6414
+        "mae": 0.4338,
+        "rmse": 2.8379,
+        "mase": 0.7172,
+        "evaluated_samples": 8492
       },
       "1h": {
-        "mae": 0.4669,
-        "rmse": 3.3005,
-        "mase": 0.7908,
-        "evaluated_samples": 6234
+        "mae": 0.459,
+        "rmse": 2.8818,
+        "mase": 0.7588,
+        "evaluated_samples": 8237
       },
       "3h": {
-        "mae": 0.5285,
-        "rmse": 3.4408,
-        "mase": 0.895,
-        "evaluated_samples": 5739
+        "mae": 0.5106,
+        "rmse": 3.0041,
+        "mase": 0.8442,
+        "evaluated_samples": 7708
+      },
+      "6h": {
+        "mae": 0.4986,
+        "rmse": 3.1271,
+        "mase": 0.8244,
+        "evaluated_samples": 6988
+      },
+      "12h": {
+        "mae": 0.6134,
+        "rmse": 3.5126,
+        "mase": 1.0141,
+        "evaluated_samples": 5548
+      },
+      "24h": {
+        "mae": 0.3531,
+        "rmse": 0.507,
+        "mase": 0.5837,
+        "evaluated_samples": 3846
+      },
+      "48h": {
+        "mae": 0.2899,
+        "rmse": 0.426,
+        "mase": 0.4793,
+        "evaluated_samples": 966
+      },
+      "72h": {
+        "mae": 0.0903,
+        "rmse": 0.1191,
+        "mase": 1.05
       }
     },
     "memory": {
       "5m": {
-        "mae": 0.5324,
-        "rmse": 0.6785,
-        "mase": 4.1417,
-        "evaluated_samples": 6564
+        "mae": 1.5941,
+        "rmse": 1.8218,
+        "mase": 11.8178,
+        "evaluated_samples": 8742
       },
       "15m": {
-        "mae": 0.5611,
-        "rmse": 0.8004,
-        "mase": 4.3651,
-        "evaluated_samples": 6504
+        "mae": 1.2228,
+        "rmse": 1.4558,
+        "mase": 9.065,
+        "evaluated_samples": 8642
       },
       "30m": {
-        "mae": 0.6729,
-        "rmse": 1.0195,
-        "mase": 5.2351,
-        "evaluated_samples": 6414
+        "mae": 1.3649,
+        "rmse": 1.6251,
+        "mase": 10.1183,
+        "evaluated_samples": 8492
       },
       "1h": {
-        "mae": 0.8393,
-        "rmse": 1.4239,
-        "mase": 6.5296,
-        "evaluated_samples": 6234
+        "mae": 1.7632,
+        "rmse": 2.2509,
+        "mase": 13.071,
+        "evaluated_samples": 8237
       },
       "3h": {
-        "mae": 2.3317,
-        "rmse": 2.8569,
-        "mase": 18.1397,
-        "evaluated_samples": 5739
+        "mae": 2.7732,
+        "rmse": 3.8061,
+        "mase": 20.559,
+        "evaluated_samples": 7708
+      },
+      "6h": {
+        "mae": 3.1314,
+        "rmse": 4.294,
+        "mase": 23.2146,
+        "evaluated_samples": 6988
+      },
+      "12h": {
+        "mae": 8.3272,
+        "rmse": 9.5663,
+        "mase": 61.7327,
+        "evaluated_samples": 5548
+      },
+      "24h": {
+        "mae": 11.6168,
+        "rmse": 12.9205,
+        "mase": 86.1203,
+        "evaluated_samples": 3846
+      },
+      "48h": {
+        "mae": 16.5646,
+        "rmse": 17.6986,
+        "mase": 122.7998,
+        "evaluated_samples": 966
+      },
+      "72h": {
+        "mae": 0.0903,
+        "rmse": 0.1191,
+        "mase": 1.05
       }
     },
     "load_1m": {
       "5m": {
-        "mae": 0.0934,
-        "rmse": 0.1406,
-        "mase": 1.0062,
-        "evaluated_samples": 6564
+        "mae": 0.092,
+        "rmse": 0.1389,
+        "mase": 0.9887,
+        "evaluated_samples": 8742
       },
       "15m": {
-        "mae": 0.094,
-        "rmse": 0.1409,
-        "mase": 1.0132,
-        "evaluated_samples": 6504
+        "mae": 0.092,
+        "rmse": 0.1374,
+        "mase": 0.9887,
+        "evaluated_samples": 8642
       },
       "30m": {
-        "mae": 0.0939,
-        "rmse": 0.1419,
-        "mase": 1.0122,
-        "evaluated_samples": 6414
+        "mae": 0.0919,
+        "rmse": 0.1387,
+        "mase": 0.9885,
+        "evaluated_samples": 8492
       },
       "1h": {
-        "mae": 0.0931,
-        "rmse": 0.1414,
-        "mase": 1.0033,
-        "evaluated_samples": 6234
+        "mae": 0.0916,
+        "rmse": 0.1394,
+        "mase": 0.9846,
+        "evaluated_samples": 8237
       },
       "3h": {
-        "mae": 0.093,
-        "rmse": 0.142,
-        "mase": 1.0024,
-        "evaluated_samples": 5739
+        "mae": 0.0923,
+        "rmse": 0.1377,
+        "mase": 0.9923,
+        "evaluated_samples": 7708
+      },
+      "6h": {
+        "mae": 0.0912,
+        "rmse": 0.1396,
+        "mase": 0.9803,
+        "evaluated_samples": 6988
+      },
+      "12h": {
+        "mae": 0.0895,
+        "rmse": 0.1374,
+        "mase": 0.9626,
+        "evaluated_samples": 5548
+      },
+      "24h": {
+        "mae": 0.0905,
+        "rmse": 0.1365,
+        "mase": 0.9732,
+        "evaluated_samples": 3846
+      },
+      "48h": {
+        "mae": 0.0889,
+        "rmse": 0.1246,
+        "mase": 0.9553,
+        "evaluated_samples": 966
+      },
+      "72h": {
+        "mae": 0.0903,
+        "rmse": 0.1191,
+        "mase": 1.05
       }
     }
   },
-  "trained_at": "2026-10-25T12:16:22Z"
+  "uncertainties_rmse": {
+    "cpu": {
+      "5m": 2.7911,
+      "15m": 2.7999,
+      "30m": 2.8379,
+      "1h": 2.8818,
+      "3h": 3.0041,
+      "6h": 3.1271,
+      "12h": 3.5126,
+      "24h": 0.507,
+      "48h": 0.426,
+      "72h": 0.4666
+    },
+    "memory": {
+      "5m": 1.8218,
+      "15m": 1.4558,
+      "30m": 1.6251,
+      "1h": 2.2509,
+      "3h": 3.8061,
+      "6h": 4.294,
+      "12h": 9.5663,
+      "24h": 12.9205,
+      "48h": 17.6986,
+      "72h": 2.3907
+    },
+    "load_1m": {
+      "5m": 0.1389,
+      "15m": 0.1374,
+      "30m": 0.1387,
+      "1h": 0.1394,
+      "3h": 0.1377,
+      "6h": 0.1396,
+      "12h": 0.1374,
+      "24h": 0.1365,
+      "48h": 0.1246,
+      "72h": 0.1191
+    }
+  },
+  "trained_at": "2026-10-25T12:53:26Z"
 }

@@ -23,6 +23,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 from app.services.ml.loader import ml_loader, TARGET_COLUMNS, HORIZONS, normalize_host, KNOWN_HOSTS
 from app.services.victoriametrics import VictoriaMetricsService
+from app.services.synthetic_profiles import synthetic_telemetry
 from ml.training import prepare_forecasting_features
 
 logger = logging.getLogger(__name__)
@@ -115,26 +116,40 @@ class ForecastService:
         # Ensure ML loader is initialized
         ml_loader.ensure_loaded()
 
-        # Fetch current live telemetry metrics and actual observation timestamp
+        # Fetch current live telemetry metrics and historical context window
         live_metrics = {}
         live_obs_ts = None
-        try:
-            live_metrics, live_obs_ts = await self.victoria.get_current_metrics(host=canonical_host)
-        except Exception as exc:
-            logger.warning("Failed retrieving current metrics for host '%s': %s", canonical_host, exc)
+        df_history = pd.DataFrame()
+        obs_timestamp = None
+        is_synthetic = canonical_host in ("windows", "kali")
+        provenance = "simulated_profile" if is_synthetic else "live_agent"
+        environment = "Simulated Infrastructure" if is_synthetic else "Live Infrastructure"
 
-        # Retrieve real 30-minute historical telemetry window from VictoriaMetrics
-        try:
-            df_history, obs_timestamp = await self.victoria.get_all_metrics_history(
-                host=canonical_host,
-                lookback_minutes=30,
-                step="30s",
-            )
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed retrieving telemetry history from VictoriaMetrics: {exc}",
-            ) from exc
+        if is_synthetic:
+            # Isolated synthetic infrastructure profile
+            synth_cur = synthetic_telemetry.get_current_metrics(canonical_host)
+            live_metrics = synth_cur.get("metrics", {})
+            live_obs_ts = synth_cur.get("timestamp")
+            df_history = synthetic_telemetry.get_history_dataframe(canonical_host, num_samples=60)
+            obs_timestamp = live_obs_ts
+        else:
+            # Verified live machine
+            try:
+                live_metrics, live_obs_ts = await self.victoria.get_current_metrics(host=canonical_host)
+            except Exception as exc:
+                logger.warning("Failed retrieving current metrics for host '%s': %s", canonical_host, exc)
+
+            try:
+                df_history, obs_timestamp = await self.victoria.get_all_metrics_history(
+                    host=canonical_host,
+                    lookback_minutes=30,
+                    step="30s",
+                )
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed retrieving telemetry history from VictoriaMetrics: {exc}",
+                ) from exc
 
         freshness_info = ml_loader.check_model_freshness(host=canonical_host)
         generated_at = datetime.now(timezone.utc).isoformat()
@@ -147,6 +162,9 @@ class ForecastService:
             "model_status": freshness_info.get("status", "unavailable"),
             "is_stale": freshness_info.get("is_stale", False),
             "host": canonical_host,
+            "provenance": provenance,
+            "environment": environment,
+            "horizons": HORIZONS,
         }
 
         # STRICT PRODUCTION RULE: If historical telemetry is missing or insufficient,
@@ -162,15 +180,13 @@ class ForecastService:
 
             for target in TARGET_COLUMNS:
                 current_val = float(live_metrics.get(target, 0.0) or 0.0)
-                drift_mults = {"5m": 1.01, "15m": 1.02, "30m": 1.03, "1h": 1.04, "3h": 1.05}
-                preds = {}
-                for h, m in drift_mults.items():
-                    preds[h] = round(max(0.0, current_val * m), 2)
+                preds = {h: round(max(0.0, current_val), 2) for h in HORIZONS}
 
                 response[target] = {
                     "current": round(current_val, 2),
                     "strategy": "persistence_fallback",
                     "predictions": preds,
+                    "uncertainty": {},
                 }
 
             # Cache per-host unavailable response
@@ -184,12 +200,17 @@ class ForecastService:
         itransformer_adapter = ml_loader.get_itransformer_model(host=canonical_host)
         itransformer_success = False
         itransformer_preds = None
+        itransformer_uncertainty = {}
         itransformer_error = None
 
         if itransformer_adapter is not None:
             try:
                 context_window = extract_context_window(df_history, sequence_length=60)
-                itransformer_preds = itransformer_adapter.predict(context_window)
+                if hasattr(itransformer_adapter, "predict_with_uncertainty"):
+                    itransformer_preds, itransformer_uncertainty = itransformer_adapter.predict_with_uncertainty(context_window)
+                else:
+                    itransformer_preds = itransformer_adapter.predict(context_window)
+                    itransformer_uncertainty = {}
 
                 if (
                     isinstance(itransformer_preds, dict)
@@ -233,16 +254,20 @@ class ForecastService:
                 current_val = float(live_metrics.get(target, hist_latest) if live_metrics.get(target) is not None else hist_latest)
 
                 predictions = {}
+                target_uncertainty = {}
                 for horizon in HORIZONS:
                     pred_val = itransformer_preds[target][horizon]
                     if isinstance(pred_val, (np.ndarray, list)):
                         pred_val = float(pred_val.flat[0])
                     predictions[horizon] = round(max(0.0, float(pred_val)), 2)
+                    if target in itransformer_uncertainty and horizon in itransformer_uncertainty[target]:
+                        target_uncertainty[horizon] = itransformer_uncertainty[target][horizon]
 
                 response[target] = {
                     "current": round(current_val, 2),
                     "strategy": "iTransformer",
                     "predictions": predictions,
+                    "uncertainty": target_uncertainty,
                 }
         else:
             # -----------------------------------------------------------------
@@ -267,6 +292,7 @@ class ForecastService:
                     "current": round(current_val, 2),
                     "strategy": "unavailable",
                     "predictions": {},
+                    "uncertainty": {},
                 }
 
         # Cache host result

@@ -28,10 +28,14 @@ METRICS_MAP = {
     "uptime": "server_uptime_seconds",
 }
 
-KNOWN_HOSTS = ["ubuntu"]
+KNOWN_HOSTS = ["ubuntu", "windows", "kali"]
+ACTUAL_HOSTS = ["ubuntu"]
+SIMULATED_HOSTS = ["windows", "kali"]
 
 HOST_LABEL_MAP = {
     "ubuntu": 'host=~"ubuntu|100.108.160.2|192.168.1.10|.*ubuntu.*"',
+    "windows": 'host=~"windows|10.0.12.44|.*win.*"',
+    "kali": 'host=~"kali|10.0.14.88|.*kali.*"',
 }
 
 
@@ -39,6 +43,8 @@ def normalize_host(host: str | None) -> str | None:
     """
     Normalizes host identifiers and IPs into canonical host strings:
     - 'ubuntu', 'Ubuntu', '100.108.160.2', '192.168.1.10', etc. -> 'ubuntu'
+    - 'windows', 'Windows', '10.0.12.44' -> 'windows'
+    - 'kali', 'Kali', '10.0.14.88' -> 'kali'
     Returns None for unknown hosts.
     """
     if not host:
@@ -47,6 +53,10 @@ def normalize_host(host: str | None) -> str | None:
     clean = host.strip().lower()
     if clean in ("ubuntu", "100.108.160.2", "192.168.1.10") or "ubuntu" in clean:
         return "ubuntu"
+    if clean in ("windows", "win", "10.0.12.44") or "win" in clean:
+        return "windows"
+    if clean in ("kali", "10.0.14.88") or "kali" in clean:
+        return "kali"
     return None
 
 

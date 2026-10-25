@@ -57,6 +57,7 @@ class iTransformerAdapter(BaseModelAdapter):
         self.target_stds_ = np.ones(len(TARGET_COLUMNS), dtype=np.float32)
         self.is_fitted_ = False
         self.preprocessor = None
+        self.horizon_uncertainties_ = {}
 
     def _extract_dataset_arrays(self, dataset: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Extracts feature array X [N, T, 14], target array Y [N, 3, 5], and validity mask [N, 3, 5]."""
@@ -216,6 +217,23 @@ class iTransformerAdapter(BaseModelAdapter):
                 predictions[target][horizon] = pred_tensor[:, m_idx, h_idx]
         return predictions
 
+    def predict_with_uncertainty(self, context_window: np.ndarray, is_raw: bool = True) -> tuple[dict, dict]:
+        """
+        Predicts future targets returning (predictions, uncertainties).
+        uncertainties contains estimated standard error bounds for each target and horizon.
+        """
+        predictions = self.predict(context_window, is_raw=is_raw)
+        uncertainties = {}
+        for target in TARGET_COLUMNS:
+            uncertainties[target] = {}
+            for horizon in HORIZONS:
+                sigma = float(self.horizon_uncertainties_.get(target, {}).get(horizon, 1.0))
+                uncertainties[target][horizon] = {
+                    "std_error": round(sigma, 3),
+                    "confidence_95_margin": round(1.96 * sigma, 3),
+                }
+        return predictions, uncertainties
+
     def predict_tensor(self, context_window: np.ndarray, is_raw: bool = True) -> np.ndarray:
         """Predicts future targets returning 3D array [N, M=3, H=5] in RAW telemetry units."""
         X, single_window = self._format_context(context_window)
@@ -251,6 +269,7 @@ class iTransformerAdapter(BaseModelAdapter):
             "total_parameters": tot_p,
             "trainable_parameters": train_p,
             "preprocessor": getattr(self, "preprocessor", None),
+            "horizon_uncertainties_": getattr(self, "horizon_uncertainties_", {}),
         }
         torch.save(checkpoint, filepath)
 
@@ -280,3 +299,4 @@ class iTransformerAdapter(BaseModelAdapter):
         self.model.load_state_dict(checkpoint["state_dict"])
         self.is_fitted_ = checkpoint.get("is_fitted_", True)
         self.preprocessor = checkpoint.get("preprocessor", None)
+        self.horizon_uncertainties_ = checkpoint.get("horizon_uncertainties_", {})

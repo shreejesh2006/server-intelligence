@@ -172,20 +172,50 @@ class NetBoxService:
     async def get_device_by_host(self, host: str) -> dict[str, Any] | None:
         """Finds inventory metadata for a canonical monitored host or IP."""
         canonical = normalize_host(host) or host.strip().lower()
+
+        # Simulated server profiles are not registered in NetBox DCIM
+        if canonical in ("windows", "kali"):
+            from app.services.synthetic_profiles import SIMULATED_PROFILES
+            prof = SIMULATED_PROFILES.get(canonical, {})
+            return {
+                "id": 901 if canonical == "windows" else 902,
+                "name": prof.get("name", canonical),
+                "canonical_host": canonical,
+                "role": prof.get("role", "Simulated Server"),
+                "status": "active (simulated)",
+                "primary_ip": prof.get("ip", "10.0.0.1"),
+                "local_ip": prof.get("ip", "10.0.0.1"),
+                "subnet": "10.0.0.0/16",
+                "site": "Virtual Lab",
+                "rack": "Standalone Profile",
+                "rack_position": "N/A",
+                "hardware": f"{prof.get('specs', {}).get('cores', 4)} vCPU / {prof.get('specs', {}).get('ram_gb', 16)}GB RAM / {prof.get('specs', {}).get('disk_gb', 128)}GB Disk",
+                "source": "local_profile",
+                "provenance": "simulated_profile",
+                "is_netbox_managed": False,
+                "note": "Unregistered simulated infrastructure profile (not enrolled in NetBox CMDB)",
+            }
+
         devices = await self.get_all_devices()
 
         for dev in devices:
             if dev.get("canonical_host") == canonical:
+                dev["provenance"] = "live_agent"
+                dev["is_netbox_managed"] = (dev.get("source") == "netbox_api")
                 return dev
             if dev.get("name", "").lower() == host.lower():
+                dev["provenance"] = "live_agent"
+                dev["is_netbox_managed"] = (dev.get("source") == "netbox_api")
                 return dev
             if dev.get("primary_ip") == host:
+                dev["provenance"] = "live_agent"
+                dev["is_netbox_managed"] = (dev.get("source") == "netbox_api")
                 return dev
 
         if canonical in CANONICAL_INVENTORY_PROFILES:
             prof = CANONICAL_INVENTORY_PROFILES[canonical]
             return {
-                "id": 1 if canonical == "ubuntu" else 2,
+                "id": 1,
                 "name": prof["name"],
                 "canonical_host": canonical,
                 "role": prof["role"],
@@ -194,6 +224,8 @@ class NetBoxService:
                 "site": prof["site"],
                 "rack": prof["rack"],
                 "source": "architectural_profile",
+                "provenance": "live_agent",
+                "is_netbox_managed": False,
             }
 
         return None
