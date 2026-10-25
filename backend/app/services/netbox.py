@@ -18,8 +18,11 @@ from app.services.ml.loader import normalize_host, KNOWN_HOSTS
 
 logger = logging.getLogger(__name__)
 
-NETBOX_URL = os.getenv("NETBOX_URL", "http://localhost:8080").rstrip("/")
-NETBOX_API_TOKEN = os.getenv("NETBOX_API_TOKEN", "")
+NETBOX_URL = os.getenv(
+    "NETBOX_URL",
+    "http://host.docker.internal:8085" if os.path.exists("/.dockerenv") else "http://localhost:8085",
+).rstrip("/")
+NETBOX_API_TOKEN = os.getenv("NETBOX_API_TOKEN", "netra-netbox-api-token-development")
 NETBOX_TIMEOUT_SECONDS = float(os.getenv("NETBOX_TIMEOUT", "4.0"))
 CACHE_TTL_SECONDS = 300.0  # 5-minute cache
 
