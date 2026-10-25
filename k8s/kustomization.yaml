@@ -12,6 +12,7 @@ resources:
   - victorialogs/service.yaml
   - victorialogs/statefulset.yaml
   - postgresql/cluster.yaml
+  - netbox/database.yaml
   - netbox/configmap.yaml
   - netbox/secret.yaml
   - netbox/service.yaml

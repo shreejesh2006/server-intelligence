@@ -1,0 +1,13 @@
+
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: netbox
+  namespace: netra
+spec:
+  name: netbox
+  owner: netra
+  cluster:
+    name: server-intelligence-db
+  ensure: present
+  databaseReclaimPolicy: retain
