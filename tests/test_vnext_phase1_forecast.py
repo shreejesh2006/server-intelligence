@@ -91,7 +91,7 @@ class TestVNextPhase1Forecasting(unittest.TestCase):
                 self.assertIsInstance(preds[horizon], (int, float))
                 self.assertGreaterEqual(preds[horizon], 0.0)
 
-    def test_hgb_fallback_path(self):
+    def test_itransformer_unavailable_path(self):
         self.service.clear_cache()
         self.service.victoria.get_current_metrics = AsyncMock(return_value=(self.mock_live_metrics, self.mock_obs_ts))
         self.service.victoria.get_all_metrics_history = AsyncMock(return_value=(self.mock_df_history, self.mock_obs_ts))
@@ -101,18 +101,17 @@ class TestVNextPhase1Forecasting(unittest.TestCase):
             response = asyncio.run(self.service.get_forecasts(host="ubuntu"))
 
             self.assertEqual(response["primary_model"], "iTransformer")
-            self.assertTrue(response["fallback_used"])
-            self.assertEqual(response["model_version"], "vNext-Phase1-HGB-fallback")
+            self.assertFalse(response["fallback_used"])
+            self.assertEqual(response["model_status"], "unavailable")
+            self.assertIn("not loaded", response["error"])
 
             for target in TARGET_COLUMNS:
                 self.assertIn(target, response)
                 target_resp = response[target]
-                self.assertIn("predictions", target_resp)
-                preds = target_resp["predictions"]
-                for horizon in HORIZONS:
-                    self.assertIn(horizon, preds)
+                self.assertEqual(target_resp["strategy"], "unavailable")
+                self.assertEqual(target_resp["predictions"], {})
 
-    def test_itransformer_inference_exception_triggers_fallback(self):
+    def test_itransformer_inference_exception_reports_clear_error(self):
         self.service.clear_cache()
         self.service.victoria.get_current_metrics = AsyncMock(return_value=(self.mock_live_metrics, self.mock_obs_ts))
         self.service.victoria.get_all_metrics_history = AsyncMock(return_value=(self.mock_df_history, self.mock_obs_ts))
@@ -125,8 +124,15 @@ class TestVNextPhase1Forecasting(unittest.TestCase):
             response = asyncio.run(self.service.get_forecasts(host="ubuntu"))
 
             self.assertEqual(response["primary_model"], "iTransformer")
-            self.assertTrue(response["fallback_used"])
-            self.assertEqual(response["model_version"], "vNext-Phase1-HGB-fallback")
+            self.assertFalse(response["fallback_used"])
+            self.assertEqual(response["model_status"], "unavailable")
+            self.assertIn("Simulated GPU OOM", response["error"])
+
+            for target in TARGET_COLUMNS:
+                self.assertIn(target, response)
+                target_resp = response[target]
+                self.assertEqual(target_resp["strategy"], "unavailable")
+                self.assertEqual(target_resp["predictions"], {})
 
     def test_malformed_model_checkpoint_loading(self):
         adapter = iTransformerAdapter(

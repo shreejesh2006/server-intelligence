@@ -179,11 +179,12 @@ class ForecastService:
             return response
 
         # ---------------------------------------------------------------------
-        # Primary Path: iTransformer Architecture
+        # Primary Path: Pure iTransformer Architecture
         # ---------------------------------------------------------------------
         itransformer_adapter = ml_loader.get_itransformer_model(host=canonical_host)
         itransformer_success = False
         itransformer_preds = None
+        itransformer_error = None
 
         if itransformer_adapter is not None:
             try:
@@ -206,18 +207,26 @@ class ForecastService:
 
                     if not has_nan:
                         itransformer_success = True
+                    else:
+                        itransformer_error = "iTransformer inference produced NaN outputs"
+                else:
+                    itransformer_error = "iTransformer inference did not produce all expected target metrics"
             except Exception as exc:
-                logger.warning(
+                itransformer_error = f"iTransformer inference error: {exc}"
+                logger.error(
                     "iTransformer primary forecast inference failed for host '%s': %s",
                     canonical_host,
                     exc,
                 )
+        else:
+            itransformer_error = f"iTransformer model checkpoint not loaded for host '{canonical_host}'"
 
         if itransformer_success and itransformer_preds is not None:
             logger.info("Successfully generated forecasts using primary model 'iTransformer' for host '%s'", canonical_host)
             response["primary_model"] = "iTransformer"
             response["fallback_used"] = False
             response["model_version"] = "vNext-Phase1-iTransformer"
+            response["model_status"] = "ready"
 
             for target in TARGET_COLUMNS:
                 hist_latest = float(df_history[target].iloc[-1]) if target in df_history.columns else 0.0
@@ -237,57 +246,27 @@ class ForecastService:
                 }
         else:
             # -----------------------------------------------------------------
-            # Fallback Path: HistGradientBoosting (HGB) Mechanism
+            # Explicit Error Path: Pure iTransformer only (no silent fallback)
             # -----------------------------------------------------------------
-            logger.warning(
-                "Primary model 'iTransformer' unavailable or failed for host '%s'. Executing HGB fallback path.",
+            logger.error(
+                "Primary model 'iTransformer' unavailable for host '%s': %s",
                 canonical_host,
+                itransformer_error,
             )
             response["primary_model"] = "iTransformer"
-            response["fallback_used"] = True
-            response["model_version"] = "vNext-Phase1-HGB-fallback"
+            response["fallback_used"] = False
+            response["model_version"] = "vNext-Phase1-iTransformer"
+            response["model_status"] = "unavailable"
+            response["error"] = itransformer_error or "iTransformer model unavailable"
 
             for target in TARGET_COLUMNS:
                 hist_latest = float(df_history[target].iloc[-1]) if target in df_history.columns else 0.0
                 current_val = float(live_metrics.get(target, hist_latest) if live_metrics.get(target) is not None else hist_latest)
 
-                meta_5m = ml_loader.get_forecast_meta(target, "5m", host=canonical_host)
-                target_strategy = meta_5m.get("strategy", "persistence") if meta_5m else "persistence"
-                strategy_name = "HGB" if target_strategy == "model" else target_strategy
-
-                predictions = {}
-                for horizon in HORIZONS:
-                    meta = ml_loader.get_forecast_meta(target, horizon, host=canonical_host)
-                    strategy = meta.get("strategy", "persistence") if meta else "persistence"
-
-                    if strategy == "persistence":
-                        predictions[horizon] = round(current_val, 2)
-                    elif strategy == "model":
-                        model = ml_loader.get_forecast_model(target, horizon, host=canonical_host)
-                        if model is not None and meta and "feature_columns" in meta:
-                            try:
-                                feature_cols = meta["feature_columns"]
-                                prepared_df, _ = prepare_forecasting_features(df_history, target)
-                                clean_df = prepared_df.dropna(subset=feature_cols)
-
-                                if not clean_df.empty:
-                                    X_df = clean_df.iloc[[-1]][feature_cols]
-                                    pred_val = float(model.predict(X_df)[0])
-                                    predictions[horizon] = round(max(0.0, pred_val), 2)
-                                else:
-                                    predictions[horizon] = round(current_val, 2)
-                            except Exception as err:
-                                logger.warning("HGB inference error for %s %s on %s: %s", target, horizon, canonical_host, err)
-                                predictions[horizon] = round(current_val, 2)
-                        else:
-                            predictions[horizon] = round(current_val, 2)
-                    else:
-                        predictions[horizon] = round(current_val, 2)
-
                 response[target] = {
                     "current": round(current_val, 2),
-                    "strategy": strategy_name,
-                    "predictions": predictions,
+                    "strategy": "unavailable",
+                    "predictions": {},
                 }
 
         # Cache host result

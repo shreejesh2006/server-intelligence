@@ -11,6 +11,7 @@ numpy
 pandas
 scikit-learn
 joblib
+torch
 
 psycopg2-binary>=2.9,<3
 psycopg[binary]>=3.1,<4

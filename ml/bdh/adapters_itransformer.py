@@ -56,6 +56,7 @@ class iTransformerAdapter(BaseModelAdapter):
 
         self.target_stds_ = np.ones(len(TARGET_COLUMNS), dtype=np.float32)
         self.is_fitted_ = False
+        self.preprocessor = None
 
     def _extract_dataset_arrays(self, dataset: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Extracts feature array X [N, T, 14], target array Y [N, 3, 5], and validity mask [N, 3, 5]."""
@@ -206,18 +207,23 @@ class iTransformerAdapter(BaseModelAdapter):
             "best_val_loss": round(best_val_loss, 6) if best_val_loss < float("inf") else None,
         }
 
-    def predict(self, context_window: np.ndarray) -> dict:
+    def predict(self, context_window: np.ndarray, is_raw: bool = True) -> dict:
         """Predicts future targets for input context window. Returns dict in RAW telemetry units."""
-        pred_tensor = self.predict_tensor(context_window)
+        pred_tensor = self.predict_tensor(context_window, is_raw=is_raw)
         predictions = {t: {} for t in TARGET_COLUMNS}
         for m_idx, target in enumerate(TARGET_COLUMNS):
             for h_idx, horizon in enumerate(HORIZONS):
                 predictions[target][horizon] = pred_tensor[:, m_idx, h_idx]
         return predictions
 
-    def predict_tensor(self, context_window: np.ndarray) -> np.ndarray:
+    def predict_tensor(self, context_window: np.ndarray, is_raw: bool = True) -> np.ndarray:
         """Predicts future targets returning 3D array [N, M=3, H=5] in RAW telemetry units."""
         X, single_window = self._format_context(context_window)
+        if getattr(self, "preprocessor", None) is not None:
+            # Transform if raw input flag is set or input magnitudes exceed normalized boundaries
+            if is_raw or np.nanmax(X) > 50.0:
+                X = self.preprocessor.transform(X)
+
         X_tensor = torch.from_numpy(X.astype(np.float32)).to(self.device)
 
         self.model.eval()
@@ -244,6 +250,7 @@ class iTransformerAdapter(BaseModelAdapter):
             "is_fitted_": self.is_fitted_,
             "total_parameters": tot_p,
             "trainable_parameters": train_p,
+            "preprocessor": getattr(self, "preprocessor", None),
         }
         torch.save(checkpoint, filepath)
 
@@ -272,3 +279,4 @@ class iTransformerAdapter(BaseModelAdapter):
 
         self.model.load_state_dict(checkpoint["state_dict"])
         self.is_fitted_ = checkpoint.get("is_fitted_", True)
+        self.preprocessor = checkpoint.get("preprocessor", None)

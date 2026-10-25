@@ -28,6 +28,17 @@ const ADDITIONAL_METRIC_OPTIONS = [
   { id: 'load_15m', label: 'Load (15m)', unit: '', type: 'number' },
 ];
 
+const TIME_WINDOWS = [
+  { id: '5m', label: '5m', start: '-5m', step: '5s' },
+  { id: '15m', label: '15m', start: '-15m', step: '15s' },
+  { id: '30m', label: '30m', start: '-30m', step: '30s' },
+  { id: '1h', label: '1h', start: '-1h', step: '30s' },
+  { id: '3h', label: '3h', start: '-3h', step: '1m' },
+  { id: '6h', label: '6h', start: '-6h', step: '2m' },
+  { id: '12h', label: '12h', start: '-12h', step: '5m' },
+  { id: '24h', label: '24h', start: '-24h', step: '10m' },
+];
+
 function getMetricValue(metricsObj, key, fallback = 0) {
   if (!metricsObj || metricsObj[key] == null) return fallback;
   const item = metricsObj[key];
@@ -59,6 +70,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
 
   // Detail trend chart state
   const [selectedDetailMetric, setSelectedDetailMetric] = useState('network_rx');
+  const [detailWindowId, setDetailWindowId] = useState('30m');
   const [detailChartData, setDetailChartData] = useState([]);
   const [detailChartLoading, setDetailChartLoading] = useState(false);
 
@@ -93,13 +105,15 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
     fetchHostMetrics();
   }, [fetchHostMetrics, propLastUpdated]);
 
+  const activeWindow = TIME_WINDOWS.find((w) => w.id === detailWindowId) || TIME_WINDOWS[2];
+
   // Load detail metric history for historical view
   useEffect(() => {
     let isCancelled = false;
     async function loadMetricHistory() {
       setDetailChartLoading(true);
       try {
-        const res = await getMetricHistory(selectedDetailMetric, '-30m', 'now', '30s', selectedHost);
+        const res = await getMetricHistory(selectedDetailMetric, activeWindow.start, 'now', activeWindow.step, selectedHost);
         if (!isCancelled) {
           setDetailChartData(res.values || []);
         }
@@ -111,7 +125,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
     }
     loadMetricHistory();
     return () => { isCancelled = true; };
-  }, [selectedDetailMetric, selectedHost, propLastUpdated, lastFetchTime]);
+  }, [selectedDetailMetric, selectedHost, detailWindowId, activeWindow, propLastUpdated, lastFetchTime]);
 
   // Load NetBox infrastructure inventory for current host
   useEffect(() => {
@@ -446,7 +460,18 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
                 ))}
               </select>
             </div>
-            <span className="window-pill font-sans text-xs text-muted">Last 30m</span>
+            <div className="segmented-tabs window-tabs-wrap font-sans">
+              {TIME_WINDOWS.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => setDetailWindowId(w.id)}
+                  className={`tab-btn ${detailWindowId === w.id ? 'active' : ''}`}
+                >
+                  {w.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="chart-container-inner">

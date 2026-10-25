@@ -172,10 +172,10 @@ class MLLoader:
                     if itransformer_file is not None and itransformer_file.exists():
                         adapter.load(itransformer_file)
                         logger.info("Loaded iTransformer model artifact for host '%s' from %s", host, itransformer_file)
+                        self.itransformer_models[host] = adapter
                     else:
-                        adapter.is_fitted_ = True
-                        logger.info("Initialized default Experiment 1 iTransformer model for host '%s'", host)
-                    self.itransformer_models[host] = adapter
+                        logger.error("No iTransformer checkpoint found for host '%s'", host)
+                        self.itransformer_models[host] = None
                 except Exception as exc:
                     logger.error("Failed loading iTransformer artifact for host '%s': %s", host, exc)
                     self.itransformer_models[host] = None

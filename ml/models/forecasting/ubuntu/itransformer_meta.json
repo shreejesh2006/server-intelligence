@@ -1,0 +1,111 @@
+{
+  "model_name": "iTransformer",
+  "architecture": "Inverted Transformer (iTransformer)",
+  "input_dim": 14,
+  "sequence_length": 60,
+  "hidden_dim": 64,
+  "num_layers": 2,
+  "nhead": 4,
+  "total_parameters": 85199,
+  "trainable_parameters": 85199,
+  "training_duration_seconds": 110.93,
+  "validation_metrics": {
+    "cpu": {
+      "5m": {
+        "mae": 0.3839,
+        "rmse": 3.1958,
+        "mase": 0.6502,
+        "evaluated_samples": 6564
+      },
+      "15m": {
+        "mae": 0.4063,
+        "rmse": 3.2181,
+        "mase": 0.688,
+        "evaluated_samples": 6504
+      },
+      "30m": {
+        "mae": 0.4484,
+        "rmse": 3.2573,
+        "mase": 0.7593,
+        "evaluated_samples": 6414
+      },
+      "1h": {
+        "mae": 0.4669,
+        "rmse": 3.3005,
+        "mase": 0.7908,
+        "evaluated_samples": 6234
+      },
+      "3h": {
+        "mae": 0.5285,
+        "rmse": 3.4408,
+        "mase": 0.895,
+        "evaluated_samples": 5739
+      }
+    },
+    "memory": {
+      "5m": {
+        "mae": 0.5324,
+        "rmse": 0.6785,
+        "mase": 4.1417,
+        "evaluated_samples": 6564
+      },
+      "15m": {
+        "mae": 0.5611,
+        "rmse": 0.8004,
+        "mase": 4.3651,
+        "evaluated_samples": 6504
+      },
+      "30m": {
+        "mae": 0.6729,
+        "rmse": 1.0195,
+        "mase": 5.2351,
+        "evaluated_samples": 6414
+      },
+      "1h": {
+        "mae": 0.8393,
+        "rmse": 1.4239,
+        "mase": 6.5296,
+        "evaluated_samples": 6234
+      },
+      "3h": {
+        "mae": 2.3317,
+        "rmse": 2.8569,
+        "mase": 18.1397,
+        "evaluated_samples": 5739
+      }
+    },
+    "load_1m": {
+      "5m": {
+        "mae": 0.0934,
+        "rmse": 0.1406,
+        "mase": 1.0062,
+        "evaluated_samples": 6564
+      },
+      "15m": {
+        "mae": 0.094,
+        "rmse": 0.1409,
+        "mase": 1.0132,
+        "evaluated_samples": 6504
+      },
+      "30m": {
+        "mae": 0.0939,
+        "rmse": 0.1419,
+        "mase": 1.0122,
+        "evaluated_samples": 6414
+      },
+      "1h": {
+        "mae": 0.0931,
+        "rmse": 0.1414,
+        "mase": 1.0033,
+        "evaluated_samples": 6234
+      },
+      "3h": {
+        "mae": 0.093,
+        "rmse": 0.142,
+        "mase": 1.0024,
+        "evaluated_samples": 5739
+      }
+    }
+  },
+  "trained_at": "2026-10-25T12:16:22Z"
+}

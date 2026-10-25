@@ -51,7 +51,7 @@ async def list_metrics():
     }
 
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from fastapi import Depends
@@ -251,16 +251,20 @@ async def metric_history(
     if not col_name:
         return {"metric": metric_name, "host": host, "values": []}
 
+    now_epoch = time.time()
     try:
         start_ts = float(parse_relative_time(start))
         end_ts = float(parse_relative_time(end))
     except Exception:
-        start_ts = time.time() - 3600
-        end_ts = time.time()
+        start_ts = now_epoch - 3600
+        end_ts = now_epoch
+
+    duration_seconds = max(60, int(end_ts - start_ts))
 
     dt_start = datetime.fromtimestamp(start_ts, tz=timezone.utc)
     dt_end = datetime.fromtimestamp(end_ts, tz=timezone.utc)
 
+    # 2a. Query wall-clock window
     stmt = (
         select(TelemetrySample)
         .where(
@@ -272,22 +276,72 @@ async def metric_history(
     )
     db_samples = list(db.scalars(stmt).all())
 
+    # 2b. If no samples exist in requested wall-clock window, find the latest recorded sample
+    # and extract the exact window of length `duration_seconds` up to latest recorded sample.
+    is_time_shifted = False
+    time_offset = 0.0
+
     if not db_samples:
         stmt_latest = (
             select(TelemetrySample)
             .where(TelemetrySample.host == target_canonical)
             .order_by(TelemetrySample.timestamp.desc())
-            .limit(60)
+            .limit(1)
         )
-        db_samples = list(reversed(db.scalars(stmt_latest).all()))
+        latest_sample = db.scalar(stmt_latest)
+        if latest_sample and latest_sample.timestamp:
+            max_dt = latest_sample.timestamp
+            if max_dt.tzinfo is None:
+                max_dt = max_dt.replace(tzinfo=timezone.utc)
+            min_dt = max_dt - timedelta(seconds=duration_seconds)
 
-    values = [
-        {
-            "timestamp": s.timestamp.timestamp(),
-            "value": float(getattr(s, col_name, 0.0) or 0.0),
-        }
-        for s in db_samples
-    ]
+            stmt_window = (
+                select(TelemetrySample)
+                .where(
+                    TelemetrySample.host == target_canonical,
+                    TelemetrySample.timestamp >= min_dt,
+                    TelemetrySample.timestamp <= max_dt,
+                )
+                .order_by(TelemetrySample.timestamp.asc())
+            )
+            db_samples = list(db.scalars(stmt_window).all())
+            is_time_shifted = True
+            time_offset = end_ts - max_dt.timestamp()
+
+    # Step downsampling: calculate step in seconds
+    step_seconds = 30
+    if step:
+        m_step = re.match(r"^(\d+)([smhd])$", step)
+        if m_step:
+            val, unit = int(m_step.group(1)), m_step.group(2)
+            seconds_map = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+            step_seconds = max(1, val * seconds_map.get(unit, 1))
+
+    values = []
+    last_emitted_ts = -float("inf")
+
+    for s in db_samples:
+        ts = s.timestamp.timestamp()
+        if is_time_shifted:
+            ts = ts + time_offset
+
+        if (ts - last_emitted_ts) >= (step_seconds * 0.9):
+            val = getattr(s, col_name, 0.0)
+            values.append({
+                "timestamp": round(ts, 2),
+                "value": float(val or 0.0),
+            })
+            last_emitted_ts = ts
+
+    # Ensure the very latest sample is always included
+    if db_samples and values and (db_samples[-1].timestamp.timestamp() + (time_offset if is_time_shifted else 0.0)) > values[-1]["timestamp"]:
+        s_last = db_samples[-1]
+        ts_last = s_last.timestamp.timestamp() + (time_offset if is_time_shifted else 0.0)
+        val_last = getattr(s_last, col_name, 0.0)
+        values.append({
+            "timestamp": round(ts_last, 2),
+            "value": float(val_last or 0.0),
+        })
 
     return {
         "metric": metric_name,
