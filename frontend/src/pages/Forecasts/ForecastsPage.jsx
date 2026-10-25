@@ -42,7 +42,6 @@ export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
   }, [loadData, lastUpdated]);
 
   const primaryModel = forecastData?.primary_model;
-  const isFallback = forecastData?.fallback_used ?? false;
 
   const targetConfigs = [
     {
@@ -85,12 +84,6 @@ export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
       <div className="page-header-block">
         <div>
           <h1 className="page-title font-sans">Forecasts</h1>
-          {primaryModel && (
-            <p className="page-subtitle font-sans">
-              Model: <span className="font-mono">{primaryModel}</span>
-              {isFallback && <span className="fallback-tag"> (Fallback)</span>}
-            </p>
-          )}
         </div>
 
         {/* Active Host Selector */}
@@ -137,9 +130,6 @@ export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
               <TrendingUp size={16} className="text-muted" />
               <h2 className="panel-title font-sans">Forecast Outlook</h2>
             </div>
-            <span className="nokia-badge badge-neutral font-sans text-xs font-mono">
-              5 Horizons (5m - 3h)
-            </span>
           </div>
 
           {/* TARGET METRICS SECTIONS */}
@@ -159,12 +149,12 @@ export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
                     <div className="target-title-group">
                       <Icon size={15} className="text-muted" />
                       <span className="target-name font-semibold">{target.label}</span>
-                      {strategy && <span className="strategy-tag font-mono">{strategy}</span>}
+                      {strategy && <span className="strategy-tag font-sans">{strategy}</span>}
                     </div>
 
                     <div className="current-readout-pill font-sans">
-                      <span className="readout-tag font-sans">ACTUAL</span>
-                      <span className="readout-val font-sans">
+                      <span className="readout-label font-sans">Current:</span>
+                      <span className="readout-val font-sans font-semibold">
                         {formatNumber(curVal, target.decimals)}{target.unit}
                       </span>
                     </div>
@@ -196,7 +186,7 @@ export function ForecastsPage({ metrics, isOffline, lastUpdated, refetch }) {
                             {hasVal ? `${formatNumber(predVal, target.decimals)}${target.unit}` : '—'}
                           </div>
 
-                          <div className="horizon-delta font-mono">
+                          <div className="horizon-delta font-sans">
                             {hasVal && diff != null ? (
                               <span className={isUp ? 'text-critical-icon' : isSame ? 'text-muted' : 'text-healthy-icon'}>
                                 {diff > 0 ? '+' : ''}{formatNumber(diff, target.decimals)}{target.unit}

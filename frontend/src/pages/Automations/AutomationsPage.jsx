@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useTimezone } from '../../context/TimezoneContext';
 import { useServer } from '../../context/ServerContext';
@@ -12,7 +11,6 @@ import {
   getAutomationRunsApi,
 } from '../../services/automations';
 import {
-  ArrowLeft,
   RefreshCw,
   Plus,
   Play,
@@ -20,7 +18,6 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  Zap,
   Power,
 } from 'lucide-react';
 
@@ -179,30 +176,22 @@ export default function AutomationsPage() {
   };
 
   return (
-    <div className="alerts-page font-sans">
+    <div className="automations-page font-sans">
       {/* Header */}
       <div className="page-header-block">
-        <Link to="/overview" className="back-to-home-link font-sans text-xs">
-          <ArrowLeft size={13} />
-          <span>Back to Overview</span>
-        </Link>
         <div className="header-actions-row">
           <div>
-            <h1 className="page-title font-sans">Automation & Remediation Engine</h1>
-            <p className="page-subtitle font-sans">
-              Safe, auditable automated diagnostics and operator remediation recommendations triggered by predictive telemetry breaches.
-            </p>
+            <h1 className="page-title font-sans">Automations</h1>
           </div>
           <div className="header-btn-group">
             {isOperatorOrAdmin && (
               <button
                 type="button"
                 onClick={() => setShowCreateModal(true)}
-                className="nokia-btn font-sans"
-                style={{ background: 'var(--accent, #006aff)', color: '#fff', borderColor: 'var(--accent, #006aff)' }}
+                className="nokia-btn nokia-btn-primary font-sans"
               >
                 <Plus size={14} />
-                <span>New Automation</span>
+                <span>New Rule</span>
               </button>
             )}
             <button
@@ -210,21 +199,12 @@ export default function AutomationsPage() {
               onClick={fetchData}
               disabled={loading}
               className="nokia-btn font-sans"
-              title="Refresh automations and execution log"
+              title="Refresh automations"
             >
-              <RefreshCw size={13} className={loading ? 'spinning text-accent' : ''} />
+              <RefreshCw size={13} className={loading ? 'spinning' : ''} />
               <span>Refresh</span>
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Safety Banner */}
-      <div className="glass-panel" style={{ padding: '12px 16px', marginBottom: '20px', borderLeft: '3px solid var(--accent, #006aff)' }}>
-        <div className="flex-center gap-2 text-xs" style={{ justifyContent: 'flex-start' }}>
-          <Zap size={14} style={{ color: 'var(--accent, #006aff)' }} />
-          <span className="font-semibold text-primary">Safety Tier 1: Read-Only Diagnostics & Propose Mode Active</span>
-          <span className="text-secondary">— Autonomous process termination, service restart, and destructive shell execution are strictly disallowed. Recommendations require manual operator review.</span>
         </div>
       </div>
 
@@ -251,19 +231,19 @@ export default function AutomationsPage() {
       {/* Automations Table */}
       <div className="margin-top-md">
         <div className="flex-between margin-bottom-sm">
-          <h2 className="font-semibold text-sm text-primary uppercase font-mono">Configured Automation Rules</h2>
-          <span className="text-xs text-muted font-mono">{automations.length} rule{automations.length === 1 ? '' : 's'} registered</span>
+          <h2 className="font-semibold text-sm text-primary font-sans">Configured Rules</h2>
+          <span className="text-xs text-muted font-sans">{automations.length} rule{automations.length === 1 ? '' : 's'}</span>
         </div>
 
         <div className="nokia-table-container">
           <table className="nokia-table">
             <thead>
               <tr>
-                <th style={{ width: '80px' }}>Status</th>
-                <th>Automation Name</th>
-                <th style={{ width: '160px' }}>Trigger Type</th>
-                <th style={{ width: '220px' }}>Action Type</th>
-                <th style={{ width: '140px' }}>Created</th>
+                <th style={{ width: '90px' }}>Status</th>
+                <th>Rule Name</th>
+                <th style={{ width: '180px' }}>Trigger</th>
+                <th style={{ width: '220px' }}>Action</th>
+                <th style={{ width: '150px' }}>Created</th>
                 <th style={{ width: '180px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -272,15 +252,15 @@ export default function AutomationsPage() {
                 <tr>
                   <td colSpan={6} className="text-center text-muted py-6">
                     <div className="flex-center gap-2">
-                      <RefreshCw size={14} className="spinning text-accent" />
-                      <span>Loading automation rules...</span>
+                      <RefreshCw size={14} className="spinning" />
+                      <span>Loading rules...</span>
                     </div>
                   </td>
                 </tr>
               ) : automations.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center text-muted py-6">
-                    No automations configured. Click "New Automation" to create an automated diagnostic rule.
+                    No automations configured.
                   </td>
                 </tr>
               ) : (
@@ -297,16 +277,14 @@ export default function AutomationsPage() {
                         <div className="font-semibold text-primary">{auto.name}</div>
                       </td>
                       <td>
-                        <span className="font-mono text-xs text-secondary">{auto.trigger_type}</span>
+                        <span className="font-sans text-xs text-secondary">{auto.trigger_type}</span>
                       </td>
                       <td>
-                        <div className="flex-center gap-1.5" style={{ justifyContent: 'flex-start' }}>
-                          <span className="nokia-badge font-mono text-xs" style={{ background: 'var(--accent-dim, rgba(0, 106, 255, 0.1))', color: 'var(--accent, #006aff)' }}>
-                            {auto.action_type}
-                          </span>
-                        </div>
+                        <span className="nokia-badge font-sans text-xs">
+                          {auto.action_type}
+                        </span>
                       </td>
-                      <td className="font-mono text-xs text-muted">
+                      <td className="font-sans tabular-nums text-xs text-muted">
                         {auto.created_at ? formatTimestamp(new Date(auto.created_at).getTime() / 1000, true) : 'N/A'}
                       </td>
                       <td style={{ textAlign: 'right' }}>
@@ -318,16 +296,16 @@ export default function AutomationsPage() {
                                 onClick={() => handleExecute(auto)}
                                 disabled={executingId === auto.id || loading}
                                 className="nokia-btn nokia-btn-sm font-sans"
-                                title="Run this automation rule now for test/diagnostic validation"
+                                title="Run rule"
                               >
-                                <Play size={11} className={executingId === auto.id ? 'spinning text-accent' : ''} />
+                                <Play size={11} className={executingId === auto.id ? 'spinning' : ''} />
                                 <span>Run</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleToggleStatus(auto)}
                                 className="nokia-btn nokia-btn-sm font-sans"
-                                title={isEnabled ? 'Disable automation rule' : 'Enable automation rule'}
+                                title={isEnabled ? 'Disable rule' : 'Enable rule'}
                               >
                                 <Power size={11} />
                                 <span>{isEnabled ? 'Disable' : 'Enable'}</span>
@@ -336,7 +314,7 @@ export default function AutomationsPage() {
                                 type="button"
                                 onClick={() => handleDelete(auto.id, auto.name)}
                                 className="nokia-btn nokia-btn-sm font-sans text-danger"
-                                title="Delete automation rule"
+                                title="Delete rule"
                               >
                                 <Trash2 size={11} />
                               </button>
@@ -354,13 +332,12 @@ export default function AutomationsPage() {
       </div>
 
       {/* Execution History Section */}
-      <div className="margin-top-lg" style={{ marginTop: '36px' }}>
+      <div className="margin-top-lg" style={{ marginTop: '28px' }}>
         <div className="flex-between margin-bottom-sm">
           <div>
-            <h2 className="font-semibold text-sm text-primary uppercase font-mono">Recent Automation Execution History</h2>
-            <p className="text-xs text-muted font-sans mt-0.5">Persistent audit runs recording executed actions, collected diagnostics, and non-destructive proposals.</p>
+            <h2 className="font-semibold text-sm text-primary font-sans">Execution History</h2>
           </div>
-          <span className="text-xs text-muted font-mono">{runs.length} run{runs.length === 1 ? '' : 's'} logged</span>
+          <span className="text-xs text-muted font-sans">{runs.length} run{runs.length === 1 ? '' : 's'}</span>
         </div>
 
         <div className="nokia-table-container">
@@ -370,22 +347,22 @@ export default function AutomationsPage() {
                 <th style={{ width: '80px' }}>Run ID</th>
                 <th style={{ width: '90px' }}>Status</th>
                 <th style={{ width: '90px' }}>Type</th>
-                <th>Result Summary & Evidence</th>
-                <th style={{ width: '140px' }}>Timestamp</th>
+                <th>Result Summary</th>
+                <th style={{ width: '150px' }}>Timestamp</th>
               </tr>
             </thead>
             <tbody>
               {loading && runs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center text-muted py-6">
-                    <RefreshCw size={14} className="spinning text-accent inline mr-2" />
+                    <RefreshCw size={14} className="spinning inline mr-2" />
                     <span>Loading execution history...</span>
                   </td>
                 </tr>
               ) : runs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center text-muted py-6">
-                    No execution records logged yet.
+                    No execution records logged.
                   </td>
                 </tr>
               ) : (
@@ -397,36 +374,30 @@ export default function AutomationsPage() {
 
                   return (
                     <tr key={run.id}>
-                      <td className="font-mono text-xs text-muted">#{run.id}</td>
+                      <td className="font-sans tabular-nums text-xs text-muted">#{run.id}</td>
                       <td>
                         <span className={`nokia-badge ${isSuccess ? 'badge-healthy' : isFailed ? 'badge-critical' : 'badge-neutral'}`}>
                           {run.status}
                         </span>
                       </td>
                       <td>
-                        {isRecOnly ? (
-                          <span className="nokia-badge font-mono text-xs" style={{ background: 'rgba(255, 170, 0, 0.15)', color: '#ffaa00', border: '1px solid #ffaa00' }}>
-                            PROPOSAL
-                          </span>
-                        ) : (
-                          <span className="nokia-badge font-mono text-xs" style={{ background: 'var(--accent-dim, rgba(0, 106, 255, 0.15))', color: 'var(--accent, #006aff)' }}>
-                            EXECUTED
-                          </span>
-                        )}
+                        <span className="nokia-badge font-sans text-xs">
+                          {isRecOnly ? 'PROPOSAL' : 'EXECUTED'}
+                        </span>
                       </td>
                       <td>
-                        <div className="alert-content-cell">
+                        <div className="alert-content-cell font-sans">
                           <span className="font-semibold text-primary text-xs">
                             {parsed?.summary || parsed?.reason || parsed?.error || run.output || 'No summary'}
                           </span>
                           {parsed?.recommendations && parsed.recommendations.length > 0 && (
                             <div className="mt-1 text-xs text-secondary">
-                              <span className="font-semibold text-muted">Suggested Next Steps: </span>
+                              <span className="font-medium text-muted">Next steps: </span>
                               {parsed.recommendations.join('; ')}
                             </div>
                           )}
                           {parsed?.target_host && (
-                            <div className="flex-center gap-2 font-mono text-xs text-muted mt-0.5" style={{ justifyContent: 'flex-start' }}>
+                            <div className="flex-center gap-2 font-sans tabular-nums text-xs text-muted mt-0.5" style={{ justifyContent: 'flex-start' }}>
                               <span>Host: {parsed.target_host}</span>
                               {parsed?.trigger_alert_id && <span>Alert ID: #{parsed.trigger_alert_id}</span>}
                               {parsed?.duration_ms != null && <span>Duration: {parsed.duration_ms}ms</span>}
@@ -434,7 +405,7 @@ export default function AutomationsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="font-mono text-xs text-muted">
+                      <td className="font-sans tabular-nums text-xs text-muted">
                         {run.created_at ? formatTimestamp(new Date(run.created_at).getTime() / 1000, true) : 'N/A'}
                       </td>
                     </tr>
@@ -449,11 +420,8 @@ export default function AutomationsPage() {
       {/* Create Automation Modal */}
       {showCreateModal && (
         <div className="modal-overlay">
-          <div className="modal-content glass-panel" style={{ maxWidth: '480px', width: '100%', padding: '24px' }}>
-            <h3 className="font-semibold text-primary text-base margin-bottom-sm">Create Automation Rule</h3>
-            <p className="text-xs text-secondary margin-bottom-md">
-              Configure an automated diagnostic or remediation proposal rule triggered by server telemetry conditions.
-            </p>
+          <div className="modal-content glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '20px' }}>
+            <h3 className="font-semibold text-primary text-base margin-bottom-sm">New Automation Rule</h3>
 
             <form onSubmit={handleCreateSubmit}>
               <div style={{ marginBottom: '14px' }}>
@@ -463,13 +431,13 @@ export default function AutomationsPage() {
                   required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. CPU Spike Diagnostic Collector"
+                  placeholder="e.g. CPU Spike Diagnostics"
                   className="nokia-input font-sans w-full"
                 />
               </div>
 
               <div style={{ marginBottom: '14px' }}>
-                <label className="filter-label text-xs font-semibold block margin-bottom-xs">Trigger Event</label>
+                <label className="filter-label text-xs font-semibold block margin-bottom-xs">Trigger</label>
                 <select
                   value={newTrigger}
                   onChange={(e) => setNewTrigger(e.target.value)}
@@ -482,19 +450,16 @@ export default function AutomationsPage() {
               </div>
 
               <div style={{ marginBottom: '18px' }}>
-                <label className="filter-label text-xs font-semibold block margin-bottom-xs">Allowed Action</label>
+                <label className="filter-label text-xs font-semibold block margin-bottom-xs">Action</label>
                 <select
                   value={newAction}
                   onChange={(e) => setNewAction(e.target.value)}
                   className="nokia-select font-sans w-full"
                 >
                   {ALLOWLISTED_ACTIONS.map((a) => (
-                    <option key={a.value} value={a.value}>{a.label} ({a.value})</option>
+                    <option key={a.value} value={a.value}>{a.label}</option>
                   ))}
                 </select>
-                <p className="text-xs text-muted mt-1">
-                  {ALLOWLISTED_ACTIONS.find((a) => a.value === newAction)?.description}
-                </p>
               </div>
 
               <div className="flex-between margin-top-md">
@@ -508,8 +473,7 @@ export default function AutomationsPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !newName.trim()}
-                  className="nokia-btn font-sans"
-                  style={{ background: 'var(--accent, #006aff)', color: '#fff' }}
+                  className="nokia-btn nokia-btn-primary font-sans"
                 >
                   {isSubmitting ? 'Creating...' : 'Create Rule'}
                 </button>

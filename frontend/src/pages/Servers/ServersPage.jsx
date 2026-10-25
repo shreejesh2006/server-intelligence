@@ -212,7 +212,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
         <div className="panel-title-bar">
           <div className="title-left font-sans">
             <h2 className="panel-title font-sans">Status</h2>
-            <span className="host-meta-tag font-mono text-xs">{activeServer?.ip || '192.168.64.22'}</span>
+            <span className="host-meta-tag font-sans text-xs text-muted">{activeServer?.ip || '100.108.160.2'}</span>
           </div>
 
           <div className="status-badge-group">
@@ -241,7 +241,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
             <div className="status-card-val font-sans font-semibold text-primary">
               {freshnessState === 'ONLINE' ? 'Healthy Node' : freshnessState === 'STALE' ? 'Stale Data' : 'Unreachable'}
             </div>
-            <div className="status-card-sub text-muted font-mono text-xs">
+            <div className="status-card-sub text-muted font-sans text-xs">
               {activeServer?.os || 'Ubuntu 24.04 LTS'}
             </div>
           </div>
@@ -249,7 +249,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* Last Telemetry */}
           <div className="status-card font-sans">
             <div className="status-card-header text-muted text-xs font-sans">Last Telemetry</div>
-            <div className="status-card-val font-mono font-medium text-primary">
+            <div className="status-card-val font-sans tabular-nums font-medium text-primary">
               {formattedTimestampStr}
             </div>
             <div className="status-card-sub text-muted font-sans text-xs">
@@ -260,7 +260,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* Uptime */}
           <div className="status-card font-sans">
             <div className="status-card-header text-muted text-xs font-sans">Uptime</div>
-            <div className="status-card-val font-mono font-semibold text-primary">
+            <div className="status-card-val font-sans tabular-nums font-semibold text-primary">
               {uptimeVal > 0 ? formatUptime(uptimeVal) : 'N/A'}
             </div>
             <div className="status-card-sub text-muted font-sans text-xs">
@@ -350,7 +350,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* Network RX */}
           <div className="telemetry-card font-sans">
             <div className="telemetry-card-label font-sans text-muted">Network RX</div>
-            <div className="telemetry-card-value font-mono font-semibold">
+            <div className="telemetry-card-value font-sans tabular-nums font-semibold">
               {formatBytesPerSec(netRxVal)}
             </div>
             <div className="telemetry-card-unit font-sans text-muted">Inbound traffic rate</div>
@@ -359,7 +359,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* Network TX */}
           <div className="telemetry-card font-sans">
             <div className="telemetry-card-label font-sans text-muted">Network TX</div>
-            <div className="telemetry-card-value font-mono font-semibold">
+            <div className="telemetry-card-value font-sans tabular-nums font-semibold">
               {formatBytesPerSec(netTxVal)}
             </div>
             <div className="telemetry-card-unit font-sans text-muted">Outbound traffic rate</div>
@@ -368,7 +368,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* Disk Read */}
           <div className="telemetry-card font-sans">
             <div className="telemetry-card-label font-sans text-muted">Disk Read</div>
-            <div className="telemetry-card-value font-mono font-semibold">
+            <div className="telemetry-card-value font-sans tabular-nums font-semibold">
               {formatBytesPerSec(diskReadVal)}
             </div>
             <div className="telemetry-card-unit font-sans text-muted">Disk read throughput</div>
@@ -377,7 +377,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* Disk Write */}
           <div className="telemetry-card font-sans">
             <div className="telemetry-card-label font-sans text-muted">Disk Write</div>
-            <div className="telemetry-card-value font-mono font-semibold">
+            <div className="telemetry-card-value font-sans tabular-nums font-semibold">
               {formatBytesPerSec(diskWriteVal)}
             </div>
             <div className="telemetry-card-unit font-sans text-muted">Disk write throughput</div>
@@ -386,7 +386,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* Swap */}
           <div className="telemetry-card font-sans">
             <div className="telemetry-card-label font-sans text-muted">Swap</div>
-            <div className="telemetry-card-value font-sans font-semibold">
+            <div className="telemetry-card-value font-sans tabular-nums font-semibold">
               {formatPercent(swapVal, 1)}
             </div>
             <div className="telemetry-card-unit font-sans text-muted">Swap space utilized</div>
@@ -395,7 +395,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* Process Count */}
           <div className="telemetry-card font-sans">
             <div className="telemetry-card-label font-sans text-muted">Process Count</div>
-            <div className="telemetry-card-value font-mono font-semibold">
+            <div className="telemetry-card-value font-sans tabular-nums font-semibold">
               {formatNumber(procCountVal, 0)}
             </div>
             <div className="telemetry-card-unit font-sans text-muted">Active OS processes</div>
@@ -404,7 +404,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* CPU IOWait */}
           <div className="telemetry-card font-sans">
             <div className="telemetry-card-label font-sans text-muted">CPU IOwait</div>
-            <div className="telemetry-card-value font-sans font-semibold">
+            <div className="telemetry-card-value font-sans tabular-nums font-semibold">
               {formatPercent(iowaitVal, 1)}
             </div>
             <div className="telemetry-card-unit font-sans text-muted">CPU waiting for disk I/O</div>
@@ -413,7 +413,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* Load 5m */}
           <div className="telemetry-card font-sans">
             <div className="telemetry-card-label font-sans text-muted">Load 5m</div>
-            <div className="telemetry-card-value font-mono font-semibold">
+            <div className="telemetry-card-value font-sans tabular-nums font-semibold">
               {formatNumber(load5mVal, 2)}
             </div>
             <div className="telemetry-card-unit font-sans text-muted">5-minute system load average</div>
@@ -422,7 +422,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           {/* Load 15m */}
           <div className="telemetry-card font-sans">
             <div className="telemetry-card-label font-sans text-muted">Load 15m</div>
-            <div className="telemetry-card-value font-mono font-semibold">
+            <div className="telemetry-card-value font-sans tabular-nums font-semibold">
               {formatNumber(load15mVal, 2)}
             </div>
             <div className="telemetry-card-unit font-sans text-muted">15-minute system load average</div>
@@ -446,7 +446,7 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
                 ))}
               </select>
             </div>
-            <span className="window-pill font-mono text-xs text-muted">Last 30m</span>
+            <span className="window-pill font-sans text-xs text-muted">Last 30m</span>
           </div>
 
           <div className="chart-container-inner">
@@ -468,31 +468,18 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           </div>
         </div>
 
-        {/* NetBox Infrastructure Inventory & Hardware Specifications Card */}
+        {/* Infrastructure Inventory */}
         <div className="telemetry-chart-container font-sans">
           <div className="chart-header-row">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="chart-title font-sans font-semibold">Infrastructure Inventory</span>
-                <span className={`status-pill ${inventoryDevice?.source === 'netbox_api' ? 'status-live' : 'status-fallback'} font-mono`}>
-                  {inventoryLoading ? 'Syncing...' : inventoryDevice?.source === 'netbox_api' ? 'NetBox Live Synchronized' : 'Architectural Profile Fallback'}
-                </span>
-              </div>
-              <div className="chart-subtitle font-sans text-muted">
-                Physical rack placement, hardware profile, and network interfaces
-              </div>
+              <span className="chart-title font-sans font-semibold">Infrastructure Inventory</span>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {inventoryDevice?.source && (
-                <span className="window-pill font-mono text-xs" style={{
-                  color: inventoryDevice.source === 'netbox_api' ? '#10b981' : '#f59e0b',
-                  borderColor: inventoryDevice.source === 'netbox_api' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)',
-                }}>
-                  {inventoryDevice.source === 'netbox_api' ? 'NETBOX LIVE' : 'ARCHITECTURAL PROFILE'}
-                </span>
-              )}
+              <span className={`status-pill ${inventoryDevice?.source === 'netbox_api' ? 'status-live' : 'status-fallback'} font-sans`}>
+                {inventoryLoading ? 'Syncing...' : inventoryDevice?.source === 'netbox_api' ? 'NetBox Synchronized' : 'Architectural Profile'}
+              </span>
               {inventoryDevice?.site && (
-                <span className="window-pill font-mono text-xs text-muted">{inventoryDevice.site}</span>
+                <span className="window-pill font-sans text-xs text-muted">{inventoryDevice.site}</span>
               )}
             </div>
           </div>
@@ -501,31 +488,31 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
             <div className="inventory-stat-box">
               <span className="stat-label">DEVICE NAME & ROLE</span>
               <span className="stat-value font-semibold">{inventoryDevice?.name || activeServer.name}</span>
-              <span className="stat-sub font-mono">{inventoryDevice?.role || 'Compute Node'}</span>
+              <span className="stat-sub font-sans">{inventoryDevice?.role || 'Compute Node'}</span>
             </div>
 
             <div className="inventory-stat-box">
               <span className="stat-label">PRIMARY IP & SUBNET</span>
-              <span className="stat-value font-mono font-semibold">{inventoryDevice?.primary_ip || activeServer.ip}</span>
-              <span className="stat-sub font-mono">{inventoryDevice?.subnet || '100.x.x.x (Tailscale)'}</span>
+              <span className="stat-value font-sans tabular-nums font-semibold">{inventoryDevice?.primary_ip || activeServer.ip}</span>
+              <span className="stat-sub font-sans">{inventoryDevice?.subnet || '100.x.x.x (Tailscale)'}</span>
             </div>
 
             <div className="inventory-stat-box">
               <span className="stat-label">RACK LOCATION</span>
               <span className="stat-value font-semibold">{inventoryDevice?.rack || 'Rack-01'}</span>
-              <span className="stat-sub font-mono">{inventoryDevice?.rack_position || 'Standard 1U'}</span>
+              <span className="stat-sub font-sans">{inventoryDevice?.rack_position || 'Standard 1U'}</span>
             </div>
 
             <div className="inventory-stat-box">
               <span className="stat-label">HARDWARE PROFILE</span>
               <span className="stat-value font-semibold">{inventoryDevice?.hardware || 'Server Node'}</span>
-              <span className="stat-sub font-mono">Status: {inventoryDevice?.status?.toUpperCase() || 'ACTIVE'}</span>
+              <span className="stat-sub font-sans">Status: {inventoryDevice?.status?.toUpperCase() || 'ACTIVE'}</span>
             </div>
           </div>
 
           {inventoryDevice?.interfaces && inventoryDevice.interfaces.length > 0 && (
-            <div className="interfaces-strip font-mono">
-              <span className="text-muted">NETBOX INTERFACES:</span>
+            <div className="interfaces-strip font-sans">
+              <span className="text-muted">Interfaces:</span>
               {inventoryDevice.interfaces.map((iface, i) => (
                 <span key={i} className="iface-pill">{iface}</span>
               ))}

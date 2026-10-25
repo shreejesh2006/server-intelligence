@@ -3,7 +3,7 @@
    Theme: MODERN MINIMALIST ENGINEERING PRODUCT
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root,
 [data-theme="light"] {
@@ -48,9 +48,9 @@
   --status-neutral: #71717a;
   --status-neutral-bg: rgba(113, 113, 122, 0.08);
 
-  /* Fonts */
+  /* Uniform Font Stack */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+  --font-mono: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   /* Layout dimensions */
   --sidebar-width: 200px;
@@ -167,7 +167,8 @@ html, body {
 }
 
 .nokia-mono-val {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
   color: var(--text-primary);
 }
@@ -270,7 +271,7 @@ html, body {
 
 .nokia-table .num-col {
   text-align: right;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
 }
 

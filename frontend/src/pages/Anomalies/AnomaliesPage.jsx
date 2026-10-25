@@ -217,7 +217,7 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
               {/* Observation Timestamp Card */}
               <div className="status-readout-card metric-card">
                 <span className="metric-card-label font-sans">Observation Timestamp</span>
-                <div className="metric-card-timestamp font-mono">
+                <div className="metric-card-timestamp font-sans">
                   {telemetryTimestamp
                     ? formatTimestamp(typeof telemetryTimestamp === 'number' ? telemetryTimestamp : new Date(telemetryTimestamp).getTime() / 1000, true, false)
                     : 'N/A'}
@@ -230,9 +230,6 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
           <div className="netra-panel anomaly-signals-panel">
             <div className="panel-title-bar">
               <h2 className="panel-title font-sans">Anomaly Signals</h2>
-              <span className="nokia-badge badge-neutral font-sans text-xs font-mono">
-                {signals.length} Telemetry Dimensions
-              </span>
             </div>
 
             {signals.length === 0 ? (
@@ -263,10 +260,10 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
                       return (
                         <tr key={sig.metric || idx}>
                           <td className="font-medium text-xs">{sig.display_name || sig.metric}</td>
-                          <td className="font-mono text-xs">
+                          <td className="font-sans tabular-nums text-xs">
                             {formatMetricVal(sig.current_value, sig.unit)}
                           </td>
-                          <td className="font-mono text-xs text-muted">
+                          <td className="font-sans tabular-nums text-xs text-muted">
                             {formatMetricVal(sig.baseline_value, sig.unit)}
                           </td>
                           <td className="font-sans text-xs text-secondary">
@@ -356,7 +353,7 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
 
                         return (
                           <tr key={idx}>
-                            <td className="font-mono text-xs">
+                            <td className="font-sans tabular-nums text-xs">
                               {formatTimestamp(tsNum, true, false)}
                             </td>
                             <td>
@@ -369,10 +366,10 @@ export function AnomaliesPage({ isOffline, lastUpdated, refetch }) {
                                 {pt.severity || 'NORMAL'}
                               </span>
                             </td>
-                            <td className="font-mono text-xs">{formatNumber(pt.score ?? 0, 4)}</td>
-                            <td className="font-mono text-xs">{formatNumber(pt.cpu, 1)}%</td>
-                            <td className="font-mono text-xs">{formatNumber(pt.memory, 1)}%</td>
-                            <td className="font-mono text-xs">{formatNumber(pt.load_1m, 2)}</td>
+                            <td className="font-sans tabular-nums text-xs">{formatNumber(pt.score ?? 0, 4)}</td>
+                            <td className="font-sans tabular-nums text-xs">{formatNumber(pt.cpu, 1)}%</td>
+                            <td className="font-sans tabular-nums text-xs">{formatNumber(pt.memory, 1)}%</td>
+                            <td className="font-sans tabular-nums text-xs">{formatNumber(pt.load_1m, 2)}</td>
                           </tr>
                         );
                       })}

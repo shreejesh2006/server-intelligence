@@ -19,7 +19,7 @@ function InlineText({ children }) {
       {parts.map((part, index) => {
         if (part.startsWith('`') && part.endsWith('`')) {
           return (
-            <code key={index} className="chat-inline-code font-mono">
+            <code key={index} className="chat-inline-code font-sans">
               {part.slice(1, -1)}
             </code>
           );
@@ -48,7 +48,7 @@ function CodeBlock({ language, code }) {
   };
 
   return (
-    <div className="chat-code-block font-mono">
+    <div className="chat-code-block font-sans">
       <div className="code-block-header">
         <span className="code-lang">{language || 'code'}</span>
         <button

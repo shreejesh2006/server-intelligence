@@ -29,7 +29,7 @@ export function ChartFrame({
           {peakValue !== undefined && peakValue !== null && (
             <div className="meta-readout">
               <span className="meta-label">Peak:</span>
-              <span className="meta-val font-mono">
+              <span className="meta-val font-sans">
                 {peakValue}
                 {unit}
               </span>

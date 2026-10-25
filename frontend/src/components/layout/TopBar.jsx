@@ -139,7 +139,7 @@ export function TopBar({
           >
             <Bell size={14} />
             {activeCount > 0 && (
-              <span className="bell-badge-count font-mono">{activeCount}</span>
+              <span className="bell-badge-count font-sans tabular-nums">{activeCount}</span>
             )}
           </button>
 
@@ -177,14 +177,14 @@ export function TopBar({
                             {item.severity || 'WARNING'}
                           </span>
                           {item.server && (
-                            <span className="popover-item-host font-mono text-xs text-muted">{item.server}</span>
+                            <span className="popover-item-host font-sans text-xs text-muted">{item.server}</span>
                           )}
                         </div>
                         <div className="popover-item-msg font-sans font-medium text-xs">
                           {item.title || item.message}
                         </div>
                         {item.created_at && (
-                          <div className="popover-item-time font-mono text-muted text-xs">
+                          <div className="popover-item-time font-sans text-muted text-xs">
                             {formatTimestamp(new Date(item.created_at).getTime() / 1000, true, false)}
                           </div>
                         )}

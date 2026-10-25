@@ -194,6 +194,7 @@ async def metric_history(
     else:
         target_canonical = "ubuntu"
 
+    metric = SUPPORTED_METRICS.get(metric_name)
     if metric is None:
         raise HTTPException(
             status_code=404,

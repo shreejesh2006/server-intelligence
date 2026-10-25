@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import OfflineBanner from '../../components/common/OfflineBanner';
 import TelemetryChart from '../../components/charts/TelemetryChart';
 import { useServer } from '../../context/ServerContext';
-import { useAuth } from '../../context/AuthContext';
 import { useTimezone } from '../../context/TimezoneContext';
 import { getMetricHistory } from '../../services/metrics';
 import { getForecast, getAnomaly } from '../../services/intelligence';
@@ -11,7 +10,6 @@ import { getAlertsApi } from '../../services/alerts';
 import { formatNumber } from '../../utils/formatters';
 import { 
   AlertTriangle, 
-  TrendingUp, 
   Server as ServerIcon,
   ArrowUpRight,
   ArrowDownRight,
@@ -49,7 +47,6 @@ const ALL_METRICS_LIST = [
 
 export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
   const { servers, selectedHost, selectServer } = useServer();
-  const { user } = useAuth();
   const { formatTimestamp } = useTimezone();
 
   // Unified trend time window selector (8 options: 5m, 15m, 30m, 1h, 3h, 6h, 12h, 24h)
@@ -173,7 +170,7 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
       {/* 1. PAGE HEADING WITH ACTIVE HOST SELECTOR */}
       <div className="dashboard-main-header">
         <div>
-          <h1 className="header-page-title font-sans">Hello {user?.name || user?.username || 'Admin'}</h1>
+          <h1 className="header-page-title font-sans">Overview</h1>
         </div>
 
         <div className="server-host-selector">
@@ -200,9 +197,6 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
           <div className="netra-panel resource-metrics-panel">
             <div className="panel-title-bar">
               <h2 className="panel-title font-sans">Current Resource Metrics</h2>
-              <span className="nokia-badge badge-healthy font-sans">
-                <span className="status-dot dot-healthy" /> Live
-              </span>
             </div>
 
             <div className="resource-metrics-grid">
@@ -285,23 +279,15 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
             </div>
 
             <div className="forecast-body-content font-sans">
-              {/* Actual vs Forecast Headline */}
               <div className="forecast-headline-strip">
-                <div className="actual-badge-pill">
-                  <span className="badge-tag font-sans">ACTUAL</span>
-                  <span className="actual-val font-sans">
-                    {formatNumber(
-                      forecastMetric === 'cpu' ? cpuVal : forecastMetric === 'memory' ? memVal : loadVal,
-                      forecastMetric === 'load_1m' ? 2 : 1
-                    )}
-                    {forecastMetric !== 'load_1m' ? '%' : ''}
-                  </span>
-                </div>
-
-                <div className="forecast-arrow-divider">
-                  <TrendingUp size={13} className="text-muted" />
-                  <span className="trajectory-label font-sans">Projected Trajectory</span>
-                </div>
+                <span className="nokia-label">Current:</span>
+                <span className="actual-val font-semibold font-sans">
+                  {formatNumber(
+                    forecastMetric === 'cpu' ? cpuVal : forecastMetric === 'memory' ? memVal : loadVal,
+                    forecastMetric === 'load_1m' ? 2 : 1
+                  )}
+                  {forecastMetric !== 'load_1m' ? '%' : ''}
+                </span>
               </div>
 
               {/* 4x2 Horizon Cards Grid */}
@@ -430,12 +416,12 @@ export function OverviewPage({ metrics, isOffline, lastUpdated, refetch }) {
                     <span className={`nokia-badge ${alertItem.severity === 'CRITICAL' ? 'badge-critical' : alertItem.severity === 'WARNING' ? 'badge-warning' : 'badge-neutral'}`}>
                       {alertItem.severity || 'WARNING'}
                     </span>
-                    <span className="alert-host-tag font-mono text-xs">{alertItem.server || selectedHost}</span>
+                    <span className="alert-host-tag font-sans text-xs">{alertItem.server || selectedHost}</span>
                   </div>
                   <div className="alert-card-msg font-sans font-medium text-xs">
                     {alertItem.title || alertItem.message}
                   </div>
-                  <div className="alert-card-time font-mono text-muted text-xs">
+                  <div className="alert-card-time font-sans text-muted text-xs">
                     {alertItem.created_at ? formatTimestamp(new Date(alertItem.created_at).getTime() / 1000, true, false) : 'Recently'}
                   </div>
                 </div>

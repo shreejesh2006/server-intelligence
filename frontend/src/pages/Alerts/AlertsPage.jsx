@@ -12,7 +12,6 @@ import {
 } from '../../services/alerts';
 import { getIncidentsApi, createIncidentApi } from '../../services/incidents';
 import { 
-  ArrowLeft, 
   RefreshCw, 
   CheckCircle2, 
   ShieldAlert, 
@@ -257,16 +256,9 @@ export function AlertsPage() {
     <div className="alerts-page font-sans">
       {/* Header */}
       <div className="page-header-block">
-        <Link to="/overview" className="back-to-home-link font-sans text-xs">
-          <ArrowLeft size={13} />
-          <span>Back to Overview</span>
-        </Link>
         <div className="header-actions-row">
           <div>
-            <h1 className="page-title font-sans">Alerts & Incidents</h1>
-            <p className="page-subtitle font-sans">
-              Real-time operational alerts from rule evaluations and Isolation Forest anomalies.
-            </p>
+            <h1 className="page-title font-sans">Alerts</h1>
           </div>
           <div className="header-btn-group">
             <Link to="/incidents" className="nokia-btn font-sans">
@@ -367,7 +359,7 @@ export function AlertsPage() {
           </select>
         </div>
 
-        <div className="alerts-count-pill font-mono text-xs">
+        <div className="alerts-count-pill font-sans text-xs">
           {alerts.length} alert{alerts.length === 1 ? '' : 's'} recorded
         </div>
       </div>
@@ -391,7 +383,7 @@ export function AlertsPage() {
               <tr>
                 <td colSpan={7} className="text-center text-muted py-6">
                   <div className="flex-center gap-2">
-                    <RefreshCw size={14} className="spinning text-accent" />
+                    <RefreshCw size={14} className="spinning" />
                     <span>Loading operational alerts...</span>
                   </div>
                 </td>
@@ -415,10 +407,10 @@ export function AlertsPage() {
                     <td>{getStatusBadge(alertItem.status)}</td>
                     <td>{getSeverityBadge(alertItem.severity)}</td>
                     <td>
-                      <div className="alert-content-cell">
+                      <div className="alert-content-cell font-sans">
                         <div className="flex-center gap-1.5">
                           {alertItem.source === 'predictive_forecast' && (
-                            <span className="nokia-badge font-mono text-xs" style={{ background: 'var(--accent-dim, rgba(0, 106, 255, 0.15))', color: 'var(--accent, #006aff)', border: '1px solid var(--accent, #006aff)' }}>
+                            <span className="nokia-badge font-sans text-xs" style={{ background: 'var(--accent-dim, rgba(0, 106, 255, 0.15))', color: 'var(--accent, #006aff)', border: '1px solid var(--accent, #006aff)' }}>
                               PREDICTIVE
                             </span>
                           )}
@@ -430,13 +422,13 @@ export function AlertsPage() {
                           <span className="text-xs text-secondary mt-0.5">{alertItem.message}</span>
                         )}
                         {alertItem.metric && (
-                          <div className="alert-metric-tag font-mono text-xs text-muted">
+                          <div className="alert-metric-tag font-sans text-xs text-muted">
                             Metric: {alertItem.metric}
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="font-mono text-xs text-muted">
+                    <td className="font-sans text-xs text-muted">
                       {alertItem.source === 'predictive_forecast' ? (
                         <span style={{ color: 'var(--accent, #006aff)', fontWeight: 500 }}>predictive</span>
                       ) : (
@@ -444,7 +436,7 @@ export function AlertsPage() {
                       )}
                     </td>
                     <td className="font-medium text-xs">{alertItem.server || 'ubuntu'}</td>
-                    <td className="font-mono text-xs text-muted">
+                    <td className="font-sans tabular-nums text-xs text-muted">
                       {alertItem.created_at ? formatTimestamp(new Date(alertItem.created_at).getTime() / 1000, true) : 'N/A'}
                     </td>
                     <td style={{ textAlign: 'right' }}>
@@ -453,7 +445,7 @@ export function AlertsPage() {
                         {linkedIncident ? (
                           <Link 
                             to="/incidents" 
-                            className="linked-incident-pill font-mono text-xs" 
+                            className="linked-incident-pill font-sans text-xs" 
                             title={`Linked to Incident #${linkedIncident.id}: ${linkedIncident.title}`}
                           >
                             <ShieldAlert size={11} className="text-accent" />
@@ -503,10 +495,10 @@ export function AlertsPage() {
 
                         {/* Read-only / Terminal State Indicator */}
                         {!isOperatorOrAdmin && (
-                          <span className="text-muted text-xs font-mono">Read-only</span>
+                          <span className="text-muted text-xs font-sans">Read-only</span>
                         )}
                         {statusUpper === 'RESOLVED' && isOperatorOrAdmin && (
-                          <span className="text-muted text-xs font-mono">Resolved</span>
+                          <span className="text-muted text-xs font-sans">Resolved</span>
                         )}
                       </div>
                     </td>
@@ -577,7 +569,7 @@ export function AlertsPage() {
                     type="text"
                     readOnly
                     value={escalateModalAlert.server || 'ubuntu'}
-                    className="nokia-input font-mono text-muted"
+                    className="nokia-input font-sans text-muted"
                   />
                 </div>
               </div>
@@ -588,7 +580,7 @@ export function AlertsPage() {
                   type="text"
                   readOnly
                   value={`Alert #${escalateModalAlert.id} (${escalateModalAlert.title || escalateModalAlert.message})`}
-                  className="nokia-input font-mono text-muted text-xs"
+                  className="nokia-input font-sans text-muted text-xs"
                 />
               </div>
 

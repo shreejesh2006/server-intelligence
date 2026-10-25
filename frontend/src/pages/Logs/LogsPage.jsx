@@ -29,7 +29,6 @@ export function LogsPage() {
   const [logs, setLogs] = useState([]);
   const [_totalCount, setTotalCount] = useState(0);
   const [logSource, setLogSource] = useState('none');
-  const [healthStatus, setHealthStatus] = useState('checking');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -74,7 +73,6 @@ export function LogsPage() {
         setLogs([]);
         setTotalCount(0);
       }
-      setHealthStatus(healthRes.status || 'unavailable');
     } catch (err) {
       setError(err?.message || 'Failed to fetch logs from server');
       setLogs([]);
@@ -111,20 +109,12 @@ export function LogsPage() {
   return (
     <div className="logs-page">
       {/* Top Header */}
-      <div className="page-header">
+      <div className="page-header font-sans">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="page-title">Operational Logs</h1>
-            <span className={`status-pill ${healthStatus === 'connected' ? 'status-live' : 'status-fallback'}`}>
-              {healthStatus === 'connected' ? 'VictoriaLogs Live' : 'Database Storage Active'}
-            </span>
-          </div>
-          <p className="page-subtitle font-mono">
-            Centralized Log Observability & LogSQL Inspection · VictoriaLogs :9428
-          </p>
+          <h1 className="page-title font-sans">Logs</h1>
         </div>
 
-        <div className="header-actions">
+        <div className="header-actions font-sans">
           <button
             type="button"
             className={`btn-ghost ${autoRefresh ? 'active-pulse' : ''}`}
@@ -208,30 +198,30 @@ export function LogsPage() {
       </div>
 
       {/* Main Log Viewer */}
-      <div className="log-viewer-container">
-        <div className="viewer-meta-bar">
-          <span className="meta-text font-mono">
-            SHOWING {logs.length} LOG EVENTS · SOURCE: {logSource.toUpperCase()}
+      <div className="log-viewer-container font-sans">
+        <div className="viewer-meta-bar font-sans">
+          <span className="meta-text font-sans">
+            Showing {logs.length} log events · Source: {logSource}
           </span>
-          {loading && <span className="meta-text font-mono animate-pulse">STREAMING...</span>}
+          {loading && <span className="meta-text font-sans animate-pulse">Loading...</span>}
         </div>
 
         {error && (
-          <div className="error-banner">
+          <div className="error-banner font-sans">
             <AlertTriangle size={16} />
             <span>{error}</span>
           </div>
         )}
 
         {logs.length === 0 && !loading && (
-          <div className="empty-state">
+          <div className="empty-state font-sans">
             <Terminal size={32} className="empty-icon" />
-            <h3>No Operational Logs Found</h3>
-            <p>No log events matched the active filters for the selected time horizon.</p>
+            <h3>No Logs Found</h3>
+            <p>No log events matched the active filters.</p>
           </div>
         )}
 
-        <div className="log-entries-list font-mono">
+        <div className="log-entries-list font-sans">
           {logs.map((entry, idx) => {
             const entryId = entry.id || idx;
             const isExpanded = expandedLogId === entryId;

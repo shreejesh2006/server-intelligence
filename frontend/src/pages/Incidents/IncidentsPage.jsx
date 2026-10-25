@@ -12,7 +12,6 @@ import {
   resolveIncidentApi,
 } from '../../services/incidents';
 import {
-  ArrowLeft,
   RefreshCw,
   ShieldAlert,
   CheckCircle2,
@@ -258,16 +257,9 @@ export function IncidentsPage() {
     <div className="incidents-page font-sans">
       {/* Header */}
       <div className="page-header-block">
-        <Link to="/overview" className="back-to-home-link font-sans text-xs">
-          <ArrowLeft size={13} />
-          <span>Back to Overview</span>
-        </Link>
         <div className="header-actions-row">
           <div>
-            <h1 className="page-title font-sans">Incident Management</h1>
-            <p className="page-subtitle font-sans">
-              Track, investigate, acknowledge, and resolve server and infrastructure incidents.
-            </p>
+            <h1 className="page-title font-sans">Incidents</h1>
           </div>
           <div className="header-btn-group">
             <Link to="/alerts" className="nokia-btn font-sans">
@@ -357,7 +349,7 @@ export function IncidentsPage() {
           </select>
         </div>
 
-        <div className="incidents-count-pill font-mono text-xs">
+        <div className="incidents-count-pill font-sans text-xs">
           {incidents.length} incident{incidents.length === 1 ? '' : 's'} recorded
         </div>
       </div>
@@ -402,11 +394,11 @@ export function IncidentsPage() {
 
                 return (
                   <tr key={inc.id}>
-                    <td className="font-mono text-xs font-semibold">#{inc.id}</td>
+                    <td className="font-sans tabular-nums text-xs font-semibold">#{inc.id}</td>
                     <td>{getStatusBadge(inc.status)}</td>
                     <td>{getSeverityBadge(inc.severity)}</td>
                     <td>
-                      <div className="incident-content-cell">
+                      <div className="incident-content-cell font-sans">
                         <span className="font-semibold text-primary">{inc.title}</span>
                         {inc.description && (
                           <span className="text-xs text-secondary mt-0.5">{inc.description}</span>
@@ -416,7 +408,7 @@ export function IncidentsPage() {
                     <td className="font-medium text-xs">{inc.server || 'ubuntu'}</td>
                     <td>
                       {inc.alert_id != null ? (
-                        <Link to="/alerts" className="linked-alert-pill font-mono text-xs" title={`Linked to Alert #${inc.alert_id}`}>
+                        <Link to="/alerts" className="linked-alert-pill font-sans text-xs" title={`Linked to Alert #${inc.alert_id}`}>
                           <Bell size={10} />
                           <span>Alert #{inc.alert_id}</span>
                         </Link>
@@ -424,7 +416,7 @@ export function IncidentsPage() {
                         <span className="text-muted text-xs">—</span>
                       )}
                     </td>
-                    <td className="font-mono text-xs text-muted">
+                    <td className="font-sans tabular-nums text-xs text-muted">
                       {inc.created_at ? formatTimestamp(new Date(inc.created_at).getTime() / 1000, true) : 'N/A'}
                     </td>
                     <td style={{ textAlign: 'right' }}>
@@ -480,7 +472,7 @@ export function IncidentsPage() {
                         )}
 
                         {!isOperatorOrAdmin && (
-                          <span className="text-muted text-xs font-mono">Read-only</span>
+                          <span className="text-muted text-xs font-sans">Read-only</span>
                         )}
                       </div>
                     </td>
