@@ -23,7 +23,6 @@ if str(BACKEND_DIR) not in sys.path:
 
 from app.services.ml.loader import ml_loader, TARGET_COLUMNS, HORIZONS, normalize_host, KNOWN_HOSTS
 from app.services.victoriametrics import VictoriaMetricsService
-from app.services.synthetic_profiles import synthetic_telemetry
 from ml.training import prepare_forecasting_features
 
 logger = logging.getLogger(__name__)
@@ -121,35 +120,26 @@ class ForecastService:
         live_obs_ts = None
         df_history = pd.DataFrame()
         obs_timestamp = None
-        is_synthetic = canonical_host in ("windows", "kali")
-        provenance = "simulated_profile" if is_synthetic else "live_agent"
-        environment = "Simulated Infrastructure" if is_synthetic else "Live Infrastructure"
+        provenance = "live_agent"
+        environment = "Live Infrastructure"
 
-        if is_synthetic:
-            # Isolated synthetic infrastructure profile
-            synth_cur = synthetic_telemetry.get_current_metrics(canonical_host)
-            live_metrics = synth_cur.get("metrics", {})
-            live_obs_ts = synth_cur.get("timestamp")
-            df_history = synthetic_telemetry.get_history_dataframe(canonical_host, num_samples=60)
-            obs_timestamp = live_obs_ts
-        else:
-            # Verified live machine
-            try:
-                live_metrics, live_obs_ts = await self.victoria.get_current_metrics(host=canonical_host)
-            except Exception as exc:
-                logger.warning("Failed retrieving current metrics for host '%s': %s", canonical_host, exc)
+        # Verified live machine
+        try:
+            live_metrics, live_obs_ts = await self.victoria.get_current_metrics(host=canonical_host)
+        except Exception as exc:
+            logger.warning("Failed retrieving current metrics for host '%s': %s", canonical_host, exc)
 
-            try:
-                df_history, obs_timestamp = await self.victoria.get_all_metrics_history(
-                    host=canonical_host,
-                    lookback_minutes=30,
-                    step="30s",
-                )
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed retrieving telemetry history from VictoriaMetrics: {exc}",
-                ) from exc
+        try:
+            df_history, obs_timestamp = await self.victoria.get_all_metrics_history(
+                host=canonical_host,
+                lookback_minutes=30,
+                step="30s",
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed retrieving telemetry history from VictoriaMetrics: {exc}",
+            ) from exc
 
         freshness_info = ml_loader.check_model_freshness(host=canonical_host)
         generated_at = datetime.now(timezone.utc).isoformat()

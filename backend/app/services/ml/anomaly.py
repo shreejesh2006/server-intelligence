@@ -5,7 +5,6 @@ from fastapi import HTTPException, status
 
 from app.services.ml.loader import ml_loader, normalize_host, KNOWN_HOSTS
 from app.services.victoriametrics import VictoriaMetricsService
-from app.services.synthetic_profiles import synthetic_telemetry
 from ml.anomaly import METRIC_DISPLAY_NAMES, METRIC_UNITS
 
 logger = logging.getLogger(__name__)
@@ -72,19 +71,13 @@ class AnomalyService:
         ml_loader.ensure_loaded()
 
         # Fetch current telemetry metrics and actual timestamp for host
-        is_synthetic = canonical_host in ("windows", "kali")
-        provenance = "simulated_profile" if is_synthetic else "live_agent"
-        environment = "Simulated Infrastructure" if is_synthetic else "Live Infrastructure"
+        provenance = "live_agent"
+        environment = "Live Infrastructure"
 
-        if is_synthetic:
-            synth_cur = synthetic_telemetry.get_current_metrics(canonical_host)
-            live_metrics = synth_cur.get("metrics", {})
-            obs_timestamp = synth_cur.get("timestamp")
-        else:
-            try:
-                live_metrics, obs_timestamp = await self.victoria.get_current_metrics(host=canonical_host)
-            except Exception as exc:
-                live_metrics, obs_timestamp = {}, datetime.now(timezone.utc).isoformat()
+        try:
+            live_metrics, obs_timestamp = await self.victoria.get_current_metrics(host=canonical_host)
+        except Exception as exc:
+            live_metrics, obs_timestamp = {}, datetime.now(timezone.utc).isoformat()
 
         observation = {
             "cpu": float(live_metrics.get("cpu", 0.0) or 0.0),

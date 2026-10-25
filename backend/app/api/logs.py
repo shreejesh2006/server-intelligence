@@ -16,7 +16,6 @@ from app.auth.permissions import require_viewer
 from app.database.database import get_db
 from app.api.telemetry import verify_authentication
 from app.services.victorialogs import victorialogs_service, parse_time_bound
-from app.services.synthetic_profiles import synthetic_telemetry
 from datetime import timedelta
 from app.services.ml.loader import normalize_host, KNOWN_HOSTS
 
@@ -114,28 +113,6 @@ async def query_logs(
     else:
         target_host = "ubuntu"
 
-    # Route simulated server profiles to isolated synthetic logs provider
-    if target_host in ("windows", "kali"):
-        start_dt = parse_time_bound(start, timedelta(hours=1))
-        end_dt = parse_time_bound(end, timedelta(seconds=0))
-        sim_logs = synthetic_telemetry.get_logs(
-            host=target_host,
-            start_dt=start_dt,
-            end_dt=end_dt,
-            level=level,
-            query=query,
-            limit=limit,
-        )
-        return {
-            "status": "success",
-            "source": "simulated_profile",
-            "provenance": "simulated_profile",
-            "environment": "Simulated Infrastructure",
-            "host": target_host,
-            "total": len(sim_logs),
-            "logs": sim_logs,
-        }
-
     result = await victorialogs_service.query_logs(
         host=target_host,
         start=start,
@@ -146,25 +123,6 @@ async def query_logs(
         limit=limit,
         db=db,
     )
-
-    # If VictoriaLogs and DB have no recent logs for Ubuntu, provide operational logs
-    if result.get("status") == "success" and not result.get("logs"):
-        start_dt = parse_time_bound(start, timedelta(hours=1))
-        end_dt = parse_time_bound(end, timedelta(seconds=0))
-        fallback_logs = synthetic_telemetry.get_logs(
-            host=target_host or "ubuntu",
-            start_dt=start_dt,
-            end_dt=end_dt,
-            level=level,
-            query=query,
-            limit=limit,
-        )
-        result["logs"] = fallback_logs
-        result["total"] = len(fallback_logs)
-        result["source"] = "systemd_collector_stream"
-        result["provenance"] = "live_agent"
-        result["environment"] = "Live Infrastructure"
-
     return result
 
 

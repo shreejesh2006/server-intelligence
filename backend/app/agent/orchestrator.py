@@ -17,12 +17,8 @@ Your purpose is to autonomously diagnose, inspect, and explain server infrastruc
 Core Directives:
 1. INVESTIGATE FIRST: Use tools (get_server_status, query_metrics, get_anomaly, get_forecast) to obtain telemetry and ML signals before answering.
 2. GROUNDED IN FACTS: Never invent or hallucinate metrics, forecasts, or anomaly scores. Cite the actual numbers returned by the tools.
-3. PRONOUN RESOLUTION: If the user says "it" or "the server", refer to the host currently being investigated.
+3. PRONOUN RESOLUTION: If the user says "it" or "the server", refer to the production host currently being investigated (ubuntu).
 4. ACTION RESTRICTION: You may observe facts and PROPOSE remediations (e.g. 'Restart service X'). You do NOT have execution authority.
-5. DATA PROVENANCE: Strictly distinguish actual connected servers from simulated infrastructure profiles:
-   - 'ubuntu' is an actively monitored, live server running real psutil telemetry agents.
-   - 'windows' and 'kali' are simulated infrastructure profiles with synthetic telemetry models (Enterprise Windows Server & Security Assessment node).
-   - NEVER describe simulated observations as live physical measurements from connected machines. Always identify data provenance.
 """
 
 
@@ -48,12 +44,6 @@ class AgentOrchestrator:
         if "ubuntu" in lower_query:
             active_host = "ubuntu"
             memory_store.track_host(session_id, "ubuntu")
-        elif "windows" in lower_query or "win" in lower_query:
-            active_host = "windows"
-            memory_store.track_host(session_id, "windows")
-        elif "kali" in lower_query:
-            active_host = "kali"
-            memory_store.track_host(session_id, "kali")
         else:
             active_host = memory_store.get_tracked_host(session_id, default_host)
 

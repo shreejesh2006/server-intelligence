@@ -127,18 +127,6 @@ async def get_server_status(host: str = "ubuntu") -> Dict[str, Any]:
         if host and not canonical:
             return {"host": host, "status": "error", "error": f"Unknown host: '{host}'"}
 
-        if canonical in ("windows", "kali"):
-            from app.services.synthetic_profiles import synthetic_telemetry
-            res = synthetic_telemetry.get_current_metrics(canonical)
-            return {
-                "host": canonical,
-                "status": "online (simulated)",
-                "provenance": "simulated_profile",
-                "environment": "Simulated Infrastructure",
-                "timestamp": res["timestamp"],
-                "telemetry": res["metrics"]
-            }
-
         vm_service = VictoriaMetricsService()
         metrics, obs_timestamp = await vm_service.get_current_metrics(host=host)
         is_online = bool(metrics and any(v > 0.0 for v in metrics.values()))
@@ -174,25 +162,6 @@ async def query_metrics(host: str = "ubuntu", metric: str = "cpu", duration: str
         duration_sec, step = parse_and_bound_duration(duration)
         now_sec = int(time.time())
         start_sec = now_sec - duration_sec
-
-        if canonical in ("windows", "kali"):
-            from app.services.synthetic_profiles import synthetic_telemetry
-            res = synthetic_telemetry.get_metric_history(
-                metric_name=metric_key,
-                start_ts=start_sec,
-                end_ts=now_sec,
-                step_seconds=30,
-                host=canonical,
-            )
-            return {
-                "host": canonical,
-                "metric": metric,
-                "provenance": "simulated_profile",
-                "environment": "Simulated Infrastructure",
-                "status": "success",
-                "values_count": len(res.get("values", [])),
-                "values": res.get("values", [])[-30:],
-            }
 
         vm_service = VictoriaMetricsService()
         prom_metric_name = SUPPORTED_METRICS_MAP[metric_key]

@@ -408,21 +408,17 @@ class TestForecastDrivenAlertEvaluation(TestPredictiveAlertsBase):
 
         import asyncio
         res_ubuntu = asyncio.run(evaluate_predictive_alerts(db=db, host="ubuntu", forecast_service=mock_svc))
-        res_windows = asyncio.run(evaluate_predictive_alerts(db=db, host="windows", forecast_service=mock_svc))
         res_unknown = asyncio.run(evaluate_predictive_alerts(db=db, host="centos", forecast_service=mock_svc))
 
         self.assertEqual(res_ubuntu["alerts_created"], 2)  # CPU 5m and Memory 5m for ubuntu
-        self.assertEqual(res_windows["alerts_created"], 2) # CPU 5m and Memory 5m for windows
         self.assertEqual(res_unknown["status"], "error")    # centos is rejected as unknown host
         self.assertIn("Unknown host", res_unknown["detail"])
 
         alerts = db.query(Alert).filter(Alert.source == PREDICTIVE_SOURCE).all()
-        self.assertEqual(len(alerts), 4)
+        self.assertEqual(len(alerts), 2)
 
         ubuntu_alerts = [a for a in alerts if a.server == "ubuntu"]
         self.assertEqual(len(ubuntu_alerts), 2)
-        windows_alerts = [a for a in alerts if a.server == "windows"]
-        self.assertEqual(len(windows_alerts), 2)
         db.close()
 
     def test_acknowledged_alerts_not_auto_resolved(self):
