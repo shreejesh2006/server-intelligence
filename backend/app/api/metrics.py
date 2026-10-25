@@ -122,6 +122,7 @@ async def current_metrics(
             return {
                 "status": "success",
                 "host": host,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "metrics": result,
             }
     except Exception:
@@ -145,6 +146,7 @@ async def current_metrics(
             "status": "success",
             "host": host,
             "source": "database",
+            "timestamp": latest_sample.timestamp.isoformat() if latest_sample.timestamp else None,
             "metrics": result,
         }
 

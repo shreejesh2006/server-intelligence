@@ -34,15 +34,24 @@ export function useMetrics(targetHost = null, pollIntervalMs = 30000) {
         setError(null);
         setLastUpdated(new Date());
 
-        // Find the latest metric timestamp to evaluate telemetry freshness
-        let maxTs = 0;
-        Object.values(fetchedMetrics).forEach((m) => {
-          if (m && typeof m.timestamp === 'number' && m.timestamp > maxTs) {
-            maxTs = m.timestamp;
+        // Set latest metric timestamp to evaluate telemetry freshness
+        if (metricsRes.timestamp) {
+          const tsSec = typeof metricsRes.timestamp === 'number'
+            ? metricsRes.timestamp
+            : Math.floor(new Date(metricsRes.timestamp).getTime() / 1000);
+          if (!isNaN(tsSec) && tsSec > 0) {
+            setLatestMetricTimestamp(tsSec);
           }
-        });
-        if (maxTs > 0) {
-          setLatestMetricTimestamp(maxTs);
+        } else {
+          let maxTs = 0;
+          Object.values(fetchedMetrics).forEach((m) => {
+            if (m && typeof m === 'object' && typeof m.timestamp === 'number' && m.timestamp > maxTs) {
+              maxTs = m.timestamp;
+            }
+          });
+          if (maxTs > 0) {
+            setLatestMetricTimestamp(maxTs);
+          }
         }
       } else {
         throw new Error('Invalid telemetry response');

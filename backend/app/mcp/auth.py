@@ -20,6 +20,9 @@ TOOL_TIER_MAP = {
     "explain_forecast_breach": ToolTier.READ,
     "list_automations": ToolTier.READ,
     "get_automation_history": ToolTier.READ,
+    "search_logs": ToolTier.READ,
+    "get_infrastructure_inventory": ToolTier.READ,
+    "correlate_incident": ToolTier.READ,
     "recommend_remediation": ToolTier.PROPOSE,
     "execute_remediation": ToolTier.EXECUTE,
 }

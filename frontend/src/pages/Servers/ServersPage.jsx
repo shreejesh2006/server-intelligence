@@ -474,8 +474,8 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
             <div>
               <div className="flex items-center gap-2">
                 <span className="chart-title font-sans font-semibold">Infrastructure Inventory</span>
-                <span className="status-pill status-live font-mono">
-                  {inventoryLoading ? 'Syncing...' : 'NetBox Synchronized'}
+                <span className={`status-pill ${inventoryDevice?.source === 'netbox_api' ? 'status-live' : 'status-fallback'} font-mono`}>
+                  {inventoryLoading ? 'Syncing...' : inventoryDevice?.source === 'netbox_api' ? 'NetBox Live Synchronized' : 'Architectural Profile Fallback'}
                 </span>
               </div>
               <div className="chart-subtitle font-sans text-muted">
@@ -859,6 +859,12 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
           background-color: rgba(34, 197, 94, 0.15);
           color: #22c55e;
           border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .status-fallback {
+          background-color: rgba(245, 158, 11, 0.15);
+          color: #f59e0b;
+          border: 1px solid rgba(245, 158, 11, 0.3);
         }
 
         .margin-top-sm { margin-top: 8px; }

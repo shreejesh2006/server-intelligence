@@ -50,12 +50,15 @@ class AgentOrchestrator:
         observations: List[str] = []
 
         # Autonomous investigation: determine data requirements based on user intent
-        needs_status = any(k in lower_query for k in ["status", "what is happening", "slow", "down", "check", "health", "how is"])
-        needs_forecast = any(k in lower_query for k in ["forecast", "future", "get worse", "prediction", "trend", "later"])
-        needs_anomaly = any(k in lower_query for k in ["anomaly", "unusual", "spike", "problem", "incident", "issue", "alert"])
+        needs_status = any(k in lower_query for k in ["status", "what is happening", "slow", "down", "check", "health", "how is", "telemetry", "metric", "metrics", "cpu", "memory", "load", "disk", "uptime", "traffic"])
+        needs_forecast = any(k in lower_query for k in ["forecast", "forecasts", "future", "get worse", "prediction", "trend", "later", "predict"])
+        needs_anomaly = any(k in lower_query for k in ["anomaly", "anomalies", "unusual", "spike", "problem", "incident", "issue", "score"])
+        needs_logs = any(k in lower_query for k in ["log", "logs", "syslog", "trace", "audit", "journal", "events", "error log"])
+        needs_inventory = any(k in lower_query for k in ["inventory", "netbox", "hardware", "rack", "spec", "specs", "ip", "device", "model", "serial", "datacenter", "site", "asset", "infrastructure"])
+        needs_alerts = any(k in lower_query for k in ["alert", "alerts", "predictive alert", "warning", "breach"])
 
         # Default investigation for open-ended queries
-        if not (needs_status or needs_forecast or needs_anomaly):
+        if not (needs_status or needs_forecast or needs_anomaly or needs_logs or needs_inventory or needs_alerts):
             needs_status = True
 
         if needs_status:
@@ -72,6 +75,21 @@ class AgentOrchestrator:
             authorize_tool_call("get_forecast", user_role)
             forecast_res = await TOOL_REGISTRY["get_forecast"](host=active_host)
             observations.append(f"Forecast Observation: {json.dumps(forecast_res)}")
+
+        if needs_logs:
+            authorize_tool_call("search_logs", user_role)
+            logs_res = await TOOL_REGISTRY["search_logs"](host=active_host, limit=10)
+            observations.append(f"VictoriaLogs Observation: {json.dumps(logs_res)}")
+
+        if needs_inventory:
+            authorize_tool_call("get_infrastructure_inventory", user_role)
+            inv_res = await TOOL_REGISTRY["get_infrastructure_inventory"](host=active_host)
+            observations.append(f"NetBox Inventory Observation: {json.dumps(inv_res)}")
+
+        if needs_alerts:
+            authorize_tool_call("get_predictive_alerts", user_role)
+            alerts_res = await TOOL_REGISTRY["get_predictive_alerts"](host=active_host)
+            observations.append(f"Predictive Alerts Observation: {json.dumps(alerts_res)}")
 
         # Construct contextual prompt with real tool observations
         prompt_context = (
