@@ -28,6 +28,12 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: server-intelligence-db-app
+                  key: password
           envFrom:
             - configMapRef:
                 name: netbox-config

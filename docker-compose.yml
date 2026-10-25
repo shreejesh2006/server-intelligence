@@ -23,6 +23,7 @@ services:
     environment:
       OLLAMA_URL: "http://host.docker.internal:11434/api/chat"
       VICTORIAMETRICS_URL: "http://victoriametrics:8428"
+      VICTORIALOGS_URL: "http://victorialogs:9428"
       FORWARD_TELEMETRY_URL: "${FORWARD_TELEMETRY_URL:-}"
       FORWARD_TELEMETRY_TOKEN: "${FORWARD_TELEMETRY_TOKEN:-}"
       TELEMETRY_SECRET_TOKEN: "${TELEMETRY_SECRET_TOKEN:-}"
@@ -30,6 +31,7 @@ services:
 
     depends_on:
       - victoriametrics
+      - victorialogs
 
 
   frontend:
@@ -68,6 +70,23 @@ services:
       - "--retentionPeriod=90d"
 
 
+  victorialogs:
+    image: victoriametrics/victoria-logs:latest
+
+    container_name: server-intelligence-victorialogs
+
+    restart: unless-stopped
+
+    ports:
+      - "9428:9428"
+
+    volumes:
+      - victoria-logs-data:/victoria-logs-data
+
+    command:
+      - "--storageDataPath=/victoria-logs-data"
+
+
   grafana:
     image: grafana/grafana:latest
 
@@ -92,6 +111,8 @@ volumes:
   victoria-metrics-data:
     external: true
     name: victoriametrics_victoria-metrics-data
+
+  victoria-logs-data:
 
   grafana-data:
     external: true

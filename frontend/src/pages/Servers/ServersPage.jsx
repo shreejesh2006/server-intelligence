@@ -482,9 +482,19 @@ export function ServersPage({ metrics: propMetrics, isOffline: propOffline, last
                 Physical rack placement, hardware profile, and network interfaces
               </div>
             </div>
-            {inventoryDevice?.site && (
-              <span className="window-pill font-mono text-xs text-muted">{inventoryDevice.site}</span>
-            )}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {inventoryDevice?.source && (
+                <span className="window-pill font-mono text-xs" style={{
+                  color: inventoryDevice.source === 'netbox_api' ? '#10b981' : '#f59e0b',
+                  borderColor: inventoryDevice.source === 'netbox_api' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)',
+                }}>
+                  {inventoryDevice.source === 'netbox_api' ? 'NETBOX LIVE' : 'ARCHITECTURAL PROFILE'}
+                </span>
+              )}
+              {inventoryDevice?.site && (
+                <span className="window-pill font-mono text-xs text-muted">{inventoryDevice.site}</span>
+              )}
+            </div>
           </div>
 
           <div className="inventory-grid">

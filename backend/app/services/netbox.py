@@ -57,7 +57,11 @@ class NetBoxService:
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
         if self.token:
-            headers["Authorization"] = f"Token {self.token.strip()}"
+            token_clean = self.token.strip()
+            if token_clean.lower().startswith("token ") or token_clean.lower().startswith("bearer "):
+                headers["Authorization"] = token_clean
+            else:
+                headers["Authorization"] = f"Token {token_clean}"
         return headers
 
     async def check_health(self) -> dict[str, Any]:

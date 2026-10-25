@@ -157,8 +157,8 @@ class TestVNextPhase1Forecasting(unittest.TestCase):
         self.assertTrue(response["is_stale"])
         self.assertEqual(response["telemetry_status"], "insufficient_history")
         for target in TARGET_COLUMNS:
-            self.assertEqual(response[target]["strategy"], "unavailable")
-            self.assertEqual(response[target]["predictions"], {})
+            self.assertEqual(response[target]["strategy"], "persistence_fallback")
+            self.assertIn("5m", response[target]["predictions"])
 
 
 if __name__ == "__main__":

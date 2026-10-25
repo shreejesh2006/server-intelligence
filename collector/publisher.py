@@ -70,6 +70,7 @@ class VictoriaMetricsPublisher:
             "server_process_count": sample["process_count"],
             "server_cpu_iowait_percent": sample["cpu_iowait_percent"],
             "server_uptime_seconds": sample["uptime_seconds"],
+            "up": 1,
         }
 
         lines = []

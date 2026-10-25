@@ -174,6 +174,7 @@ async def ingest_batch(
                     val = sample[json_key]
                     line = f'{prom_name}{{host="{canonical_host}"}} {val} {ts_ms}'
                     prom_lines.append(line)
+            prom_lines.append(f'up{{host="{canonical_host}"}} 1 {ts_ms}')
 
         db.commit()
     except Exception as exc:
